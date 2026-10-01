@@ -135,7 +135,7 @@ impl PgRepository {
     ) -> Result<i32, Error> {
         // Atomic update with version check.
         let mut tx = self.pool.begin().await?;
-        let row: (i32, String, i32) = sqlx::query_as(
+        let row: Option<(i32, String, i32, Vec<Uuid>)> = sqlx::query_as(
             r#"
             UPDATE lcc.approvals
             SET decision = $4::text,
@@ -147,7 +147,7 @@ impl PgRepository {
                 END,
                 version = version + 1
             WHERE member_id = $1 AND id = $2 AND version = $3
-            RETURNING version, decision::TEXT, tier::INT
+            RETURNING version, decision::TEXT, tier::INT, reviewer_ids
             "#,
         )
         .bind(member_id)
@@ -169,10 +169,13 @@ impl PgRepository {
         let new_version = row.0;
         let current_decision = row.1;
         let tier = row.2;
+        // The UPDATE above appends `reviewer_id` if it was not already present,
+        // so this array is the set of distinct reviewers who have now signed.
+        let reviewer_count = row.3.len();
 
-        // Two-reviewer gate: tier-3 approvals require two distinct reviewers
+        // Two-reviewer gate: tier>=3 approvals require two distinct reviewers
         // before they can become "approved".
-        if new_status == ApprovalStatus::Approved && tier >= 3 && reviewer_id == current_decision.into() {
+        if new_status == ApprovalStatus::Approved && tier >= 3 && reviewer_count < 2 {
             tx.rollback().await.ok();
             return Err(Error::TwoReviewerGateNotSatisfied);
         }

@@ -27,7 +27,7 @@ async-trait = "0.1"
 futures = "0.3"
 
 # HTTP / axum
-axum = { version = "0.7", features = ["macros", "matched-path", "tokio", "tracing"] }
+axum = { version = "0.7", features = ["macros", "matched-path", "tokio", "tracing", "ws"] }
 tower = { version = "0.5", features = ["util", "retry", "timeout", "limit"] }
 tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "util"] }
 hyper = { version = "1.4", features = ["server", "http1", "http2"] }
@@ -67,6 +67,9 @@ ulid = "1.1"
 
 # Tracing / metrics
 tracing = "0.1"
+# `log` facade — sqlx's ConnectOptions exposes log levels through it, so any
+# crate configuring statement logging must name it directly.
+log = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tracing-opentelemetry = "0.27"
 opentelemetry = "0.26"

@@ -2,8 +2,9 @@
 
 use axum::{
     body::Body,
-    http::{HeaderValue, Request, Response},
+    http::{HeaderValue, Request},
     middleware::Next,
+    response::Response,
 };
 
 pub const HEADER: &str = "x-trace-id";

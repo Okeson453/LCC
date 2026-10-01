@@ -54,7 +54,7 @@ impl AppState {
             .connect_lazy(service.cfg().database_url.as_str())
             .expect("lazy pool");
         Self(Arc::new(Inner {
-            config: service.cfg().clone(),
+            config: std::sync::Arc::new(service.cfg().clone()),
             db_pool,
             service,
         }))

@@ -43,7 +43,11 @@ use tracing::info;
 /// Staleness thresholds in days, per Technical Design Spec §9.6.
 const VIP_STALE_DAYS: i32 = 30;
 const STANDARD_STALE_DAYS: i32 = 60;
-const PEER_STALE_DAYS: i32 = 90;
+
+/// Relationship strengths §9.6 excludes from a staleness alert. In the
+/// `lcc.relationship_strength` enum only `none` means "closed" — the
+/// remaining values describe an open bond, so those contacts can go stale.
+const EXCLUDED_STATES: &[&str] = &["none"];
 
 /// Scan for stale contacts and persist the result. Returns the count marked.
 pub async fn scan_stale_data(pool: &PgPool) -> Result<usize, sqlx::Error> {
@@ -67,7 +71,11 @@ pub async fn scan_stale_data(pool: &PgPool) -> Result<usize, sqlx::Error> {
 /// describes how strong the bond is, not how important the relationship is to
 /// the user's stated goals, so it is the wrong signal for a staleness alert.
 async fn mark_stale_contacts(pool: &PgPool) -> Result<usize, sqlx::Error> {
-    let result = sqlx::query(
+    // The thresholds are interpolated from the constants above rather than
+    // repeated as literals, so §9.6's windows have a single definition. There
+    // is no third "Peer" window: `lcc.contacts` only carries `is_vip`, so every
+    // non-VIP contact uses the Standard window.
+    let sql = format!(
         r#"
         UPDATE lcc.contacts c
         SET stale = TRUE,
@@ -77,19 +85,20 @@ async fn mark_stale_contacts(pool: &PgPool) -> Result<usize, sqlx::Error> {
                 c.last_contact_at IS NULL
              OR c.last_contact_at < NOW() - (
                     CASE WHEN c.is_vip
-                         THEN INTERVAL '30 days'
-                         ELSE      INTERVAL '60 days'
+                         THEN INTERVAL '{VIP_STALE_DAYS} days'
+                         ELSE      INTERVAL '{STANDARD_STALE_DAYS} days'
                     END
                 )
               )
           -- §9.6 excludes Closed and Cold relationships: a deliberately
           -- closed relationship is not stale, it is closed.
-          AND c.relationship_strength <> 'none' 
-        "#,
-    )
-    .bind(EXCLUDED_STATES)
-    .execute(pool)
-    .await?;
+          AND NOT (c.relationship_strength::text = ANY($1))
+        "#
+    );
+    let result = sqlx::query(&sql)
+        .bind(EXCLUDED_STATES)
+        .execute(pool)
+        .await?;
 
     Ok(result.rows_affected() as usize)
 }

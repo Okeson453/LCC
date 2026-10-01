@@ -136,14 +136,13 @@ impl UpstreamRegistry {
     ///
     /// Returns the upstream-bound path; the caller appends the query string.
     pub fn rewrite_for_upstream(&self, full_path: &str, pool_name: &str) -> String {
+        // These upstreams still expose only the legacy `/v1/<service>_svc/...`
+        // scaffold routes. Everything else (identity, governor, realtime,
+        // orchestrator) already serves the canonical namespace verbatim.
         let upstream_service = match pool_name {
-            "identity-svc" => return full_path.to_string(), // already canonical
             "profile-svc" | "content-svc" | "engagement-svc" | "network-crm-svc"
             | "opportunity-svc" | "outreach-svc" | "analytics-svc" | "approval-svc"
-            | "audit-svc" | "kb-svc" => upstream_service,
-            "orchestrator" => return full_path.to_string(), // already canonical (mints the briefing namespace)
-            "compliance-governor" => return full_path.to_string(),
-            "realtime-svc" => return full_path.to_string(),
+            | "audit-svc" | "kb-svc" => pool_name,
             _ => return full_path.to_string(),
         };
         let svc_tag = format!("{}_svc", upstream_service.trim_end_matches("-svc"));
@@ -196,7 +195,7 @@ pub async fn forward(
         _ => full_path.to_string(),
     };
 
-    let reqwest_method = reqwest::Method::from_bytes(method.as_str())
+    let reqwest_method = reqwest::Method::from_bytes(method.as_str().as_bytes())
         .map_err(|e| ApiGatewayError::BadRequest(format!("unsupported method: {e}")))?;
 
     let mut builder = pool.http.request(reqwest_method, target);

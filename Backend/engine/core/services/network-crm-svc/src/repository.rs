@@ -16,6 +16,55 @@ pub struct PgRepository {
     pool: PgPool,
 }
 
+/// One `lcc.contacts` row.
+///
+/// A named struct rather than a tuple: the projection has 17 columns and sqlx
+/// only implements `FromRow` for tuples up to arity 16.
+#[derive(Debug, sqlx::FromRow)]
+pub struct ContactRow {
+    pub id: Uuid,
+    pub member_id: Uuid,
+    pub company_id: Option<Uuid>,
+    pub full_name: String,
+    pub title: Option<String>,
+    pub headline: Option<String>,
+    pub linkedin_url: Option<String>,
+    pub email: Option<String>,
+    pub connection_strength: i16,
+    pub last_touched_at: Option<DateTime<Utc>>,
+    pub last_interaction_kind: Option<String>,
+    pub tags: Vec<String>,
+    pub notes: Option<String>,
+    pub stale_at: Option<DateTime<Utc>>,
+    pub version: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl From<ContactRow> for Contact {
+    fn from(r: ContactRow) -> Self {
+        Contact {
+            id: r.id,
+            member_id: r.member_id,
+            company_id: r.company_id,
+            full_name: r.full_name,
+            title: r.title,
+            headline: r.headline,
+            linkedin_url: r.linkedin_url,
+            email: r.email,
+            connection_strength: r.connection_strength,
+            last_touched_at: r.last_touched_at,
+            last_interaction_kind: r.last_interaction_kind,
+            tags: r.tags,
+            notes: r.notes,
+            stale_at: r.stale_at,
+            version: r.version,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }
+    }
+}
+
 impl PgRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -27,12 +76,7 @@ impl PgRepository {
         q: Option<&str>,
         limit: i64,
     ) -> Result<Vec<Contact>, Error> {
-        let rows: Vec<(
-            Uuid, Uuid, Option<Uuid>, String, Option<String>, Option<String>,
-            Option<String>, Option<String>, i16, Option<DateTime<Utc>>,
-            Option<String>, Vec<String>, Option<String>, Option<DateTime<Utc>>,
-            i32, DateTime<Utc>, DateTime<Utc>,
-        )> = if let Some(q) = q {
+        let rows: Vec<ContactRow> = if let Some(q) = q {
             sqlx::query_as(
                 r#"
                 SELECT id, member_id, company_id, full_name, title, headline,
@@ -69,25 +113,11 @@ impl PgRepository {
             .await?
         };
 
-        rows.into_iter()
-            .map(|(id, member_id, company_id, full_name, title, headline, linkedin_url, email,
-                   connection_strength, last_touched_at, last_interaction_kind, tags, notes,
-                   stale_at, version, created_at, updated_at)| {
-                Ok::<Contact, Error>(Contact {
-                    id, member_id, company_id, full_name, title, headline,
-                    linkedin_url, email, connection_strength,
-                    last_touched_at, last_interaction_kind, tags, notes,
-                    stale_at, version, created_at, updated_at,
-                })
-            })
-            .collect()
+        Ok(rows.into_iter().map(Contact::from).collect())
     }
 
     pub async fn get_contact(&self, member_id: Uuid, id: Uuid) -> Result<Contact, Error> {
-        let row: (Uuid, Uuid, Option<Uuid>, String, Option<String>, Option<String>,
-            Option<String>, Option<String>, i16, Option<DateTime<Utc>>,
-            Option<String>, Vec<String>, Option<String>, Option<DateTime<Utc>>,
-            i32, DateTime<Utc>, DateTime<Utc>) = sqlx::query_as(
+        let row: ContactRow = sqlx::query_as(
             r#"
             SELECT id, member_id, company_id, full_name, title, headline,
                    linkedin_url, email, connection_strength, last_touched_at,
@@ -104,13 +134,7 @@ impl PgRepository {
             sqlx::Error::RowNotFound => Error::NotFound(format!("contact {id}")),
             other => Error::Internal(format!("get contact: {other}")),
         })?;
-        Ok(Contact {
-            id: row.0, member_id: row.1, company_id: row.2, full_name: row.3,
-            title: row.4, headline: row.5, linkedin_url: row.6, email: row.7,
-            connection_strength: row.8, last_touched_at: row.9,
-            last_interaction_kind: row.10, tags: row.11, notes: row.12,
-            stale_at: row.13, version: row.14, created_at: row.15, updated_at: row.16,
-        })
+        Ok(Contact::from(row))
     }
 
     pub async fn insert_contact(&self, c: &Contact) -> Result<(), Error> {

@@ -15,11 +15,25 @@ pub struct EndpointLimit {
     pub burst_per_minute: u32,
 }
 
-#[derive(Debug, Clone)]
+// Deliberately not `Clone`: the counter map is shared mutable state, and every
+// consumer holds a `Arc<RateLimiter>` rather than copying the limiter.
+#[derive(Debug)]
 pub struct RateLimiter {
     limits: HashMap<String, EndpointLimit>,
     /// Per-endpoint counter (UTC date)
     counters: Mutex<HashMap<String, u32>>,
+}
+
+/// Locks the counter map, converting a poisoned mutex into an owned error
+/// instead of unwrapping. A panic while the lock was held leaves the map in an
+/// unknown state, so the caller must treat this as a limiter failure, not as a
+/// free pass.
+fn lock_counters(
+    counters: &Mutex<HashMap<String, u32>>,
+) -> Result<std::sync::MutexGuard<'_, HashMap<String, u32>>, String> {
+    counters
+        .lock()
+        .map_err(|_| "rate limiter counters poisoned".to_string())
 }
 
 impl RateLimiter {
@@ -58,7 +72,7 @@ impl RateLimiter {
             .get(endpoint)
             .ok_or_else(|| format!("unknown endpoint: {endpoint}"))?;
 
-        let mut counters = self.counters.lock().unwrap();
+        let mut counters = lock_counters(&self.counters)?;
         let count = counters.entry(endpoint.to_string()).or_insert(0);
         if *count >= limit.daily_quota {
             return Err(format!(
@@ -72,12 +86,22 @@ impl RateLimiter {
 
     /// Reset counters — call at UTC midnight via cron.
     pub fn reset(&self) {
-        self.counters.lock().unwrap().clear();
+        if let Ok(mut counters) = self.counters.lock() {
+            counters.clear();
+        } else {
+            tracing::error!("rate limiter counters poisoned during reset");
+        }
     }
 
     /// Current usage snapshot for observability.
     pub fn snapshot(&self) -> HashMap<String, u32> {
-        self.counters.lock().unwrap().clone()
+        match self.counters.lock() {
+            Ok(counters) => counters.clone(),
+            Err(_) => {
+                tracing::error!("rate limiter counters poisoned during snapshot");
+                HashMap::new()
+            }
+        }
     }
 }
 
@@ -107,8 +131,28 @@ mod tests {
     #[test]
     fn reset_clears() {
         let l = RateLimiter::with_default_linkedin_limits();
-        l.check_and_increment("ugc_post").unwrap();
+        assert!(l.check_and_increment("ugc_post").is_ok());
         l.reset();
         assert_eq!(l.snapshot().get("ugc_post").copied().unwrap_or(0), 0);
+    }
+
+    #[test]
+    fn poisoned_counters_fail_closed() {
+        use std::sync::Arc;
+
+        let limiter = Arc::new(RateLimiter::with_default_linkedin_limits());
+        let writer = Arc::clone(&limiter);
+        // Panic while holding the lock so the mutex is left poisoned.
+        let _ = std::thread::spawn(move || {
+            if let Ok(mut c) = writer.counters.lock() {
+                c.insert("ugc_post".to_string(), 1);
+                panic!("poison the counter lock");
+            }
+        })
+        .join();
+
+        // The limiter must fail closed rather than panic or hand out quota.
+        assert!(limiter.check_and_increment("ugc_post").is_err());
+        assert!(limiter.snapshot().is_empty());
     }
 }

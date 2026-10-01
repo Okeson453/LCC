@@ -26,7 +26,7 @@ pub struct JwtClaims {
 #[derive(Debug, Error)]
 pub enum JwtError {
     #[error("jwt encode/decode error: {0}")]
-    Jwt(#[from] jsonwebtoken::Error),
+    Jwt(#[from] jsonwebtoken::errors::Error),
     #[error("token expired (now={now}, exp={exp})")]
     Expired { now: i64, exp: i64 },
     #[error("audience mismatch (expected {expected}, got {actual})")]

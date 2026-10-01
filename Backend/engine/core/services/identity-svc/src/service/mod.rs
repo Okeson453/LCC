@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::config::Config;
 use crate::domain::{
-    LinkedInExchange, LinkedInStart, Member, MemberSettings, MemberSettingsUpdate, TokenPair,
+    LinkedInStart, Member, MemberSettings, MemberSettingsUpdate, TokenPair,
 };
 use crate::error::Error;
 use crate::repository::PgRepository;
@@ -163,12 +163,12 @@ impl Service {
         // Encrypt and persist the LinkedIn tokens.
         let access_ct = encrypt(
             token_resp.access_token.as_bytes(),
-            &self.cfg.token_encryption_key,
+            self.cfg.token_encryption_key.as_bytes(),
         )?;
         let refresh_ct = token_resp
             .refresh_token
             .as_deref()
-            .map(|s| encrypt(s.as_bytes(), &self.cfg.token_encryption_key))
+            .map(|s| encrypt(s.as_bytes(), self.cfg.token_encryption_key.as_bytes()))
             .transpose()?;
 
         let expires_at = Utc::now()

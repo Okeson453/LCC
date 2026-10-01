@@ -19,8 +19,11 @@
 
 use aes_gcm::{
     aead::{Aead, KeyInit, Payload},
-    Aes256Gcm, Key, Nonce,
+    Aes256Gcm, Key,
 };
+// Re-exported so `lcc_security::Nonce` is a usable public alias rather than a
+// private import surfaced through `pub use` in lib.rs (E0603).
+pub use aes_gcm::Nonce;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};

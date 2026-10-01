@@ -5,8 +5,11 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    lcc_observability::init_tracing("lcc-realtime-svc");
-
+    // Tracing is best-effort: a malformed RUST_LOG must not stop the
+    // service from serving, so a failure is reported and startup continues.
+    if let Err(e) = lcc_observability::init_tracing("lcc-realtime-svc") {
+        eprintln!("[lcc-realtime-svc] tracing init failed: {e}");
+    }
     let cfg = lcc_realtime_svc::config::Config::from_env()?;
     let state = lcc_realtime_svc::db::AppState::new(cfg.clone()).await?;
 

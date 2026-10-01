@@ -1,13 +1,13 @@
 //! Integration Gateway service entrypoint.
 
 use axum::{
-    extract::State,
+    extract::{Extension, State},
     routing::{get, post},
     Json, Router,
 };
 use lcc_observability::tracing_init::{init_tracing, TracingConfig};
 use lcc_security::vault::VaultClient;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 mod audit;
@@ -25,12 +25,24 @@ mod track_a;
 mod track_b;
 
 use crate::config::IntegrationGatewayConfig;
+
+/// Correlation map for in-flight Track B browser-extension actions: an action
+/// id to the channel waiting for the human confirmation. Named so the router,
+/// the HTTP handler and the WS task all agree on one type.
+type PendingConfirmations = Arc<
+    tokio::sync::Mutex<
+        std::collections::HashMap<
+            uuid::Uuid,
+            tokio::sync::oneshot::Sender<track_b_executor::ConfirmationOutcome>,
+        >,
+    >,
+>;
 use crate::permit::verifier::PermitVerifier;
 use crate::state::IntegrationGatewayState;
 use crate::track_a as track_a_executor;
 use crate::track_b as track_b_executor;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct ExecuteActionRequestDto {
     permit_token: String,
     action_id: uuid::Uuid,
@@ -41,7 +53,7 @@ struct ExecuteActionRequestDto {
     payload: serde_json::Value,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct TrackBRequestDto {
     permit_token: String,
     action_id: uuid::Uuid,
@@ -119,11 +131,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // 12. Router.
-    let app = Router::new()
-        .route("/healthz", get(healthz))
+    // State is attached last, so the router must already be keyed on
+    // `Arc<IntegrationGatewayState>` while the routes are being added.
+    let app = Router::<Arc<IntegrationGatewayState>>::new()
+        .route("/healthz", get(health::healthz))
         .route("/readyz", get(readyz))
         .route("/internal/integration/execute", post(execute_track_a_http))
         .route("/internal/integration/execute-track-b", post(execute_track_b_http))
+        .layer(Extension(pending.clone()))
         .with_state(state.clone());
 
     // 13. Track B WSS listener (separate from HTTP).
@@ -144,7 +159,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn readyz(State(state): State<Arc<IntegrationGatewayState>>) -> impl axum::response::IntoResponse {
+async fn readyz(
+    State(state): State<Arc<IntegrationGatewayState>>,
+) -> impl axum::response::IntoResponse {
     health::readyz(State(state)).await
 }
 
@@ -171,7 +188,11 @@ async fn execute_track_a_http(
 }
 
 async fn execute_track_b_http(
-    State((state, pending)): State<(Arc<IntegrationGatewayState>, Arc<tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, tokio::sync::oneshot::Sender<track_b_executor::ConfirmationOutcome>>>)>,
+    State(state): State<Arc<IntegrationGatewayState>>,
+    // The pending-confirmation map rides as an `Extension`, not as router
+    // state: the rest of the router is keyed on `Arc<IntegrationGatewayState>`,
+    // and axum allows only one state type per router.
+    Extension(pending): Extension<PendingConfirmations>,
     Json(req): Json<TrackBRequestDto>,
 ) -> Result<Json<track_b_executor::ExecuteActionResponse>, axum::http::StatusCode> {
     let req = track_b_executor::ExecuteActionRequest {
@@ -197,8 +218,9 @@ async fn execute_track_b_http(
 async fn run_track_b_ws(
     addr: std::net::SocketAddr,
     _state: Arc<IntegrationGatewayState>,
-    _pending: Arc<tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, tokio::sync::oneshot::Sender<track_b_executor::ConfirmationOutcome>>>,
+    _pending: PendingConfirmations,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    use futures::{SinkExt, StreamExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::accept_async;
 
@@ -207,21 +229,24 @@ async fn run_track_b_ws(
 
     while let Ok((stream, peer)) = listener.accept().await {
         tracing::info!(peer = %peer, "track_b client connected");
+        // Clone per connection: `tokio::spawn` takes ownership, and the loop
+        // must keep its own handle for the next accepted socket.
+        let pending = _pending.clone();
         tokio::spawn(async move {
             match accept_async(stream).await {
                 Ok(ws_stream) => {
                     let (mut write, mut read) = ws_stream.split();
                     while let Some(msg) = read.next().await {
                         match msg {
-                            Ok(tungstenite::Message::Text(s)) => {
-                                if let Err(e) = track_b_executor::handle_extension_frame(_pending.clone(), &s).await {
+                            Ok(tokio_tungstenite::tungstenite::Message::Text(s)) => {
+                                if let Err(e) = track_b_executor::handle_extension_frame(pending.clone(), &s).await {
                                     tracing::warn!(error = %e, "track_b handle failed");
                                 }
                             }
-                            Ok(tungstenite::Message::Ping(p)) => {
-                                let _ = write.send(tungstenite::Message::Pong(p)).await;
+                            Ok(tokio_tungstenite::tungstenite::Message::Ping(p)) => {
+                                let _ = write.send(tokio_tungstenite::tungstenite::Message::Pong(p)).await;
                             }
-                            Ok(tungstenite::Message::Close(_)) => break,
+                            Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => break,
                             _ => {}
                         }
                     }

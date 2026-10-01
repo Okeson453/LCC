@@ -38,7 +38,7 @@
 //! there is anything to do.
 
 use chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::info;
 
 /// Cap on members processed per tick. Bounded so one tick cannot hold the

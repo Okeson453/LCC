@@ -16,7 +16,7 @@
 //! a `WRONGTYPE` error after the first failure. We now use **separate keys**
 //! for the counter (`...:fc`) and the state (`...:state`).
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::Utc;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

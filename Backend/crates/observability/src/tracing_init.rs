@@ -35,6 +35,29 @@ impl Default for TracingConfig {
     }
 }
 
+/// Build a config for `service_name` from the environment, falling back to
+/// sensible defaults. This is the `&str` shorthand every service's `main` uses:
+/// `init_tracing("lcc-audit-svc")`.
+impl From<&str> for TracingConfig {
+    fn from(service_name: &str) -> Self {
+        Self {
+            service_name: service_name.to_string(),
+            service_version: std::env::var("LCC_SERVICE_VERSION")
+                .unwrap_or_else(|_| "0.1.0".to_string()),
+            deployment_environment: std::env::var("LCC_ENVIRONMENT")
+                .unwrap_or_else(|_| "dev".to_string()),
+            otlp_endpoint: std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT").ok(),
+            log_format: match std::env::var("LCC_LOG_FORMAT").as_deref() {
+                Ok("pretty") => LogFormat::Pretty,
+                _ => LogFormat::Json,
+            },
+            log_level: std::env::var("RUST_LOG")
+                .or_else(|_| std::env::var("LCC_LOG_LEVEL"))
+                .unwrap_or_else(|_| "info".to_string()),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum TracingError {
     #[error("tracing init failed: {0}")]
@@ -46,7 +69,11 @@ pub enum TracingError {
 /// Should be called once at service start (in `main`). After this, all
 /// `tracing::info!` / `tracing::warn!` etc. emit JSON logs (or pretty in dev)
 /// and optionally forward to OTLP.
-pub fn init_tracing(config: TracingConfig) -> Result<(), TracingError> {
+///
+/// Accepts either a full [`TracingConfig`] or a bare service name, so services
+/// that only need the defaults can call `init_tracing("lcc-audit-svc")`.
+pub fn init_tracing(config: impl Into<TracingConfig>) -> Result<(), TracingError> {
+    let config = config.into();
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&config.log_level))
         .map_err(|e| TracingError::Init(e.to_string()))?;

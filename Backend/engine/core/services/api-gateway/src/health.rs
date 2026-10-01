@@ -11,7 +11,7 @@
 //! state, or a downstream outage would cause Kubernetes to restart-loop every
 //! gateway pod and turn a partial outage into a total one.
 
-use axum::{routing::get, Json, Router};
+use axum::{extract::State, routing::get, Json, Router};
 use serde_json::{json, Value};
 use std::time::Duration;
 use tokio::time::timeout;
@@ -23,7 +23,10 @@ use crate::state::AppState;
 /// readiness probe past its own `timeoutSeconds` and cause a restart loop.
 const PROBE_TIMEOUT: Duration = Duration::from_millis(750);
 
-pub fn router() -> Router {
+/// Returns the health routes in the gateway's own `AppState`, so they can be
+/// merged with the protected/proxy routers before `.with_state(..)` fixes the
+/// state type.
+pub fn router() -> Router<AppState> {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))

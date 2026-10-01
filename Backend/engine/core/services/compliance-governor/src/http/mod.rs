@@ -12,7 +12,7 @@
 use axum::{
     extract::{Path, State},
     routing::{get, post},
-    Json, Router,
+    Extension, Json, Router,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -29,7 +29,7 @@ use crate::state::GovernorDeps;
 
 pub mod admin_rest;
 
-pub fn build_router(deps: Arc<GovernorDeps>) -> Router {
+pub fn build_router(deps: Arc<GovernorDeps>, metrics: Arc<lcc_observability::metrics::Metrics>) -> Router {
     Router::new()
         .route("/healthz", get(crate::health::healthz))
         .route("/readyz", get(crate::health::readyz))
@@ -48,6 +48,19 @@ pub fn build_router(deps: Arc<GovernorDeps>) -> Router {
             post(activate_config_handler),
         )
         .route("/api/v1/admin/evaluate", post(evaluate_action_http_handler))
+        // Legacy internal-only routes kept for backward compatibility with any
+        // internal callers during the migration window. These are deprecated and
+        // will be removed once the gateway is the sole caller. They are
+        // registered here, before `.with_state(..)` erases `Arc<GovernorDeps>`,
+        // because their handlers take that state directly.
+        .route("/internal/governor/evaluate", post(evaluate_action_http))
+        .route("/internal/compliance/config/propose", post(propose_config))
+        .route("/internal/compliance/config/review", post(review_config))
+        .route("/internal/compliance/config/activate", post(activate_config))
+        .route("/internal/compliance/config/list", get(list_config_versions))
+        // Metrics rides as an `Extension` so it does not have to share the
+        // router's `Arc<GovernorDeps>` state type.
+        .layer(Extension(metrics))
         .with_state(deps)
 }
 
@@ -57,18 +70,18 @@ async fn propose_config_handler(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<ProposeConfigVersionRequest>,
 ) -> Result<Json<ProposeConfigVersionResponse>, GovernorError> {
-    let resp = propose_config(State(deps), Json(req)).await?;
-    Ok(Json(resp.1))
+    let (_status, resp) = propose_config(State(deps), Json(req)).await?;
+    Ok(resp)
 }
 
 async fn list_config_versions_handler(
     State(deps): State<Arc<GovernorDeps>>,
 ) -> Result<Json<admin_rest::ListConfigVersionsRestResponse>, GovernorError> {
-    let resp = list_config_versions(State(deps)).await?;
+    let (_status, resp) = list_config_versions(State(deps)).await?;
     // Re-shape the internal DTO into the canonical REST shape.
     Ok(Json(admin_rest::ListConfigVersionsRestResponse {
         items: resp
-            .1
+            .0
             .versions
             .into_iter()
             .map(|v| admin_rest::ComplianceConfigVersionDto {
@@ -80,41 +93,41 @@ async fn list_config_versions_handler(
                 previous_id: None,
             })
             .collect(),
-        active_version: resp.1.active_version,
+        active_version: resp.0.active_version,
     }))
 }
 
 async fn review_config_handler(
     State(deps): State<Arc<GovernorDeps>>,
     Path(version_id): Path<Uuid>,
-    Json(mut req): Json<admin_rest::ReviewConfigVersionRestRequest>,
+    Json(req): Json<admin_rest::ReviewConfigVersionRestRequest>,
 ) -> Result<Json<ReviewConfigVersionResponse>, GovernorError> {
-    req.version_id = version_id;
+    // `version_id` is addressed by the route path, not the body, so the two
+    // sources are combined here rather than written back onto the body DTO.
     let internal = ReviewConfigVersionRequest {
-        version_id: req.version_id,
+        version_id,
         reviewer_user_id: req.reviewer_user_id,
         reviewer_notes: req.notes.unwrap_or_default(),
         approve: req.approve,
     };
-    let resp = review_config(State(deps), Json(internal)).await?;
-    Ok(Json(resp.1))
+    let (_status, resp) = review_config(State(deps), Json(internal)).await?;
+    Ok(resp)
 }
 
 async fn activate_config_handler(
     State(deps): State<Arc<GovernorDeps>>,
     Path(version_id): Path<Uuid>,
-    Json(mut req): Json<admin_rest::ActivateConfigVersionRestRequest>,
+    Json(req): Json<admin_rest::ActivateConfigVersionRestRequest>,
 ) -> Result<Json<ActivateConfigVersionResponse>, GovernorError> {
-    req.version_id = version_id;
     let internal = ActivateConfigVersionRequest {
-        version_id: req.version_id,
+        version_id,
         reviewer_a_user_id: req.reviewer_a_user_id,
         reviewer_a_signature: req.reviewer_a_signature,
         reviewer_b_user_id: req.reviewer_b_user_id,
         reviewer_b_signature: req.reviewer_b_signature,
     };
-    let resp = activate_config(State(deps), Json(internal)).await?;
-    Ok(Json(resp.1))
+    let (_status, resp) = activate_config(State(deps), Json(internal)).await?;
+    Ok(resp)
 }
 
 async fn evaluate_action_http_handler(
@@ -124,6 +137,6 @@ async fn evaluate_action_http_handler(
     Json<crate::api::evaluate::EvaluateActionResponseDto>,
     crate::error::GovernorError,
 > {
-    let resp = evaluate_action_http(State(deps), Json(req)).await?;
-    Ok(Json(resp.1))
+    let (_status, resp) = evaluate_action_http(State(deps), Json(req)).await?;
+    Ok(resp)
 }

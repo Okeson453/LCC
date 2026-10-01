@@ -3,7 +3,7 @@
 use axum::{routing::get, Json, Router};
 use serde_json::json;
 
-pub fn router() -> Router {
+pub fn router() -> Router<crate::state::AppState> {
     Router::new()
         .route("/healthz", get(healthz))
         .route("/readyz", get(readyz))

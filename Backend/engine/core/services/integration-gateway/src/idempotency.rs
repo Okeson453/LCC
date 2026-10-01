@@ -15,6 +15,10 @@ use uuid::Uuid;
 pub enum IdempotencyError {
     #[error("redis: {0}")]
     Redis(#[from] redis::RedisError),
+    /// Pool checkout failures arrive wrapped by deadpool, so they are not
+    /// convertible into the bare `redis::RedisError` variant above.
+    #[error("redis pool: {0}")]
+    RedisPool(#[from] deadpool_redis::PoolError),
     #[error("postgres: {0}")]
     Postgres(#[from] sqlx::Error),
     #[error("not found")]
@@ -44,7 +48,7 @@ impl IdempotencyStore {
     /// Returns Some(cached) if the key has been seen; None if first time.
     pub async fn get(&self, key: &str) -> Result<Option<IdempotentResult>, IdempotencyError> {
         // Check Redis first (fast path).
-        let mut conn = self.redis.get().await.map_err(|e| IdempotencyError::Redis(e))?;
+        let mut conn = self.redis.get().await?;
         let cached: Option<String> = conn.get(format!("idem:{key}")).await?;
         if let Some(json) = cached {
             if let Ok(result) = serde_json::from_str::<IdempotentResult>(&json) {
@@ -97,7 +101,7 @@ impl IdempotencyStore {
         let json = serde_json::to_string(&result).unwrap_or_default();
 
         // Redis fast path.
-        let mut conn = self.redis.get().await.map_err(|e| IdempotencyError::Redis(e))?;
+        let mut conn = self.redis.get().await?;
         let _: () = conn
             .set_ex(format!("idem:{key}"), json, 7 * 24 * 3600)
             .await?;

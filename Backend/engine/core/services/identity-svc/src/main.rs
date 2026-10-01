@@ -21,8 +21,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    lcc_observability::init_tracing("lcc-identity-svc");
+    // Tracing is best-effort: a malformed RUST_LOG must not stop the
 
+    // service from serving, so a failure is reported and startup continues.
+
+    if let Err(e) = lcc_observability::init_tracing("lcc-identity-svc") {
+
+        eprintln!("[lcc-identity-svc] tracing init failed: {e}");
+
+    }
     let state = lcc_identity_svc::state::AppState::new(cfg.clone()).await?;
     let app = lcc_identity_svc::http::router::build_router(state);
 

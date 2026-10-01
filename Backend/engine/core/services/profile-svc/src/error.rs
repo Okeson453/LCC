@@ -72,3 +72,11 @@ impl From<sqlx::Error> for Error {
         Self::Internal(format!("db: {e}"))
     }
 }
+
+/// Serialising a domain value for a JSONB column is an internal fault, not a
+/// client error — the value is already typed when it reaches the repository.
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Self::Internal(format!("json: {e}"))
+    }
+}

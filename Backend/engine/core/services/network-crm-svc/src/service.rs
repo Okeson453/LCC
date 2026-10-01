@@ -83,20 +83,24 @@ impl Service {
         patch: ContactPatch,
     ) -> Result<Contact, Error> {
         let current = self.repo.get_contact(member_id, id).await?;
+        // `ContactPatch` uses `Option<Option<T>>` for nullable columns so that
+        // "field absent" (keep current) is distinct from "field sent as null"
+        // (clear it). `unwrap_or` preserves that distinction; `or` would not,
+        // because it cannot tell `Some(None)` from `None`.
         let updated = Contact {
             id: current.id,
             member_id: current.member_id,
-            company_id: patch.company_id.or(current.company_id),
+            company_id: patch.company_id.unwrap_or(current.company_id),
             full_name: patch.full_name.unwrap_or(current.full_name),
-            title: patch.title.or(current.title),
-            headline: patch.headline.or(current.headline),
-            linkedin_url: patch.linkedin_url.or(current.linkedin_url),
-            email: patch.email.or(current.email),
+            title: patch.title.unwrap_or(current.title),
+            headline: patch.headline.unwrap_or(current.headline),
+            linkedin_url: patch.linkedin_url.unwrap_or(current.linkedin_url),
+            email: patch.email.unwrap_or(current.email),
             connection_strength: current.connection_strength,
             last_touched_at: current.last_touched_at,
             last_interaction_kind: current.last_interaction_kind,
             tags: patch.tags.unwrap_or(current.tags),
-            notes: patch.notes.or(current.notes),
+            notes: patch.notes.unwrap_or(current.notes),
             stale_at: current.stale_at,
             version: current.version,
             created_at: current.created_at,

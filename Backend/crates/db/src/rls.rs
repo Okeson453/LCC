@@ -24,7 +24,6 @@
 //! `tx`-scoped session vars via [`sqlx::Transaction`].
 
 use serde::{Deserialize, Serialize};
-use sqlx::Executor;
 use sqlx::PgExecutor;
 use thiserror::Error;
 use uuid::Uuid;

@@ -14,7 +14,7 @@
 //! broadcast senders (see `realtime-svc/src/events/mod.rs`).
 
 use chrono::Utc;
-use redis::{AsyncCommands, Value};
+use redis::Value;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;

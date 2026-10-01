@@ -25,9 +25,12 @@ struct SessionState {
 ///
 /// Wrapped in `parking_lot::Mutex` so deadlocks panic cleanly instead of via
 /// `unwrap()` on `StdMutex` (workspace lint: no `unwrap`).
-static LAST_SESSION_ACTION: parking_lot::Mutex<SessionState> = parking_lot::Mutex::new(SessionState {
-    by_member_action: HashMap::new(),
-});
+static LAST_SESSION_ACTION: std::sync::LazyLock<parking_lot::Mutex<SessionState>> =
+    std::sync::LazyLock::new(|| {
+        parking_lot::Mutex::new(SessionState {
+            by_member_action: HashMap::new(),
+        })
+    });
 
 pub struct SessionPacingGuard {
     #[allow(dead_code)]

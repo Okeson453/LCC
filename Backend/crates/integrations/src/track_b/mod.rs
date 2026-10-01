@@ -11,5 +11,5 @@
 pub mod extension_protocol;
 
 pub use extension_protocol::{
-    BrowserExtensionMessage, ExtensionMessageKind, TrackBError,
+    BrowserExtensionMessage, ExtensionMessageKind, FillTarget, TrackBError,
 };

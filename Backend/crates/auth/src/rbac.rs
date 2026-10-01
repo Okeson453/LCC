@@ -75,7 +75,11 @@ pub fn has_permission(role: Role, perm: Permission) -> bool {
         (Reviewer, ViewAnalytics) => true,
         (Reviewer, ViewOwnData) => true,
         (Assistant, DraftContent | EditContent | ViewOwnData | ManageOwnSettings) => true,
-        (_, ManageOwnSettings | ViewOwnData | DeleteOwnAccount) => true,
+        // Self-service permissions every role holds regardless of duty. Scoped
+        // to the roles not already granted them above so each match arm stays
+        // reachable (a blanket `(_, ..)` here is dead for Owner/Admin/Assistant).
+        (Reviewer | Auditor, ManageOwnSettings | DeleteOwnAccount) => true,
+        (Assistant, DeleteOwnAccount) => true,
         _ => false,
     }
 }

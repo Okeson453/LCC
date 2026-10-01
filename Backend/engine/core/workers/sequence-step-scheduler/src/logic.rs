@@ -38,7 +38,7 @@
 //! deny, never partial-permit".
 
 use chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::{debug, error, warn};
 
 /// Guard denials before a step is moved to `blocked` rather than retried.
@@ -198,6 +198,10 @@ async fn evaluate_with_governor(
                 "sequence_id": sequence_id.to_string(),
                 "step_id": step_id.to_string(),
                 "step_index": step_index.to_string(),
+                // The rendered message travels with the candidate action so the
+                // guard stack can evaluate the actual outbound content, not
+                // just its identity.
+                "body": body,
             }
         }
     });
@@ -296,7 +300,7 @@ async fn record_denial(
 
     if guard == "restriction_flag" {
         // A restriction signal is a hard circuit breaker (Technical Design
-        Spec §16): every outbound queue pauses account-wide, not just this step.
+        // Spec §16): every outbound queue pauses account-wide, not just this step.
         error!(
             %step_id,
             "restriction_flag deny — all outbound sequences for this member must pause pending manual review"

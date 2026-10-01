@@ -33,7 +33,7 @@ pub fn build_router(state: AppState) -> Router {
 }
 
 async fn health() -> Json<Value> {
-    json!({"status":"ok"})
+    Json(json!({"status":"ok"}))
 }
 
 #[derive(Clone, Copy)]

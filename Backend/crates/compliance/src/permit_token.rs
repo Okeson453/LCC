@@ -254,6 +254,18 @@ pub struct PermitVerifier {
     expected_audience: String,
 }
 
+/// Hand-written so key material is never reachable through a `{:?}` log line —
+/// `KeyStore` deliberately has no `Debug` bound, and requiring one would push
+/// signing keys into loggable state.
+impl std::fmt::Debug for PermitVerifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PermitVerifier")
+            .field("expected_audience", &self.expected_audience)
+            .field("keys", &"<redacted>")
+            .finish_non_exhaustive()
+    }
+}
+
 impl PermitVerifier {
     pub fn new(keys: Arc<dyn KeyStore>, expected_audience: impl Into<String>) -> Self {
         Self { keys, expected_audience: expected_audience.into() }

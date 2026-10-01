@@ -1,6 +1,6 @@
 //! HTTP + gRPC handler for `evaluate_action`.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, Json};
 use chrono::Utc;
 use lcc_compliance::action::{ActionType, RiskTier};
 use lcc_observability::span::span_for_governor_evaluate;
@@ -8,8 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::error::GovernorError;
 use crate::state::GovernorDeps;
-use crate::{evaluate_action, AccountState, CandidateAction, EvaluateResult, GovernorDecision};
+use crate::{evaluate_action, AccountState, CandidateAction, GovernorDecision};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluateActionRequestDto {
@@ -81,6 +82,9 @@ impl From<EvaluateActionRequestDto> for (CandidateAction, AccountState) {
             metadata: dto.candidate_action.metadata,
         };
         let account = AccountState {
+            // The account snapshot is evaluated against the same member the
+            // candidate action targets; the DTO does not repeat the id.
+            member_id: action.member_id,
             h_c: dto.account_state.h_c,
             h_c_computed_at: dto.account_state.h_c_computed_at,
             is_restricted: dto.account_state.is_restricted,
@@ -97,7 +101,7 @@ impl From<EvaluateActionRequestDto> for (CandidateAction, AccountState) {
 pub async fn evaluate_action_http(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<EvaluateActionRequestDto>,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<EvaluateActionResponseDto>), GovernorError> {
     let (action, account): (CandidateAction, AccountState) = req.into();
     let span = span_for_governor_evaluate(
         &Uuid::new_v4().to_string(), // trace_id from request headers would be better
@@ -147,7 +151,7 @@ pub async fn evaluate_action_http(
         GovernorDecision::Deny { .. } | GovernorDecision::Defer { .. } => StatusCode::FORBIDDEN,
     };
 
-    (status, Json(resp)).into_response()
+    Ok((status, Json(resp)))
 }
 
 /// gRPC server — wraps the evaluate_action in a tonic service.

@@ -8,6 +8,8 @@
 // compile error. The worker could not be built at all.
 pub mod logic;
 
+use logic::generate_briefings;
+
 use serde::Deserialize;
 use tracing::{error, info};
 

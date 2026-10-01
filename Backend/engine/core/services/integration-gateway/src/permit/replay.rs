@@ -57,7 +57,7 @@ impl ReplayGuard {
     /// matches the governor's own posture (axiom 1: "any guard fails -> deny,
     /// never partial-permit").
     pub async fn claim(
-        redis: &mut redis::aio::ConnectionManager,
+        redis: &mut (impl redis::aio::ConnectionLike + Send),
         jti: &str,
         ttl: Duration,
     ) -> Result<(), ReplayGuardError> {
@@ -65,8 +65,12 @@ impl ReplayGuard {
         // Round up so the dedupe entry never expires before the token does.
         let ttl_secs = ttl.as_secs().max(1) + 1;
 
+        let options = redis::SetOptions::default()
+            .conditional_set(redis::ExistenceCheck::NX)
+            .with_expiration(redis::SetExpiry::EX(ttl_secs));
+
         let claimed: Option<String> = redis
-            .set(&key, "1", redis::SetOptions::default().with_nx().with_ex(ttl_secs))
+            .set_options(&key, "1", options)
             .await
             .map_err(|e| ReplayGuardError::StoreUnavailable(e.to_string()))?;
 

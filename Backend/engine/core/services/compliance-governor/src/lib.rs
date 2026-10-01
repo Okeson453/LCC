@@ -186,8 +186,8 @@ pub async fn evaluate_action(
         delay_ms: 0,
         reserve_consumed: false,
         active_compliance_config_version: account.active_compliance_config_version.clone(),
-        issued_at: chrono::DateTime::from_timestamp(claims.iat, 0).unwrap_or_else(|_| Utc::now()),
-        expires_at: chrono::DateTime::from_timestamp(claims.exp, 0).unwrap_or_else(|_| Utc::now),
+        issued_at: chrono::DateTime::from_timestamp(claims.iat, 0).unwrap_or_else(|| Utc::now()),
+        expires_at: chrono::DateTime::from_timestamp(claims.exp, 0).unwrap_or_else(|| Utc::now()),
     };
 
     deps.audit

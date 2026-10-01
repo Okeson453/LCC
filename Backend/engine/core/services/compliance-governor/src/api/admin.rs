@@ -9,7 +9,7 @@
 //! `lcc_audit_client` crate, with the action_type column set to
 //! `compliance.config_activated`.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, Json};
 use chrono::{DateTime, Utc};
 use lcc_audit_client::{AuditEvent, AuditOutcome};
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ pub struct ProposeConfigVersionResponse {
 pub async fn propose_config(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<ProposeConfigVersionRequest>,
-) -> Result<impl IntoResponse, GovernorError> {
+) -> Result<(StatusCode, Json<ProposeConfigVersionResponse>), GovernorError> {
     // Build a candidate config and validate it.
     let mut cfg = lcc_compliance::config::ComplianceConfig::default();
     cfg.h_c_weights = req.h_c_weights;
@@ -149,7 +149,7 @@ pub struct ReviewConfigVersionResponse {
 pub async fn review_config(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<ReviewConfigVersionRequest>,
-) -> Result<impl IntoResponse, GovernorError> {
+) -> Result<(StatusCode, Json<ReviewConfigVersionResponse>), GovernorError> {
     if !req.approve {
         // A rejected review is a no-op against the signature array; emit an
         // audit entry so the rejection is traceable.
@@ -268,7 +268,7 @@ pub struct ActivateConfigVersionResponse {
 pub async fn activate_config(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<ActivateConfigVersionRequest>,
-) -> Result<impl IntoResponse, GovernorError> {
+) -> Result<(StatusCode, Json<ActivateConfigVersionResponse>), GovernorError> {
     // Two-reviewer gate (Non-Negotiable §4).
     if req.reviewer_a_user_id == req.reviewer_b_user_id {
         return Err(GovernorError::TwoReviewerRequired(1));
@@ -413,7 +413,7 @@ pub struct ConfigSummary {
 
 pub async fn list_config_versions(
     State(deps): State<Arc<GovernorDeps>>,
-) -> Result<impl IntoResponse, GovernorError> {
+) -> Result<(StatusCode, Json<ListConfigVersionsResponse>), GovernorError> {
     let rows: Result<Vec<(Uuid, String, Option<DateTime<Utc>>, Vec<String>, bool)>, sqlx::Error> =
         sqlx::query_as(
             r#"
@@ -441,8 +441,8 @@ pub async fn list_config_versions(
     };
 
     let active_version = {
-        let guard = deps.config.read().await;
-        guard.version.clone()
+        // `deps.config` is an immutable `Arc<ComplianceConfig>`, not a lock.
+        deps.config.version.clone()
     };
 
     Ok((

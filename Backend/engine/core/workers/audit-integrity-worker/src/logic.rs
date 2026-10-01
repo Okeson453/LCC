@@ -1,6 +1,6 @@
 //! Audit-log integrity verifier.
 
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::{error, warn};
 
 /// Walk the audit-log checksum chain and verify each row's integrity.

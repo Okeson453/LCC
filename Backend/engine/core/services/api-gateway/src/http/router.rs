@@ -146,7 +146,9 @@ pub fn build_router(state: AppState) -> Router {
             rate_limit,
         ));
 
-    Router::new()
+    // All sub-routers below share `AppState`; `.with_state(state)` at the end
+    // erases it so the assembled router can be served.
+    Router::<AppState>::new()
         .merge(crate::health::router())
         // Public auth routes (start/callback are unauthenticated;
         // refresh/logout handle their own auth).

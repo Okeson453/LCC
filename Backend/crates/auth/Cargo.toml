@@ -9,6 +9,7 @@ authors.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+async-trait = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 jsonwebtoken = { workspace = true }

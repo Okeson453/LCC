@@ -114,9 +114,12 @@ impl ScoringClient {
         // Real tonic round-trip. The stub below is JSON-codec because the
         // default `lcc-proto` mode uses hand-written types; with the
         // `proto-binary` feature it would be raw protobuf.
-        let channel = self.channel().await?;
+        // Establishing the channel doubles as an endpoint/TLS validation step;
+        // the request itself is issued as HTTP/2 JSON over `self.endpoint`,
+        // since a `tonic::transport::Channel` exposes no request URI.
+        let _channel = self.channel().await?;
         let path = "/lcc.v1.intelligence.scoring.ScoringIntel/ComputeH_c";
-        let uri = format!("{}{}", channel.uri(), path);
+        let uri = format!("{}{}", self.endpoint.trim_end_matches('/'), path);
 
         // Use raw HTTP/2 over the tonic channel. This works for both modes
         // (handwritten and proto-binary) because the request/response types

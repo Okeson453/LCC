@@ -1,6 +1,6 @@
 //! Health endpoints for the Compliance Governor.
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::{Extension, State}, http::StatusCode, response::IntoResponse, Json};
 use lcc_observability::metrics::Metrics;
 use serde::Serialize;
 use std::sync::Arc;
@@ -20,10 +20,7 @@ pub struct ReadyzReport {
     pub uptime_seconds: u64,
 }
 
-pub async fn readyz(
-    State(deps): State<Arc<GovernorDeps>>,
-    started_at: axum::extract::State<std::time::Instant>,
-) -> impl IntoResponse {
+pub async fn readyz(State(deps): State<Arc<GovernorDeps>>) -> impl IntoResponse {
     // Check DB.
     let db_ok = sqlx::query("SELECT 1").execute(&deps.db).await.is_ok();
     // Check Redis.
@@ -39,7 +36,7 @@ pub async fn readyz(
         db_ok,
         redis_ok,
         active_compliance_config_version: deps.config.version.clone(),
-        uptime_seconds: started_at.0.elapsed().as_secs(),
+        uptime_seconds: started_at().elapsed().as_secs(),
     };
 
     if db_ok && redis_ok {
@@ -49,7 +46,12 @@ pub async fn readyz(
     }
 }
 
-pub async fn metrics_handler(State(metrics): State<Arc<Metrics>>) -> impl IntoResponse {
+/// Scrapes the Prometheus registry.
+///
+/// The registry is attached with `Extension` rather than `State` so that
+/// `/metrics` can sit on the same router as the governor's `Arc<GovernorDeps>`
+/// state without a second, conflicting router state type.
+pub async fn metrics_handler(Extension(metrics): Extension<Arc<Metrics>>) -> impl IntoResponse {
     match metrics.render() {
         Ok(text) => (StatusCode::OK, [("content-type", "text/plain; version=0.0.4")], text)
             .into_response(),

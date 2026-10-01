@@ -198,7 +198,7 @@ impl Service {
             let passed = issues.is_empty();
             let result = QualityCheckResult {
                 passed,
-                loop: loop_idx,
+                r#loop: loop_idx,
                 issues: issues.clone(),
                 auto_fixes,
                 evaluated_at: Utc::now(),
@@ -328,15 +328,7 @@ impl PgRepository {
         member_id: Uuid,
         key: &str,
     ) -> Result<ContentItem, Error> {
-        let row = sqlx::query_as::<_, (
-            Uuid, Uuid, String, String, String, Option<String>,
-            String, String, Option<Uuid>, Vec<Uuid>,
-            serde_json::Value, i32, Option<String>,
-            i32, i32, Option<chrono::DateTime<chrono::Utc>>,
-            Option<chrono::DateTime<chrono::Utc>>,
-            chrono::DateTime<chrono::Utc>,
-            chrono::DateTime<chrono::Utc>,
-        )>(
+        let row = sqlx::query_as::<_, crate::repository::ContentRow>(
             r#"
             SELECT id, member_id, state::TEXT, title, body, rendered_body_hash,
                    kind::TEXT, topic, voice_style_kb_id, pinned_kb_ids,

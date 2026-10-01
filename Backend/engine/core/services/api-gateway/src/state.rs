@@ -29,8 +29,8 @@ struct Inner {
 /// the request hot path (Technical Design Spec §26 requires predictable
 /// low-latency behaviour under load), and a slow downstream should surface as
 /// a 504 the client can retry rather than a hung request.
-const UPSTREAM_TIMEOUT_MS: u64 = 15_000;
-const UPSTREAM_MAX_CONNECTIONS: usize = 64;
+pub const UPSTREAM_TIMEOUT_MS: u64 = 15_000;
+pub const UPSTREAM_MAX_CONNECTIONS: usize = 64;
 
 /// Build the registry from the service URLs declared in config.
 ///

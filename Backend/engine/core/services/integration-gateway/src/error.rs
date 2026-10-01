@@ -13,8 +13,7 @@ pub enum IntegrationError {
     #[error("circuit breaker open for {provider}:{endpoint}")]
     CircuitOpen { provider: String, endpoint: String },
     #[error("circuit breaker error: {0}")]
-    CircuitBreaker(String),
-    #[error("vault error: {0}")]
+    CircuitBreaker(String),    #[error("vault error: {0}")]
     Vault(String),
     /// F-72: carries the original HTTP status so the caller can distinguish
     /// `429` (rate-limit) from `401/403` (auth revoked) and pull the matching
@@ -27,10 +26,18 @@ pub enum IntegrationError {
     TrackB(String),
     #[error("config error: {0}")]
     Config(String),
+    /// A caller-supplied action payload that does not deserialize into the
+    /// target request shape is a client error, not an upstream failure.
+    #[error("malformed action payload: {0}")]
+    Payload(#[from] serde_json::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("redis error: {0}")]
     Redis(#[from] redis::RedisError),
+    /// Connection-pool failures (deadpool wraps the `redis::RedisError` it is
+    /// built on, so a pool checkout error is not convertible via `Redis`).
+    #[error("redis pool error: {0}")]
+    RedisPool(#[from] deadpool_redis::PoolError),
     #[error("sqlx error: {0}")]
     Sqlx(#[from] sqlx::Error),
 }
@@ -83,6 +90,19 @@ impl From<lcc_integrations::track_a::TrackAError> for IntegrationError {
 impl From<lcc_integrations::track_b::TrackBError> for IntegrationError {
     fn from(e: lcc_integrations::track_b::TrackBError) -> Self {
         IntegrationError::TrackB(e.to_string())
+    }
+}
+
+impl From<crate::circuit_breaker::CircuitBreakerError> for IntegrationError {
+    fn from(e: crate::circuit_breaker::CircuitBreakerError) -> Self {
+        // A pool/connection failure surfaces through the circuit breaker, so
+        // unwrap the nested redis error where one is present.
+        match e {
+            crate::circuit_breaker::CircuitBreakerError::Redis(inner) => {
+                IntegrationError::Redis(inner)
+            }
+            other => IntegrationError::CircuitBreaker(other.to_string()),
+        }
     }
 }
 

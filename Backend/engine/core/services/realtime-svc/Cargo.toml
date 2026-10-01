@@ -41,6 +41,7 @@ reqwest = { workspace = true }
 sqlx = { workspace = true }
 redis = { workspace = true }
 deadpool-redis = { workspace = true }
+jsonwebtoken = { workspace = true }
 sha2 = "0.10"
 hex = "0.4"
 

@@ -5,12 +5,12 @@ use axum::{
     http::{header, request::Parts, StatusCode},
     response::{IntoResponse, Response},
 };
-use lcc_error::{LccError, LccResult};
+use lcc_error::LccError;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::jwt::{JwtClaims, JwtVerifier};
+use crate::jwt::JwtVerifier;
 use crate::rbac::{has_permission, Permission, Role};
 
 /// AuthenticatedUser — extractor injected by the auth middleware.

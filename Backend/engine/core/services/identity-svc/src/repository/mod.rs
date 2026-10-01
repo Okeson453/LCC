@@ -36,21 +36,6 @@ impl PgRepository {
     }
 }
 
-#[derive(sqlx::FromRow, Debug, Clone)]
-struct MemberRow {
-    id: Uuid,
-    linkedin_id: String,
-    email: Option<String>,
-    display_name: String,
-    role: String,
-    is_active: bool,
-    timezone: String,
-    locale: String,
-    // Columns from extensions/migration 0017 that may or may not exist on
-    // older deployments; we read them defensively.
-    // Note: when not present the FromRow would fail; we project explicitly below.
-}
-
 impl PgRepository {
     /// Read the authenticated member by id.
     /// Sets the RLS context on a fresh transaction so the SELECT is

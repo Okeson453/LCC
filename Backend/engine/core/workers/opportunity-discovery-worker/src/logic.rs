@@ -1,6 +1,6 @@
 //! Opportunity discovery worker — scans contacts for new signals.
 
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::debug;
 
 /// Discover opportunities from cached contact signals. Returns the count.

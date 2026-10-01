@@ -25,7 +25,6 @@
 use chrono::Utc;
 use lcc_compliance::permit_token::PermitClaims;
 use lcc_compliance::permit_token::PermitVerifier as LccPermitVerifier;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 

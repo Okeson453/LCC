@@ -5,7 +5,8 @@ use axum::{routing::get, Router};
 use crate::{sse, state::AppState, ws};
 
 pub fn build_router(state: AppState) -> Router {
-    Router::new()
+    // Sub-routers share `AppState`; `.with_state(state)` erases it at the end.
+    Router::<AppState>::new()
         .merge(crate::health::router())
         // Canonical WS channel routes.
         .route("/api/v1/ws/briefing", get(ws::ws_handler))

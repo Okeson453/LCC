@@ -74,7 +74,10 @@ async fn create(
     Json(req): Json<CreateRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let member = require_member(&headers)?;
-    let kind = parse_kind(Some(req.kind.as_str()))?;
+    // A record must have a kind; the list filter at the top of this file is
+    // the only caller where "any kind" is meaningful.
+    let kind = parse_kind(Some(req.kind.as_str()))?
+        .ok_or_else(|| Error::Validation("kind is required".to_string()))?;
     let r = state
         .service()
         .create(member, kind, &req.title, &req.body, req.tags, req.source)

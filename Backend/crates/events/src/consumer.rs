@@ -3,7 +3,6 @@
 use async_trait::async_trait;
 use deadpool_redis::Pool as RedisPool;
 use redis::AsyncCommands;
-use serde::Deserialize;
 use std::sync::Arc;
 use thiserror::Error;
 

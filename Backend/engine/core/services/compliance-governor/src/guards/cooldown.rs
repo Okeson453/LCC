@@ -72,7 +72,8 @@ impl Guard for CooldownGuard {
             let remaining_ms = (min_spacing - elapsed).num_milliseconds();
             GuardResult::fail(format!(
                 "cooldown_violated: last_action_at={last_at} elapsed_ms={} min_spacing_ms={} remaining_ms={remaining_ms}",
-                elapsed.num_milliseconds()
+                elapsed.num_milliseconds(),
+                min_spacing.num_milliseconds()
             ))
         }
     }

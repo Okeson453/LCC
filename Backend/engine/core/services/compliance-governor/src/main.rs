@@ -1,31 +1,30 @@
 //! Compliance Governor service entrypoint.
 
-use axum::{routing::{get, post}, Router};
 use lcc_compliance::permit_token::{generate_keypair, signing_only_signer, PermitSigner};
 use lcc_observability::metrics::Metrics;
 use lcc_observability::tracing_init::{init_tracing, TracingConfig};
 use std::sync::Arc;
 
-mod api;
-mod config;
-mod error;
-mod guards;
-mod health;
-mod scoring;
-mod sign;
-mod state;
-
-use crate::api::{activate_config, evaluate_action_http, list_config_versions, propose_config, review_config};
-use crate::config::GovernorServiceConfig;
-use crate::error::GovernorError;
-use crate::health::{healthz, metrics_handler, readyz, started_at};
-use crate::scoring::ScoringClient;
-use crate::state::GovernorDeps;
+// The service body lives in the library target (`src/lib.rs`). Declaring the
+// modules again here compiled a second, divergent copy of the crate whose root
+// had none of the items `lib.rs` defines (`GovernorDeps`, `AccountState`, …)
+// and which had no `http` module at all.
+use compliance_governor::{
+    config::GovernorServiceConfig,
+    error::GovernorError,
+    health::started_at,
+    http,
+    scoring::ScoringClient,
+    GovernorDeps,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Tracing.
-    init_tracing(TracingConfig::default())?;
+    if let Err(e) = init_tracing(TracingConfig::default()) {
+        // Best-effort: a malformed RUST_LOG must not stop the governor.
+        eprintln!("[compliance-governor] tracing init failed: {e}");
+    }
 
     // 2. Service config.
     let service_config = GovernorServiceConfig::from_env();
@@ -82,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if bytes.len() != 32 {
                 return Err(Box::new(GovernorError::Config(
                     "PERMIT_SIGNING_KEY_B64 must decode to 32 bytes".into(),
-                )));
+                )) as Box<dyn std::error::Error>);
             }
             key_bytes.copy_from_slice(&bytes);
             let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
@@ -91,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // No key configured — fail closed (axiom 4 / F-14).
             return Err(Box::new(GovernorError::Config(
                 "PERMIT_SIGNING_KEY_B64 (or PERMIT_SIGNING_SEED for dev) is required".into(),
-            )));
+            )) as Box<dyn std::error::Error>);
         }
     };
 
@@ -115,15 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let metrics = Arc::new(Metrics::new("compliance-governor")?);
 
     // 10. Router — canonical REST namespace per lcc-api-canonical.yaml.
-    let app = crate::http::build_router(deps.clone())
-        // Legacy internal-only routes kept for backward compatibility with
-        // any internal callers during the migration window; these are
-        // deprecated and will be removed once the gateway is the sole caller.
-        .route("/internal/governor/evaluate", post(evaluate_action_http))
-        .route("/internal/compliance/config/propose", post(propose_config))
-        .route("/internal/compliance/config/review", post(review_config))
-        .route("/internal/compliance/config/activate", post(activate_config))
-        .route("/internal/compliance/config/list", get(list_config_versions));
+    let app = http::build_router(deps.clone(), metrics.clone());
 
     // 11. Serve.
     let _ = started_at(); // initialize uptime tracking

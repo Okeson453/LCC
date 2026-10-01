@@ -14,7 +14,7 @@
 use axum::{
     body::Body,
     extract::{OriginalUri, Request, State},
-    http::{Method, StatusCode},
+    http::{Method, StatusCode, Uri},
     response::IntoResponse,
 };
 use serde_json::json;
@@ -84,12 +84,14 @@ pub async fn proxy_post(
 async fn proxy_with_method(
     method: Method,
     state: AppState,
-    original: OriginalUri,
+    original: Uri,
     request: Request<Body>,
 ) -> Result<axum::response::Response, ApiGatewayError> {
-    let (_, mut parts, body) = request.into_parts();
+    // `Request::into_parts` yields (Parts, Body); the URI is rebuilt below from
+    // the original request so the method override is the only difference.
+    let (mut parts, body) = request.into_parts();
     parts.method = method;
-    proxy_request(State(state), original, Request::from_parts(parts, body)).await
+    proxy_request(State(state), OriginalUri(original), Request::from_parts(parts, body)).await
 }
 
 /// Gateway root — lists the domain prefixes actually bound to an upstream.

@@ -39,4 +39,8 @@ impl AppState {
     pub fn db(&self) -> &sqlx::PgPool {
         &self.0.db_pool
     }
+    /// Redis pool for handlers that need it outside the service layer.
+    pub fn redis(&self) -> &deadpool_redis::Pool {
+        &self.0.redis
+    }
 }

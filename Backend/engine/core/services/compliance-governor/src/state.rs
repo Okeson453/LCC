@@ -1,7 +1,8 @@
 //! AppState for the Compliance Governor service.
 
-use crate::CandidateAction;
-use crate::GovernorDeps;
+// Re-exported so sibling modules can keep importing `crate::state::GovernorDeps`
+// while the canonical definition stays at the crate root.
+pub use crate::GovernorDeps;
 
 impl GovernorDeps {
     /// Placeholder for tests; real construction in `main.rs`.

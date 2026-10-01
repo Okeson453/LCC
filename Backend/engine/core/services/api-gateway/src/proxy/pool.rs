@@ -19,15 +19,27 @@ impl UpstreamConfig {
     /// `base_url` is normalised (trailing `/` stripped) so path joining in
     /// `forward` never produces a double slash.
     pub fn new(name: &str, base_url: &str) -> Self {
+        Self::with_tuning(
+            name,
+            base_url,
+            crate::state::UPSTREAM_TIMEOUT_MS,
+            crate::state::UPSTREAM_MAX_CONNECTIONS,
+        )
+    }
+
+    /// Build an upstream config with explicit tuning, for callers that need
+    /// to deviate from the gateway-wide defaults.
+    pub fn with_tuning(name: &str, base_url: &str, timeout_ms: u64, max_connections: usize) -> Self {
         Self {
             name: name.to_string(),
             base_url: base_url.trim_end_matches('/').to_string(),
-            timeout_ms: 15_000,
-            max_connections: 64,
+            timeout_ms,
+            max_connections,
         }
     }
 }
 
+#[derive(Debug)]
 pub struct UpstreamClient {
     pub config: UpstreamConfig,
     pub http: reqwest::Client,

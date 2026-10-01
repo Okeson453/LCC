@@ -1,14 +1,15 @@
 //! identity-svc canonical HTTP router.
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{get, post},
     Router,
 };
 
 use crate::{http::handlers, state::AppState};
 
 pub fn build_router(state: AppState) -> Router {
-    Router::new()
+    // Sub-routers share `AppState`; `.with_state(state)` erases it at the end.
+    Router::<AppState>::new()
         .merge(crate::health::router())
         // Canonical namespace per contract_audit/openapi/lcc-api-canonical.yaml
         .route(

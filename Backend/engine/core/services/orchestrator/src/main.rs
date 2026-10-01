@@ -5,8 +5,11 @@ use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    lcc_observability::init_tracing("lcc-orchestrator");
-
+    // Tracing is best-effort: a malformed RUST_LOG must not stop the
+    // service from serving, so a failure is reported and startup continues.
+    if let Err(e) = lcc_observability::init_tracing("lcc-orchestrator") {
+        eprintln!("[lcc-orchestrator] tracing init failed: {e}");
+    }
     let cfg = lcc_orchestrator::config::Config::from_env()?;
     let db_pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(20)

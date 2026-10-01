@@ -122,12 +122,13 @@ impl Service {
         ttl_days: Option<i64>,
     ) -> Result<ConsentRecord, Error> {
         let expires_at = ttl_days.map(|d| Utc::now() + chrono::Duration::days(d));
-        let next_version = self
-            .repo
-            .get_consent(member_id, kind)
-            .map(|c| c.version + 1)
-            .await
-            .unwrap_or(1);
+        // First grant starts at version 1; a re-grant bumps the existing one.
+        // Only a missing record falls back to 1 — a real DB failure is surfaced.
+        let next_version = match self.repo.get_consent(member_id, kind).await {
+            Ok(c) => c.version + 1,
+            Err(Error::NotFound(_)) => 1,
+            Err(e) => return Err(e),
+        };
         let c = ConsentRecord {
             id: Uuid::new_v4(),
             member_id,

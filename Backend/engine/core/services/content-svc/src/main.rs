@@ -2,7 +2,11 @@ use std::net::SocketAddr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    lcc_observability::init_tracing("lcc-content-svc");
+    // Tracing is best-effort: a malformed RUST_LOG must not stop the
+    // service from serving, so a failure is reported and startup continues.
+    if let Err(e) = lcc_observability::init_tracing("lcc-content-svc") {
+        eprintln!("[lcc-content-svc] tracing init failed: {e}");
+    }
     let cfg = lcc_content_svc::config::Config::from_env()?;
     let db = sqlx::postgres::PgPoolOptions::new()
         .max_connections(20)

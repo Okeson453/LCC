@@ -117,7 +117,9 @@ pub struct ContentMetrics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityCheckResult {
     pub passed: bool,
-    pub loop: i32,
+    /// Raw identifier: `loop` is a Rust keyword. serde still emits the field
+    /// as "loop" on the wire, matching the contract.
+    pub r#loop: i32,
     pub issues: Vec<String>,
     pub auto_fixes: Vec<String>,
     pub evaluated_at: DateTime<Utc>,

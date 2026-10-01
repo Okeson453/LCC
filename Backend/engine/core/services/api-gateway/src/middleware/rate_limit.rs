@@ -92,7 +92,7 @@ pub enum RateDecision {
 pub async fn rate_limit(
     State(state): State<AppState>,
     connect_info: Option<ConnectInfo<SocketAddr>>,
-    mut req: Request<Body>,
+    req: Request<Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Prefer the JWT-derived identity; fall back to peer address. Never trust
@@ -113,12 +113,12 @@ pub async fn rate_limit(
         let retry_after = ((reset_ms - now_ms).max(0) as f64 / 1000.0).ceil() as u64;
         let mut response = (
             StatusCode::TOO_MANY_REQUESTS,
-            serde_json::json!({
+            axum::Json(serde_json::json!({
                 "error": { "code": "rate_limited", "message": "request quota exceeded" }
-            }),
+            })),
         )
             .into_response();
-        set_i64(&mut response, header::RETRY_AFTER, retry_after as i64);
+        set_i64(&mut response, header::RETRY_AFTER.as_str(), retry_after as i64);
         set_i64(&mut response, "x-ratelimit-limit", max as i64);
         set_i64(&mut response, "x-ratelimit-remaining", 0);
         set_i64(&mut response, "x-ratelimit-reset", (reset_ms / 1000).max(0));

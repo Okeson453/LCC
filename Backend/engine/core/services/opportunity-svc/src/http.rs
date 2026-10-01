@@ -33,7 +33,7 @@ async fn list(
     State(state): State<AppState>, headers: HeaderMap, Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    let st = q.status.as_deref().map(parse_status).transpose()?;
+    let st = q.status.as_deref().map(parse_status).transpose()?.flatten();
     let v = state.service().list(m, st, q.limit.unwrap_or(50).min(200)).await?;
     Ok(Json(json!({"opportunities":v})))
 }
@@ -130,7 +130,13 @@ fn auth(headers: &HeaderMap) -> Result<Uuid, Error> {
     Uuid::parse_str(&claims.sub).map_err(|_| Error::Unauthorized)
 }
 
+/// Parse a status token. Returns `None` only for the empty string, which the
+/// list filter uses to mean "no status filter"; the transition endpoint
+/// requires a real status and rejects an empty one.
 fn parse_status(s: &str) -> Result<Option<OpportunityStatus>, Error> {
+    if s.is_empty() {
+        return Ok(None);
+    }
     Ok(Some(match s {
         "discovered" => OpportunityStatus::Discovered,
         "qualified" => OpportunityStatus::Qualified,
@@ -142,7 +148,6 @@ fn parse_status(s: &str) -> Result<Option<OpportunityStatus>, Error> {
         "rejected" => OpportunityStatus::Rejected,
         "closed" => OpportunityStatus::Closed,
         "withdrawn" => OpportunityStatus::Withdrawn,
-        "" => return Ok(None),
         other => return Err(Error::Validation(format!("unknown status {other}"))),
     }))
 }

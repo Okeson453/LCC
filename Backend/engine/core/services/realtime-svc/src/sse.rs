@@ -12,7 +12,6 @@ use axum::{
         IntoResponse,
     },
 };
-use futures::stream::Stream;
 use serde::Serialize;
 use std::convert::Infallible;
 use std::time::Duration;
@@ -44,6 +43,9 @@ pub async fn sse_handler(
 
     let mut rx = state.broadcast(ch).subscribe();
 
+    // The stream body needs its own handle; the outer scope still reads
+    // config for the keep-alive interval after the stream is built.
+    let stream_state = state.clone();
     let stream = async_stream::stream! {
         // Initial hello event so the client knows the channel.
         yield Ok::<_, Infallible>(Event::default()
@@ -55,7 +57,7 @@ pub async fn sse_handler(
             }).to_string()));
 
         // Heartbeat.
-        let mut hb = tokio::time::interval(Duration::from_secs(state.config().heartbeat_seconds));
+        let mut hb = tokio::time::interval(Duration::from_secs(stream_state.config().heartbeat_seconds));
         hb.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         loop {

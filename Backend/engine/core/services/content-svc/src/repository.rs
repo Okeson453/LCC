@@ -10,7 +10,34 @@ use crate::error::Error;
 
 #[derive(Clone)]
 pub struct PgRepository {
-    pool: PgPool,
+    pub pool: PgPool,
+}
+
+/// One `lcc.content_items` row.
+///
+/// A named struct rather than a tuple: the projection has 19 columns and sqlx
+/// only implements `FromRow` for tuples up to arity 16.
+#[derive(Debug, sqlx::FromRow)]
+pub struct ContentRow {
+    pub id: Uuid,
+    pub member_id: Uuid,
+    pub state: String,
+    pub title: String,
+    pub body: String,
+    pub rendered_body_hash: Option<String>,
+    pub kind: String,
+    pub topic: String,
+    pub voice_style_kb_id: Option<Uuid>,
+    pub pinned_kb_ids: Vec<Uuid>,
+    pub metrics: JsonValue,
+    pub quality_loop_count: i32,
+    pub idempotency_key: Option<String>,
+    pub expected_version: i32,
+    pub version: i32,
+    pub scheduled_at: Option<DateTime<Utc>>,
+    pub published_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl PgRepository {
@@ -24,27 +51,7 @@ impl PgRepository {
         state: Option<ContentState>,
         limit: i64,
     ) -> Result<Vec<ContentItem>, Error> {
-        let rows: Vec<(
-            Uuid,
-            Uuid,
-            String,
-            String,
-            String,
-            Option<String>,
-            String,
-            String,
-            Option<Uuid>,
-            Vec<Uuid>,
-            JsonValue,
-            i32,
-            Option<String>,
-            i32,
-            i32,
-            Option<DateTime<Utc>>,
-            Option<DateTime<Utc>>,
-            DateTime<Utc>,
-            DateTime<Utc>,
-        )> = if let Some(state) = state {
+        let rows: Vec<ContentRow> = if let Some(state) = state {
             sqlx::query_as(
                 r#"
                 SELECT id, member_id, state::TEXT, title, body, rendered_body_hash,
@@ -86,13 +93,7 @@ impl PgRepository {
     }
 
     pub async fn get(&self, member_id: Uuid, id: Uuid) -> Result<ContentItem, Error> {
-        let row = sqlx::query_as::<_, (
-            Uuid, Uuid, String, String, String, Option<String>,
-            String, String, Option<Uuid>, Vec<Uuid>,
-            JsonValue, i32, Option<String>,
-            i32, i32, Option<DateTime<Utc>>, Option<DateTime<Utc>>,
-            DateTime<Utc>, DateTime<Utc>,
-        )>(
+        let row = sqlx::query_as::<_, ContentRow>(
             r#"
             SELECT id, member_id, state::TEXT, title, body, rendered_body_hash,
                    kind::TEXT, topic, voice_style_kb_id, pinned_kb_ids,
@@ -250,7 +251,7 @@ impl PgRepository {
         .bind(Uuid::new_v4())
         .bind(id)
         .bind(q.passed)
-        .bind(q.loop)
+        .bind(q.r#loop)
         .bind(&q.issues)
         .bind(&q.auto_fixes)
         .bind(q.evaluated_at)
@@ -269,55 +270,33 @@ impl PgRepository {
     }
 }
 
-pub fn map_row(
-    row: (
-        Uuid,
-        Uuid,
-        String,
-        String,
-        String,
-        Option<String>,
-        String,
-        String,
-        Option<Uuid>,
-        Vec<Uuid>,
-        JsonValue,
-        i32,
-        Option<String>,
-        i32,
-        i32,
-        Option<DateTime<Utc>>,
-        Option<DateTime<Utc>>,
-        DateTime<Utc>,
-        DateTime<Utc>,
-    ),
-) -> Result<ContentItem, Error> {
+pub fn map_row(row: ContentRow) -> Result<ContentItem, Error> {
     use serde_json::Value;
-    let state = serde_json::from_value::<ContentState>(Value::String(row.2.clone()))
+    let state = serde_json::from_value::<ContentState>(Value::String(row.state.clone()))
         .map_err(|e| Error::Internal(format!("state parse: {e}")))?;
-    let kind = serde_json::from_value::<ContentKind>(Value::String(row.6.clone()))
+    let kind = serde_json::from_value::<ContentKind>(Value::String(row.kind.clone()))
         .map_err(|e| Error::Internal(format!("kind parse: {e}")))?;
-    let metrics: ContentMetrics = serde_json::from_value(row.10)
+    let metrics: ContentMetrics = serde_json::from_value(row.metrics.clone())
         .map_err(|e| Error::Internal(format!("metrics parse: {e}")))?;
     Ok(ContentItem {
-        id: row.0,
-        member_id: row.1,
+        id: row.id,
+        member_id: row.member_id,
         state,
-        title: row.3,
-        body: row.4,
-        rendered_body_hash: row.5,
+        title: row.title,
+        body: row.body,
+        rendered_body_hash: row.rendered_body_hash,
         kind,
-        topic: row.7,
-        voice_style_kb_id: row.8,
-        pinned_kb_ids: row.9,
+        topic: row.topic,
+        voice_style_kb_id: row.voice_style_kb_id,
+        pinned_kb_ids: row.pinned_kb_ids,
         metrics,
-        quality_loop_count: row.11,
-        idempotency_key: row.12,
-        expected_version: row.13,
-        version: row.14,
-        scheduled_at: row.15,
-        published_at: row.16,
-        created_at: row.17,
-        updated_at: row.18,
+        quality_loop_count: row.quality_loop_count,
+        idempotency_key: row.idempotency_key,
+        expected_version: row.expected_version,
+        version: row.version,
+        scheduled_at: row.scheduled_at,
+        published_at: row.published_at,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
     })
 }

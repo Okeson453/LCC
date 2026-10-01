@@ -28,4 +28,12 @@ impl AppState {
     pub fn service(&self) -> &Service {
         &self.0.svc
     }
+    /// Direct pool access for health/readiness probes and for handlers that
+    /// need a transaction rather than a repository call.
+    pub fn db(&self) -> &sqlx::PgPool {
+        &self.0.db
+    }
+    pub fn redis(&self) -> &deadpool_redis::Pool {
+        &self.0.redis
+    }
 }

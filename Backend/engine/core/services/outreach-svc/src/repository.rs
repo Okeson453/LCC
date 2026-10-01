@@ -12,7 +12,7 @@ use crate::error::Error;
 
 #[derive(Clone)]
 pub struct PgRepository {
-    pool: PgPool,
+    pub pool: PgPool,
 }
 
 impl PgRepository {

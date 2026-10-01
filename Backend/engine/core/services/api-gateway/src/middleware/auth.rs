@@ -79,11 +79,14 @@ pub async fn require_auth(
 
     let token = auth_header
         .strip_prefix("Bearer ")
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .ok_or(StatusCode::UNAUTHORIZED)?
+        // Owned up front: `auth_header` borrows `req`, and the request is
+        // mutated below to stamp the derived member id.
+        .to_string();
 
     let verifier: &Arc<JwtVerifier> = state.jwt_verifier();
     let claims: JwtClaims = verifier
-        .verify(token)
+        .verify(&token)
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
     // `sub` is the member_id. A non-UUID subject is a malformed token.
@@ -101,15 +104,14 @@ pub async fn require_auth(
 
     // Overwrite (never trust) the member id header handed downstream.
     if let Ok(value) = HeaderValue::from_str(&member_id.to_string()) {
-        if let Ok(name) = axum::http::HeaderName::from_static(MEMBER_ID_HEADER) {
-            req.headers_mut().insert(name, value);
-        }
+        let name = axum::http::HeaderName::from_static(MEMBER_ID_HEADER);
+        req.headers_mut().insert(name, value);
     }
 
     req.extensions_mut().insert(AuthenticatedUser {
         claims: claims.clone(),
         member_id,
-        token: token.to_string(),
+        token,
     });
     req.extensions_mut().insert(claims);
 

@@ -5,10 +5,9 @@ use crate::audit::{emit, IntegrationAuditEntry};
 use crate::backoff::{BackoffTier, delay_for};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::error::IntegrationError;
-use crate::idempotency::IdempotencyStore;
-use crate::permit::{verifier::PermitError, verifier::PermitVerifier, ReplayGuard, ReplayGuardError};
+use crate::permit::{verifier::PermitError, ReplayGuard, ReplayGuardError};
 use crate::restriction::{detect_status_and_body, RestrictionSignal};
-use crate::router::{route, route_with_post_target, Track};
+use crate::router::{route_with_post_target, Track};
 use crate::state::IntegrationGatewayState;
 use chrono::Utc;
 use lcc_compliance::action::ActionType;
@@ -280,7 +279,7 @@ async fn execute_track_a(
             let resp = share_client::publish_ugc_post(http, access_token, &body, &req.idempotency_key).await?;
             Ok(resp.id)
         }
-        _ => Err(IntegrationError::LinkedIn(format!(
+        _ => Err(IntegrationError::linkedin_unknown(format!(
             "action_type={action_type:?} not supported by track_a"
         ))),
     }

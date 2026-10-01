@@ -1,7 +1,6 @@
 //! Publisher — async publisher to Redis Streams (Phase 1-2) or Kafka (Phase 3+).
 
 use deadpool_redis::Pool as RedisPool;
-use redis::AsyncCommands;
 use serde::Serialize;
 use thiserror::Error;
 
