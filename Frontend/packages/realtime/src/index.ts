@@ -18,9 +18,9 @@ export * from './hooks/use-engagement';
 export * from './hooks/use-compliance';
 export * from './hooks/use-sequence';
 
-export { useBriefing as useBriefingChannel };
-export { useCompliance as useComplianceChannel };
-export { useApprovals as useApprovalQueue };
+export { useBriefing as useBriefingChannel } from './hooks/use-briefing';
+export { useCompliance as useComplianceChannel } from './hooks/use-compliance';
+export { useApprovals as useApprovalQueue } from './hooks/use-approvals';
 export * from './utils/backoff';
 export * from './utils/heartbeat';
 export * from './utils/reconnection-state';

@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import Link from 'next/link';
 import { differenceInDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, Badge, LoadingSkeleton, ErrorState } from '@lcc/ui';
@@ -9,7 +8,6 @@ import { fetchCurrentMember } from '@/lib/api/members';
 import { getStaleContacts } from '@/lib/api/network';
 import { useQuery } from '@tanstack/react-query';
 
-export const metadata: Metadata = { title: 'Stale contacts' };
 
 export default function StalePage(): React.ReactElement {
   return <StaleClient />;

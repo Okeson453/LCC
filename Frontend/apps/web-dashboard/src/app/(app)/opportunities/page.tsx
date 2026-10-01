@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import Link from 'next/link';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, LoadingSkeleton, ErrorState } from '@lcc/ui';
@@ -8,7 +7,6 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { listOpportunities, discoverOpportunities } from '@/lib/api/opportunity';
 
-export const metadata: Metadata = { title: 'Opportunities' };
 
 export default function OpportunitiesPage(): React.ReactElement {
   return <Opps />;

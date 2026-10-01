@@ -1,13 +1,11 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Badge, LoadingSkeleton, ErrorState } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { listSequenceTemplates } from '@/lib/api/outreach';
 
-export const metadata: Metadata = { title: 'Templates' };
 
 export default function TemplatesPage(): React.ReactElement {
   return <Templates />;

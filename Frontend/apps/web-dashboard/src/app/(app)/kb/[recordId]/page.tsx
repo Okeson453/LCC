@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, LoadingSkeleton, ErrorState, Textarea, Input } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
@@ -8,7 +7,6 @@ import { fetchCurrentMember } from '@/lib/api/members';
 import { getKbRecord, updateKbRecord } from '@/lib/api/kb';
 import { useState, useEffect } from 'react';
 
-export const metadata: Metadata = { title: 'KB record' };
 
 export default function KbRecordPage({ params }: { params: { recordId: string } }): React.ReactElement {
   return <Record recordId={params.recordId} />;

@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -10,7 +9,6 @@ import { fetchCurrentMember } from '@/lib/api/members';
 import { createKbRecord } from '@/lib/api/kb';
 import type { KbCategory } from '@lcc/api-types';
 
-export const metadata: Metadata = { title: 'New KB record' };
 
 export default function NewKbPage(): React.ReactElement {
   return <NewKb />;

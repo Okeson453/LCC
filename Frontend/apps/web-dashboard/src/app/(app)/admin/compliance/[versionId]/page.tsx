@@ -1,12 +1,10 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Badge, LoadingSkeleton, ErrorState } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 
-export const metadata: Metadata = { title: 'Compliance version' };
 
 export default function ComplianceVersionPage({ params }: { params: { versionId: string } }): React.ReactElement {
   return <Version versionId={params.versionId} />;

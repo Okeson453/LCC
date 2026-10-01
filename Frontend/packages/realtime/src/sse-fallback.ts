@@ -16,7 +16,7 @@ export interface SseOptions {
   onMessage: (env: EventEnvelope<unknown>) => void;
   onStatusChange: (status: RealtimeStatus) => void;
   /** Override EventSource (useful for tests). */
-  EventSourceImpl?: typeof EventSource;
+  EventSourceImpl?: typeof EventSource | undefined;
 }
 
 export class SseConnection {

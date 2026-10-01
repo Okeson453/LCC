@@ -32,6 +32,7 @@ export * from './primitives/progress';
 export * from './primitives/alert';
 export * from './primitives/toast';
 export * from './primitives/toaster';
+export { Toaster } from './primitives/toaster';
 export * from './primitives/sonner';
 export * from './primitives/accordion';
 export * from './primitives/collapsible';
@@ -64,6 +65,11 @@ export * from './theme/mode-toggle';
 
 // Icons
 export * from './icons';
+export { Badge } from './primitives/badge';
+export { Calendar } from './primitives/calendar';
+export { Command } from './primitives/command';
+export { Sheet } from './primitives/sheet';
+export { Table } from './primitives/table';
 
 // A11y
 export * from './a11y/skip-nav';

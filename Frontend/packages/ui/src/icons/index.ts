@@ -4,5 +4,5 @@
 
 export * from 'lucide-react';
 export * from './custom/linkedin';
-export * from './custom/handshake';
-export * from './custom/briefcase';
+export { HandshakeIcon } from './custom/handshake';
+export { BriefcaseIcon } from './custom/briefcase';

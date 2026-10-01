@@ -1,13 +1,11 @@
 'use client';
 
-import { Metadata } from 'next';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, LoadingSkeleton, ErrorState } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 
-export const metadata: Metadata = { title: 'Analytics' };
 
 export default function AnalyticsHome(): React.ReactElement {
   return <Home />;

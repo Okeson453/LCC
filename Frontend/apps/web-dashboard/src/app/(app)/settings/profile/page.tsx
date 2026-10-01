@@ -1,13 +1,11 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, LoadingSkeleton, ErrorState } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 
-export const metadata: Metadata = { title: 'Profile settings' };
 
 export default function ProfileSettingsPage(): React.ReactElement {
   return <ProfileSettings />;

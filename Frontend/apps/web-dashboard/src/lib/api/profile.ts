@@ -52,3 +52,8 @@ export async function getProfile(memberId: string): Promise<ProfileView> {
     captured_at: snap.created_at,
   };
 }
+
+// ─── Aliases used by profile-shell-client ────────────────────────────────────
+export const getProfileAudit = runProfileAudit;
+export const getProfileEdits = generateEditDrafts;
+export const getProfileHistory = fetchStrengthHistory;

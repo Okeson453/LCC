@@ -6,7 +6,7 @@
  * shape is kept minimal and includes a custom profile mapper.
  */
 
-import type { OAuthConfig } from 'next-auth/providers';
+import type { OAuthConfig } from 'next-auth/providers/oauth-types';
 
 interface LinkedInProfile {
   sub: string;

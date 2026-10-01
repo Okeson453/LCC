@@ -4,7 +4,7 @@
  */
 import * as React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getAccessToken } from '../lib/storage';
+import { getAccessToken } from '../../lib/storage';
 
 export function useExtensionToken(): { hasToken: boolean | null } {
   const q = useQuery({ queryKey: ['ext', 'token'], queryFn: () => getAccessToken() });

@@ -298,7 +298,7 @@ export function ApprovalDialog({
           {/* Permit token (debug-only) */}
           {evaluation?.permitToken ? (
             <PermitTokenView
-              permitToken={evaluation.permitToken}
+              permitToken={evaluation.permitToken.value}
               expiresAt={evaluation.expiresAt}
               traceId={traceId}
             />

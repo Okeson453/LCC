@@ -1,5 +1,3 @@
-import type { Metadata } from 'next';
-
 export type AnalyticsShellProps = { title: string; subtitle: string };
 
 export const AnalyticsPageShells = [

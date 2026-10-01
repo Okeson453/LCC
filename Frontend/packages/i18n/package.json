@@ -12,7 +12,9 @@
     "./provider": "./src/provider.tsx",
     "./use-translation": "./src/use-translation.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
@@ -26,5 +28,8 @@
   },
   "dependencies": {
     "next-intl": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0"
   }
 }

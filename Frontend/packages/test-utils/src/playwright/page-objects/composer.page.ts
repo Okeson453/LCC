@@ -6,7 +6,7 @@ export class ComposerPage extends BasePage {
     super(page);
   }
 
-  async goto(): Promise<void> {
+  override async goto(): Promise<void> {
     await this.page.goto('/content/new');
   }
 

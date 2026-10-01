@@ -3,11 +3,11 @@ import { ACTION_TYPE_TO_TIER } from "@lcc/api-types/manual/risk-tier";
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, Send, Shield } from 'lucide-react';
 import { Button, Textarea, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Alert, AlertTitle, AlertDescription } from '@lcc/ui';
 import { ApprovalDialog, useApprovalDialog } from '@lcc/approval-gate';
-import { RiskTierBadge, KbCitationsList } from 'approval-gate';
+import { RiskTierBadge, KbCitationsList } from '@lcc/approval-gate';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { composeContent, createContent, runQualityCheck, submitForApproval, scheduleContent } from '@/lib/api/content';
@@ -195,8 +195,8 @@ function SubmitForApprovalButton({ memberId, body, onSubmitted }: { memberId: st
           kbRefs={[]}
           traceId={submit.data.trace_id}
           idempotencyKey={submit.data.idempotency_key ?? ''}
-          onApprove={() => { qc.invalidateQueries({ queryKey: ['content'] }); console.info('[composer] content approved:', createdId); }}
-          onReject={() => { console.warn('[composer] approval declined:', createdId); }}
+          onApprove={() => { qc.invalidateQueries({ queryKey: ['content'] }); logger.info('[composer] content approved', { createdId }); }}
+          onReject={() => { logger.warn('[composer] approval declined', { createdId }); }}
         />
       ) : null}
     </>

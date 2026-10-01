@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      '@lcc/tokens/css': resolve(__dirname, '../../packages/tokens/src/css/index.css'),
       '@lcc/tokens': resolve(__dirname, '../../packages/tokens/src/index.ts'),
       '@lcc/ui': resolve(__dirname, '../../packages/ui/src/index.ts'),
       '@lcc/api-types': resolve(__dirname, '../../packages/api-types/src/index.ts'),

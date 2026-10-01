@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { FocusTrap as RadixFocusTrap } from '@radix-ui/react-focus-scope';
+import { FocusScope as RadixFocusTrap } from '@radix-ui/react-focus-scope';
 
 export interface FocusTrapProps {
   children: React.ReactNode;

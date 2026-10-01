@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -9,7 +8,6 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { createSequence, listSequenceTemplates } from '@/lib/api/outreach';
 
-export const metadata: Metadata = { title: 'New sequence' };
 
 export default function NewSequencePage(): React.ReactElement {
   return <NewSequence />;

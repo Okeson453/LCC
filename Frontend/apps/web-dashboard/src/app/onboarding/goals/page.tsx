@@ -31,9 +31,11 @@ export default function GoalsStep(): React.ReactElement {
           {(['job_hunting', 'client_acquisition', 'hybrid'] as const).map((mode) => (
             <label
               key={mode}
+              htmlFor={`goal-mode-${mode}`}
               className="flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors hover:bg-muted/40"
             >
               <input
+                id={`goal-mode-${mode}`}
                 type="radio"
                 name="goal"
                 value={mode}
@@ -41,6 +43,7 @@ export default function GoalsStep(): React.ReactElement {
                 onChange={() => setGoal(mode)}
                 className="mt-1"
               />
+              <span className="sr-only">{mode === 'job_hunting' ? 'Job hunting' : mode === 'client_acquisition' ? 'Client acquisition' : 'Hybrid'}</span>
               <div>
                 <p className="text-sm font-medium">
                   {mode === 'job_hunting' && 'Job hunting'}

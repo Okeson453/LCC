@@ -1,5 +1,6 @@
 'use client';
 
+import { logger } from '@lcc/test-utils/mocks/logger';
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Textarea, Button, LoadingSkeleton, ErrorState } from '@lcc/ui';
@@ -93,7 +94,7 @@ function Reply({ memberId, taskId }: { memberId: string; taskId: string }): Reac
           kbRefs={[]}
           traceId=""
           idempotencyKey={idempotencyKey}
-          onApprove={() => { qc.invalidateQueries({ queryKey: ['engagement', 'queue', memberId] }); console.info('[reply] reply approved - clearing task from queue'); setShowApproval(false); }}
+          onApprove={() => { qc.invalidateQueries({ queryKey: ['engagement', 'queue', memberId] }); logger.info('[reply] reply approved - clearing task from queue'); setShowApproval(false); }}
           onReject={async () => setShowApproval(false)}
         />
       </div>

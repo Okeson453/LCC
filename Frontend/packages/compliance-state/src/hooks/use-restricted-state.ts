@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useRestrictedState — exposes the current restriction state.
  *
@@ -7,7 +9,7 @@
 
 import * as React from 'react';
 import type { RestrictionStateDTO } from '@lcc/api-types';
-import { deriveRestrictionState, type DerivedRestrictionState } from '../utils/state-derivation';
+import type { DerivedRestrictionState } from '../utils/state-derivation';
 
 export interface UseRestrictedStateResult {
   raw: RestrictionStateDTO | null;

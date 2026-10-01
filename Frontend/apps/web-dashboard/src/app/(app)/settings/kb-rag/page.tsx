@@ -1,12 +1,10 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, LoadingSkeleton, ErrorState, Input } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 
-export const metadata: Metadata = { title: 'KB & RAG' };
 
 export default function KbRagPage(): React.ReactElement {
   return <KbRag />;

@@ -6,6 +6,8 @@ import { useTranslations as useNextIntlTranslations } from 'next-intl';
 import type { Namespace } from './config';
 
 export type TypedTranslations<N extends Namespace> = {
+  /** Namespace this translation set is bound to (compile-time only). */
+  __namespace?: N;
   (key: string, params?: Record<string, string | number>): string;
   /** Strongly-typed accessor when key is a known string literal. */
   rich: (key: string, values: Record<string, (chunks: React.ReactNode) => React.ReactNode>) => React.ReactNode;

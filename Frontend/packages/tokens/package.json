@@ -10,9 +10,13 @@
     ".": "./src/index.ts",
     "./css/*": "./src/css/*",
     "./ts/*": "./src/ts/*",
-    "./tailwind": "./tailwind-preset.cjs"
+    "./tailwind": "./tailwind-preset.cjs",
+    "./tailwind-preset.cjs": "./tailwind-preset.cjs"
   },
-  "files": ["src", "tailwind-preset.cjs"],
+  "files": [
+    "src",
+    "tailwind-preset.cjs"
+  ],
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

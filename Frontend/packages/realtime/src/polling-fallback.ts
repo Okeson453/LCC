@@ -17,7 +17,7 @@ export interface PollingOptions {
   onUpdate: (data: unknown) => void;
   onStatusChange: (status: RealtimeStatus) => void;
   /** Override fetch (useful for tests). */
-  fetchImpl?: typeof fetch;
+  fetchImpl?: typeof fetch | undefined;
 }
 
 export class PollingConnection {

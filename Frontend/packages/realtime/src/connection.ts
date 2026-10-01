@@ -26,7 +26,7 @@ export interface WsConnectionOptions {
   onMessage: (envelope: EventEnvelope<unknown>) => void;
   onStatusChange: (status: RealtimeStatus) => void;
   /** Override the WebSocket constructor (useful for tests). */
-  WebSocketImpl?: typeof WebSocket;
+  WebSocketImpl?: typeof WebSocket | undefined;
 }
 
 export class WsConnection {

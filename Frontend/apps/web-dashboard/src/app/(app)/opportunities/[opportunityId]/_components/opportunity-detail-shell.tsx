@@ -1,11 +1,13 @@
 'use client';
 
+import { logger } from '@lcc/test-utils/mocks/logger';
 import * as React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, LoadingSkeleton, ErrorState, Tabs, TabsList, TabsTrigger, TabsContent } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getOpportunity, draftProposal } from '@/lib/api/opportunity';
+import type { OpportunityDetail } from '@lcc/api-types';
 
 export function OpportunityDetailShell({ opportunityId }: { opportunityId: string }): React.ReactElement {
   const memberQuery = useQuery({ queryKey: ['members', 'me'] as const, queryFn: fetchCurrentMember });
@@ -42,8 +44,8 @@ const q = useQuery({
                 variant={o.status === s ? 'default' : 'outline'}
                 className="capitalize"
                 onClick={() => {
-                  qc.setQueryData(['opportunity', 'item', memberId, opportunityId], (prev: any) => (prev ? ({ ...prev, status: s } as any) : prev));
-                  console.log('[opportunity] stage optimistically set to', s);
+                  qc.setQueryData<OpportunityDetail>(['opportunity', 'item', memberId, opportunityId], (prev) => (prev ? { ...prev, status: s } : prev));
+                  logger.info('[opportunity] stage optimistically set', { stage: s });
                 }}
                 type="button"
               >

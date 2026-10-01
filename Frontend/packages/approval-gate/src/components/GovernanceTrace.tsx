@@ -52,7 +52,7 @@ export function GovernanceTrace({
         {evaluation.permitToken ? (
           <dl className="mt-2 grid grid-cols-2 gap-1 text-xs">
             <dt className="text-muted-foreground">permit_token</dt>
-            <dd className="font-mono">{evaluation.permitToken}</dd>
+            <dd className="font-mono">{evaluation.permitToken.value}</dd>
             {evaluation.expiresAt ? (
               <>
                 <dt className="text-muted-foreground">expires_at</dt>

@@ -1,11 +1,9 @@
 'use client';
 
-import { Metadata } from 'next';
 import { Card, CardContent, CardHeader, CardTitle, Switch } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { useState } from 'react';
 
-export const metadata: Metadata = { title: 'Notifications' };
 
 export default function NotificationsPage(): React.ReactElement {
   const [email, setEmail] = useState(true);

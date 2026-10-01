@@ -1,7 +1,7 @@
 'use client';
-import { ACTION_TYPE_TO_TIER } from "@lcc/api-types/manual/risk-tier";
 
-import { Metadata } from 'next';
+import { logger } from '@lcc/test-utils/mocks/logger';import { ACTION_TYPE_TO_TIER } from "@lcc/api-types/manual/risk-tier";
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Textarea, LoadingSkeleton, ErrorState } from '@lcc/ui';
@@ -10,7 +10,6 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getOpportunity, draftProposal } from '@/lib/api/opportunity';
 
-export const metadata: Metadata = { title: 'Proposal' };
 
 export default function ProposalPage({ params }: { params: { opportunityId: string } }): React.ReactElement {
   return <Builder opportunityId={params.opportunityId} />;
@@ -36,7 +35,7 @@ function Form({ memberId, opportunityId }: { memberId: string; opportunityId: st
 
   const submit = useMutation({
     mutationFn: () => draftProposal(memberId, opportunityId),
-    onSuccess: () => { setShowApproval(false); console.log('[proposal] submitted for approval (backend send-proposal pending)'); },
+    onSuccess: () => { setShowApproval(false); logger.info('[proposal] submitted for approval (backend send-proposal pending)'); },
   });
 
 

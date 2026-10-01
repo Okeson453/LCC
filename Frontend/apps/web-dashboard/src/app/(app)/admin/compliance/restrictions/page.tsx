@@ -1,12 +1,10 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, LoadingSkeleton, ErrorState, Badge } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 
-export const metadata: Metadata = { title: 'Member restrictions' };
 
 export default function RestrictionsPage(): React.ReactElement {
   return <Restrictions />;

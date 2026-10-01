@@ -5,10 +5,18 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@lcc/ui';
+import { SessionProvider } from './session-wrapper';
 import { I18nProvider, getMessages, DEFAULT_LOCALE } from '@lcc/i18n';
 import { SkipNav } from '@lcc/ui';
 import { Providers } from './providers';
 import '../styles/globals.css';
+
+// Auth-gated dashboard: every page reads the NextAuth session client-side.
+// next-auth v4's useSession returns undefined (instead of throwing) during
+// build-time static prerender in production, which crashes page-data
+// collection. These pages cannot render meaningfully without a session, so
+// prerender them dynamically instead.
+export const dynamic = 'force-dynamic';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
 
@@ -55,7 +63,12 @@ export default function RootLayout({
         <ThemeProvider defaultTheme="dark" storageKey="lcc.theme">
           <I18nProvider locale={DEFAULT_LOCALE} messages={getMessages(DEFAULT_LOCALE)}>
             <SkipNav />
-            <Providers>{children}</Providers>
+            {/* SessionProvider must sit ABOVE Providers: Providers' own body calls
+                useSession() via useClientSession, and a context value is only
+                visible to a hook's component if the provider is a PARENT. */}
+            <SessionProvider>
+              <Providers>{children}</Providers>
+            </SessionProvider>
           </I18nProvider>
         </ThemeProvider>
       </body>

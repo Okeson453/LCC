@@ -4,7 +4,7 @@
  * From schemas/openapi/api-gateway.yaml — Analytics resources.
  */
 
-import type { UUID, DateTime } from './common';
+import type { DateTime } from './common';
 
 export interface ContentAnalytics {
   impressions: number;

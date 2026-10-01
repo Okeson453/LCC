@@ -27,7 +27,7 @@ import { ApprovalDialogProvider } from '@lcc/approval-gate';
 import { getRealtimeClient, useWsBridges } from '@/lib/realtime';
 import { useClientSession } from '@/lib/auth/client-session';
 import { publicEnv } from '@/lib/utils/env';
-import { fetchRestrictionState } from '@/lib/api/admin';
+import { getRestrictionState } from '@/lib/api/admin';
 import { listComplianceConfigVersions } from '@/lib/api/admin';
 import { CopilotRoot } from '@/components/copilot/CopilotRoot';
 import { Skeleton } from '@lcc/ui';
@@ -80,7 +80,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }): React.Reac
   return (
     <ComplianceProvider
       realtimeClient={realtimeClient}
-      fetcher={async () => fetchRestrictionState(memberId)}
+      fetcher={async () => getRestrictionState(memberId)}
       configFetcher={async () => {
         try {
           const versions = await listComplianceConfigVersions();

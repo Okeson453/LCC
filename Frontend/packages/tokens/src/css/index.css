@@ -1,0 +1,8 @@
+/* All design tokens — import this single entry to get every token layer. */
+@import './colors.css';
+@import './spacing.css';
+@import './typography.css';
+@import './radius.css';
+@import './shadow.css';
+@import './motion.css';
+@import './tier.css';

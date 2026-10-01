@@ -1,5 +1,6 @@
 'use client';
 
+import { logger } from '@lcc/test-utils/mocks/logger';
 import * as React from 'react';
 import { Button } from '@lcc/ui';
 import { useApprovalDialog } from '@lcc/approval-gate';
@@ -50,8 +51,8 @@ export function ActionProposalCard({ proposal, className }: ActionProposalCardPr
               kbRefs: (proposal.payload.kb_refs as never) ?? [],
               traceId: String(proposal.payload.trace_id ?? ''),
               idempotencyKey: String(proposal.payload.idempotency_key ?? ''),
-              onApprove: async () => { dialog.close(); setDecided('approve'); console.info('[ActionProposalCard] approved:', proposal.kind, proposal.payload.id ?? proposal.payload.approval_id ?? ''); setTimeout(() => setDecided(null), 2500); },
-              onReject: async () => { dialog.close(); setDecided('reject'); console.info('[ActionProposalCard] rejected:', proposal.kind, proposal.payload.id ?? proposal.payload.approval_id ?? ''); setTimeout(() => setDecided(null), 2500); },
+              onApprove: async () => { dialog.close(); setDecided('approve'); logger.info('[ActionProposalCard] approved', { kind: proposal.kind }); setTimeout(() => setDecided(null), 2500); },
+              onReject: async () => { dialog.close(); setDecided('reject'); logger.info('[ActionProposalCard] rejected', { kind: proposal.kind }); setTimeout(() => setDecided(null), 2500); },
             })
           }
           type="button"

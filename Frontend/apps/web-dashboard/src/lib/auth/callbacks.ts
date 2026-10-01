@@ -15,6 +15,8 @@ export interface LccSession extends Session {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    /** Role issued by the backend JWT; drives RBAC checks (see lib/auth/rbac.ts). */
+    role?: 'member' | 'admin' | 'super_admin';
   };
 }
 

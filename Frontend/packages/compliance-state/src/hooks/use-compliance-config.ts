@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * useComplianceConfig — exposes the active ComplianceConfigVersion.
  *
@@ -18,6 +20,9 @@ export interface ComplianceConfigContextValue {
 }
 
 const Ctx = React.createContext<ComplianceConfigContextValue | null>(null);
+
+/** Context carrying the active compliance config; provided by ComplianceProvider. */
+export const ComplianceConfigContext = Ctx;
 
 export function useComplianceConfig(): ComplianceConfigVersion | null {
   const ctx = React.useContext(Ctx);

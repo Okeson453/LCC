@@ -34,6 +34,7 @@ export function ComplianceProvider({
 }: ComplianceProviderProps): React.ReactElement {
   const [raw, setRaw] = React.useState<RestrictionStateDTO | null>(null);
   const [config, setConfig] = React.useState<ComplianceConfigVersion | null>(null);
+  const [configLoading, setConfigLoading] = React.useState(true);
 
   const refetchRestriction = React.useCallback(async () => {
     try {
@@ -47,12 +48,15 @@ export function ComplianceProvider({
   }, [fetcher]);
 
   const refetchConfig = React.useCallback(async () => {
+    setConfigLoading(true);
     try {
       const next = await configFetcher();
       setConfig(next);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('[compliance-state] config refetch failed:', (e as Error).message);
+    } finally {
+      setConfigLoading(false);
     }
   }, [configFetcher]);
 
@@ -97,9 +101,10 @@ export function ComplianceProvider({
   const configValue = React.useMemo<ComplianceConfigContextValue>(
     () => ({
       config,
+      isLoading: configLoading,
       refetch: refetchConfig,
     }),
-    [config, refetchConfig],
+    [config, configLoading, refetchConfig],
   );
 
   return (

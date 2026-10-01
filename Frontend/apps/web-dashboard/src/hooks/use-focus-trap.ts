@@ -38,7 +38,7 @@ export function useFocusTrap<T extends HTMLElement>(active = true): React.RefObj
     }
 
     root.addEventListener('keydown', onKeyDown);
-    first?.focus();
+    focusables[0]?.focus();
 
     return () => {
       root.removeEventListener('keydown', onKeyDown);

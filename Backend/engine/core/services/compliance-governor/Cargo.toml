@@ -6,16 +6,16 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-lcc-auth = { path = "../../../crates/auth" }
-lcc-compliance = { path = "../../../crates/compliance" }
-lcc-db = { path = "../../../crates/db" }
-lcc-events = { path = "../../../crates/events" }
-lcc-audit-client = { path = "../../../crates/audit-client" }
-lcc-observability = { path = "../../../crates/observability" }
-lcc-security = { path = "../../../crates/security" }
-lcc-proto = { path = "../../../crates/proto" }
-lcc-config = { path = "../../../crates/config" }
-lcc-error = { path = "../../../crates/error" }
+lcc-auth = { path = "../../../../crates/auth" }
+lcc-compliance = { path = "../../../../crates/compliance" }
+lcc-db = { path = "../../../../crates/db" }
+lcc-events = { path = "../../../../crates/events" }
+lcc-audit-client = { path = "../../../../crates/audit-client" }
+lcc-observability = { path = "../../../../crates/observability" }
+lcc-security = { path = "../../../../crates/security" }
+lcc-proto = { path = "../../../../crates/proto" }
+lcc-config = { path = "../../../../crates/config" }
+lcc-error = { path = "../../../../crates/error" }
 
 axum = { workspace = true }
 tokio = { workspace = true }

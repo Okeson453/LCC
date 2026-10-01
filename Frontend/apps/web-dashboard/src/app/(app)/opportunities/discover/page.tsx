@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Button, LoadingSkeleton, ErrorState } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
@@ -8,7 +7,6 @@ import { fetchCurrentMember } from '@/lib/api/members';
 import { discoverOpportunities } from '@/lib/api/opportunity';
 import { useRouter } from 'next/navigation';
 
-export const metadata: Metadata = { title: 'Run discovery' };
 
 export default function DiscoverPage(): React.ReactElement {
   return <Discover />;

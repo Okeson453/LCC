@@ -1,11 +1,10 @@
 import * as React from 'react';
-import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth/server';
+import { getServerAuthSession } from '@/lib/auth/session';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lcc/ui';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }): Promise<React.ReactElement> {
-  const session = await auth();
-  if (!session || session.user.role !== 'admin') {
+  const session = await getServerAuthSession();
+  if (!session || session.user?.role !== 'admin') {
     return (
       <main className="flex min-h-[60vh] items-center justify-center p-6">
         <Card className="max-w-md">

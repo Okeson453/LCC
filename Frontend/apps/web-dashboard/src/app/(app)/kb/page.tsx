@@ -1,6 +1,5 @@
 'use client';
 
-import { Metadata } from 'next';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Button, LoadingSkeleton, ErrorState, Badge, Input, EmptyState } from '@lcc/ui';
@@ -10,7 +9,6 @@ import { listKbRecords } from '@/lib/api/kb';
 import { Plus, Search } from 'lucide-react';
 import React from 'react';
 
-export const metadata: Metadata = { title: 'Knowledge Base' };
 
 export default function KbPage(): React.ReactElement {
   return <Kb />;

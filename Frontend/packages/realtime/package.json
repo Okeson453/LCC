@@ -12,7 +12,9 @@
     "./hooks/*": "./src/hooks/*",
     "./utils/*": "./src/utils/*"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
@@ -27,5 +29,8 @@
   },
   "peerDependencies": {
     "react": ">=18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0"
   }
 }

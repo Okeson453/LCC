@@ -1,11 +1,9 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 
-export const metadata: Metadata = { title: 'Data export' };
 
 export default function DataExportPage(): React.ReactElement {
   return <Export />;

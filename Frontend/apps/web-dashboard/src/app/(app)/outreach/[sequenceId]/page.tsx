@@ -1,15 +1,13 @@
 'use client';
 
-import { Metadata } from 'next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, LoadingSkeleton, ErrorState, Tabs, TabsList, TabsTrigger, TabsContent } from '@lcc/ui';
 import { ApprovalDialog, useApprovalDialog } from '@lcc/approval-gate';
-import { RiskTierBadge } from 'approval-gate';
+import { RiskTierBadge } from '@lcc/approval-gate';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getSequence, approveStep, pauseSequence } from '@/lib/api/outreach';
 
-export const metadata: Metadata = { title: 'Sequence' };
 
 export default function SequencePage({ params }: { params: { sequenceId: string } }): React.ReactElement {
   return <Detail sequenceId={params.sequenceId} />;
@@ -26,7 +24,7 @@ function Body({ memberId, sequenceId }: { memberId: string; sequenceId: string }
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['outreach', 'sequence', memberId, sequenceId] as const, queryFn: () => getSequence(memberId, sequenceId) });
   const dialog = useApprovalDialog();
-  const [activeStep, setActiveStep] = useState<{ id: string; tier: 1 | 2 | 3 | 4 | 5; body: string; trace_id: string; idempotency_key: string; kb_refs: any[] } | null>(null);
+  const [activeStep, setActiveStep] = useState<{ id: string; tier: 1 | 2 | 3 | 4 | 5; body: string; trace_id: string; idempotency_key: string; kb_refs: readonly unknown[] } | null>(null);
 
   const approveMutation = useMutation({
     mutationFn: ({ stepId, decision, editedBody }: { stepId: string; decision: 'approve' | 'reject'; editedBody?: string }) =>
