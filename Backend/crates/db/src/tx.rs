@@ -137,6 +137,10 @@ impl<'a> AuditTx<'a> {
             AuditOutcome::Failed => "failed",
         };
 
+        // Fetch the previous checksum first: `prev_checksum()` borrows the
+        // transaction, so it must be awaited before the INSERT re-borrows it.
+        let prev_checksum = self.prev_checksum().await?;
+
         let row: (i64,) = sqlx::query_as(
             r#"
             INSERT INTO lcc_audit.events (
@@ -163,7 +167,7 @@ impl<'a> AuditTx<'a> {
             "after": after_state,
         }))
         .bind(&checksum)
-        .bind(self.prev_checksum())     // chain link for audit-integrity-worker
+        .bind(prev_checksum)     // chain link for audit-integrity-worker
         .bind(ts)
         .fetch_one(&mut *self.tx)
         .await?;

@@ -19,6 +19,7 @@ opentelemetry_sdk = { workspace = true }
 opentelemetry-otlp = { workspace = true }
 opentelemetry-prometheus = { workspace = true }
 prometheus = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
