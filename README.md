@@ -48,15 +48,15 @@ Two engines, one contract:
                     └────────────────────────────┘  kb-intel, voice-intel, scoring-intel
 ```
 
-- **Rust Core Engine** (`LCC_Backend/engine/core/`) — Compliance Governor,
+- **Rust Core Engine** (`Backend/engine/core/`) — Compliance Governor,
   Integration Gateway, all domain services, audit log. No `unwrap`/`expect`/
   `panic`/`todo`; clippy `-D warnings`.
-- **Python Intelligence Engine** (`LCC_Backend/engine/intelligence/`) —
+- **Python Intelligence Engine** (`Backend/engine/intelligence/`) —
   LLM/ML/scoring workloads. Communicates with core **only** via gRPC
   contracts (`proto/lcc/v1/*.proto`) or the event bus (Redis Streams in
   Phase 1–2, Kafka in Phase 3+). Enforced by
-  `LCC_Backend/infra/ci/scripts/check_boundaries.sh` (CI-gated).
-- **Frontend** (`LCC_Frontend/lcc/`) — never calls LinkedIn directly and never
+  `Backend/infra/ci/scripts/check_boundaries.sh` (CI-gated).
+- **Frontend** (`Frontend/`) — never calls LinkedIn directly and never
   bypasses the Governor; every external action routes through the backend
   approval gate (`packages/approval-gate`).
 
@@ -89,7 +89,7 @@ Two engines, one contract:
 ```
 ├── README.md                              ← you are here
 ├── LCC_AUDIT_REPORT.md                    Full audit: findings, fixes, unfixed items, evidence
-├── LCC_Backend/                           Rust Core + Python Intelligence monorepo
+├── Backend/                           Rust Core + Python Intelligence monorepo
 │   ├── engine/core/                       16 services, 6 workers, 5 admin binaries
 │   ├── engine/intelligence/               5 services, 3 workers, 2 admin tools
 │   ├── crates/                            12 shared Rust crates
@@ -99,13 +99,13 @@ Two engines, one contract:
 │   ├── config/                            ccfg-*.yaml, features, environments
 │   ├── infra/                             Kubernetes, CI, Terraform
 │   └── tests/
-├── LCC_Frontend/lcc/                      Next.js + pnpm monorepo
+├── Frontend/                      Next.js + pnpm monorepo
 │   ├── apps/web-dashboard/                Next.js 14 App Router + mobile PWA
 │   ├── apps/browser-extension/            Manifest V3 Chrome/Firefox extension
 │   ├── packages/                          ui, api-types, realtime, approval-gate,
 │   │                                      compliance-state, tokens, i18n, test-utils
 │   ├── infra/ · tools/ · tests/ · docs/
-└── LCC_Integrated_contract_audit_final/   Authoritative API contract
+└── Contract/   Authoritative API contract
     ├── openapi/lcc-api-canonical.yaml     70 paths · 82 operations · 79 schemas
     ├── realtime/lcc-realtime-contract.yaml 5 WS channels · 19 event schemas
     ├── docs/                              endpoint + completeness matrices
@@ -133,7 +133,7 @@ Two engines, one contract:
 **Backend** (Rust + Python):
 
 ```bash
-cd LCC_Backend
+cd Backend
 cargo build                      # Core Engine
 pytest engine/intelligence/      # Intelligence Engine tests
 ```
@@ -141,14 +141,14 @@ pytest engine/intelligence/      # Intelligence Engine tests
 **Frontend** (Node 20.12.2, pnpm ≥ 8.15):
 
 ```bash
-cd LCC_Frontend/lcc
+cd Frontend
 pnpm install
 pnpm codegen                     # generates @lcc/api-types from the OpenAPI contract
 pnpm dev                         # web-dashboard + extension in watch mode
 ```
 
 The canonical API contract lives in
-`LCC_Integrated_contract_audit_final/openapi/lcc-api-canonical.yaml` — it is
+`Contract/openapi/lcc-api-canonical.yaml` — it is
 the single source of truth for frontend↔backend integration.
 
 ---
@@ -183,4 +183,4 @@ line it applies to.
 
 ## License
 
-See `LICENSE` files in `LCC_Backend/` and `LCC_Frontend/lcc/`.
+See `LICENSE` files in `Backend/` and `Frontend/`.
