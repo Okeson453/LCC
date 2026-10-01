@@ -1,0 +1,42 @@
+name: Python Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # F-AUDIT-30: this workflow was two `echo` steps. No interpreter was
+      # installed, no dependencies resolved, and `pytest` never ran — so every
+      # Python test in the repository had never executed in CI. That is the root
+      # cause that let the Intelligence Engine's spec-invariant violations
+      # (uncalibrated rho, unbound cost budget, un-enforced grounding,
+      # unauthenticated parity checks) reach main unnoticed.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install workspace
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Run pytest
+        run: uv run --frozen pytest -q
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: .coverage
+          if-no-files-found: ignore

@@ -1,0 +1,58 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  resourcedetection:
+    detectors: [env, gce, gke, k8s]
+    timeout: 5s
+
+  redaction:
+    allow_all_keys: false
+    blocked_keys: ["password", "secret", "token", "api_key", "x-api-key", "cookie"]
+    summary: ""
+
+exporters:
+  otlphttp/prom:
+    endpoint: http://prometheus:9090/api/v1/otlp
+    tls:
+      insecure: true
+
+  logging:
+    verbosity: basic
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  file:
+    path: /var/log/otel/traces.jsonl
+
+service:
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, redaction, resourcedetection]
+      exporters: [logging, file]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/prom]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, redaction]
+      exporters: [logging, file]

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "event-bus"
+version = "0.1.0"
+description = "Async event bus client (Redis Streams)"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+
+dependencies = [
+    "pydantic>=2.9.0",
+    "redis[hiredis]>=5.2.0",
+    "structlog>=24.4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/event_bus"]

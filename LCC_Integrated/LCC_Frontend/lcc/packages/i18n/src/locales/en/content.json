@@ -1,0 +1,27 @@
+{
+  "composer": {
+    "title": "New post",
+    "prompt_label": "Idea or prompt",
+    "variants_label": "Variants",
+    "variant_authority": "Authority",
+    "variant_contrarian": "Contrarian",
+    "variant_bts": "Behind the scenes",
+    "variant_case_study": "Case study",
+    "submit_for_approval": "Submit for approval",
+    "schedule": "Schedule",
+    "quality_check": "Quality check",
+    "no_variants": "Generate variants to start"
+  },
+  "calendar": {
+    "title": "Content calendar",
+    "scheduled": "Scheduled",
+    "draft": "Draft",
+    "published": "Published"
+  },
+  "draft": {
+    "save": "Save draft",
+    "publish": "Submit for approval",
+    "schedule_label": "Schedule for",
+    "delete": "Delete draft"
+  }
+}

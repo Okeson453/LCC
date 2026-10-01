@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: browser-extension-cdn
+  namespace: lcc
+data:
+  cors_rules.json: |
+    [
+      {
+        "AllowedOrigin": ["https://www.linkedin.com"],
+        "AllowedMethod": ["GET", "HEAD"],
+        "AllowedHeader": ["*"],
+        "MaxAgeSeconds": 3000
+      }
+    ]
+  cors_xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <CORSConfiguration><CORSRule>
+      <AllowedOrigin>https://www.linkedin.com</AllowedOrigin>
+      <AllowedMethod>GET</AllowedMethod>
+      <AllowedMethod>HEAD</AllowedMethod>
+      <AllowedHeader>*</AllowedHeader>
+    </CORSRule></CORSConfiguration>

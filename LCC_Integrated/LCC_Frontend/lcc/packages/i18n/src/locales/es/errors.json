@@ -1,0 +1,22 @@
+{
+  "network": {
+    "offline": "You are offline. Changes will sync when you reconnect.",
+    "timeout": "The request timed out. Please try again.",
+    "server": "The server is temporarily unavailable.",
+    "rate_limited": "You're sending requests too quickly. Slow down and try again."
+  },
+  "auth": {
+    "session_expired": "Your session has expired. Please sign in again.",
+    "oauth_denied": "LinkedIn authorization was denied.",
+    "forbidden": "You don't have permission to perform this action."
+  },
+  "compliance": {
+    "denied_title": "Action denied",
+    "denied_explanation": "The Compliance Governor blocked this action. Reason: {reason}"
+  },
+  "generic": {
+    "something_wrong": "Something went wrong. Please try again.",
+    "report_issue": "Report issue",
+    "trace_id_help": "Reference ID for support: {traceId}"
+  }
+}

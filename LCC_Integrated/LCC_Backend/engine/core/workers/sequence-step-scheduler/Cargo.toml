@@ -1,0 +1,38 @@
+[package]
+name = "lcc-sequence-step-scheduler"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+license = "Proprietary"
+
+[[bin]]
+name = "lcc-sequence-step-scheduler"
+path = "src/main.rs"
+
+[lib]
+name = "lcc_sequence_step_scheduler"
+path = "src/lib.rs"
+
+[dependencies]
+lcc-error = { path = "../../../../crates/error" }
+lcc-observability = { path = "../../../../crates/observability" }
+lcc-events = { path = "../../../../crates/events" }
+lcc-db = { path = "../../../../crates/db" }
+lcc-audit-client = { path = "../../../../crates/audit-client" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+# F-AUDIT-12: the scheduler now calls the Compliance Governor and the
+# integration gateway instead of writing `sent` directly, so it needs an HTTP
+# client and UUID support. Neither was declared here before.
+reqwest = { workspace = true }
+uuid = { workspace = true }
+
+[lints]
+workspace = true

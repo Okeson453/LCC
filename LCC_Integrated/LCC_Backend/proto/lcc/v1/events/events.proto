@@ -1,0 +1,192 @@
+syntax = "proto3";
+package lcc.v1.events;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+import "lcc/v1/common/trace.proto";
+
+// EventEnvelope — wraps every async fan-out payload. Single shape for all topics.
+// Producers fill `payload` with the topic-specific Any. Consumers de-multiplex
+// by `topic` and unwrap `payload`.
+// Identified by `event_id` (UUIDv7) for at-least-once dedup.
+message EventEnvelope {
+  string event_id = 1;                // UUIDv7
+  string topic = 2;                   // see schemas/events/*.schema.json
+  lcc.v1.common.TraceContext trace = 3;
+  string producer_service = 4;
+  google.protobuf.Timestamp occurred_at = 5;
+  string member_id = 6;               // RLS scope; "" for system events
+  google.protobuf.Any payload = 7;    // topic-specific; JSON-Schema documented per topic
+  string idempotency_key = 8;         // for the consumer-side dedup
+  uint32 schema_version = 9;
+}
+
+// Topic constants — kept in sync with schemas/events/topics.yaml.
+message TopicList {
+  repeated string topics = 1;
+}
+
+// MemberCreated
+message MemberCreatedPayload {
+  string member_id = 1;
+  string linkedin_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+
+// KbRecordCreated
+message KbRecordCreatedPayload {
+  string record_id = 1;
+  string member_id = 2;
+  string category = 3;
+}
+
+// VoiceSampleAdded
+message VoiceSampleAddedPayload {
+  string sample_id = 1;
+  string member_id = 2;
+}
+
+// ContentItemStateChanged
+message ContentItemStateChangedPayload {
+  string item_id = 1;
+  string member_id = 2;
+  string from_status = 3;
+  string to_status = 4;
+}
+
+// ContentItemApproved
+message ContentItemApprovedPayload {
+  string item_id = 1;
+  string member_id = 2;
+  google.protobuf.Timestamp scheduled_at = 3;
+}
+
+// EngagementInboundReceived
+message EngagementInboundReceivedPayload {
+  string message_id = 1;
+  string member_id = 2;
+  string from_contact_id = 3;
+  string kind = 4;
+}
+
+// SequenceReplyDetected — auto-pause trigger
+message SequenceReplyDetectedPayload {
+  string sequence_id = 1;
+  string member_id = 2;
+  string contact_id = 3;
+  string inbound_message_id = 4;
+}
+
+// SequenceStepDue
+message SequenceStepDuePayload {
+  string sequence_id = 1;
+  string step_id = 2;
+  string member_id = 3;
+  google.protobuf.Timestamp due_at = 4;
+}
+
+// SequenceStepSent
+message SequenceStepSentPayload {
+  string sequence_id = 1;
+  string step_id = 2;
+  string member_id = 3;
+  google.protobuf.Timestamp sent_at = 4;
+}
+
+// SequenceStateChanged
+message SequenceStateChangedPayload {
+  string sequence_id = 1;
+  string member_id = 2;
+  string from_status = 3;
+  string to_status = 4;
+  string reason = 5;
+}
+
+// OpportunityDiscovered
+message OpportunityDiscoveredPayload {
+  string opportunity_id = 1;
+  string member_id = 2;
+  string type = 3;
+  string source = 4;
+  double fit_score = 5;
+}
+
+// OpportunityQualified
+message OpportunityQualifiedPayload {
+  string opportunity_id = 1;
+  string member_id = 2;
+  double fit_score = 3;
+}
+
+// OpportunityFunnelChanged
+message OpportunityFunnelChangedPayload {
+  string opportunity_id = 1;
+  string member_id = 2;
+  string from_status = 3;
+  string to_status = 4;
+}
+
+// ComplianceConfigActivated
+message ComplianceConfigActivatedPayload {
+  string version_id = 1;
+  string version = 2;
+  google.protobuf.Timestamp activated_at = 3;
+  string activated_by = 4;
+  repeated string two_reviewer_signed_by = 5;
+}
+
+// ComplianceRestrictionDetected
+message ComplianceRestrictionDetectedPayload {
+  string member_id = 1;
+  string reason = 2;
+  string signal_kind = 3;            // "account_restricted"|"captcha"|"verification"|"429"
+}
+
+// ComplianceRestrictionCleared
+message ComplianceRestrictionClearedPayload {
+  string member_id = 1;
+  string cleared_by = 2;
+}
+
+// OAuthTokenRefreshFailed
+message OAuthTokenRefreshFailedPayload {
+  string member_id = 1;
+  string reason = 2;
+}
+
+// MemberDeactivated
+message MemberDeactivatedPayload {
+  string member_id = 1;
+  string reason = 2;
+}
+
+// AuditEvent — universal audit event
+message AuditEventPayload {
+  string actor = 1;
+  string action = 2;
+  string resource_type = 3;
+  string resource_id = 4;
+  string outcome = 5;
+  string reason = 6;
+  string before_state_json = 7;
+  string after_state_json = 8;
+  string checksum_sha256 = 9;
+}
+
+// ApprovalDecided
+message ApprovalDecidedPayload {
+  string approval_id = 1;
+  string member_id = 2;
+  string resource_type = 3;
+  string resource_id = 4;
+  bool approved = 5;
+  string decided_by = 6;
+}
+
+// ApprovalExpired
+message ApprovalExpiredPayload {
+  string approval_id = 1;
+  string member_id = 2;
+  string resource_type = 3;
+  string resource_id = 4;
+}

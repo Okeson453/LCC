@@ -1,0 +1,32 @@
+[package]
+name = "lcc-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+# Default: use hand-written protobuf message types. This avoids the build-time
+# dependency on `protoc` and `buf` while still letting the gRPC client and
+# server side compile. The `tonic::include_proto!` macros are guarded by the
+# `proto-binary` feature, which is opt-in (set it via:
+#   cargo build --features lcc-proto/proto-binary
+# when `buf` is available and the pre-generated stubs are in src/gen/).
+default = []
+proto-binary = []
+
+[dependencies]
+tonic = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+lcc-error = { path = "../error" }
+
+[lints]
+workspace = true

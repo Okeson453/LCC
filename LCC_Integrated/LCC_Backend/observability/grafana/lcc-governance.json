@@ -1,0 +1,38 @@
+{
+  "title": "OKESON-LCC Compliance Governor",
+  "uid": "lcc-governor",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Governor p99 (ms)",
+      "targets": [
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(lcc_governor_evaluate_duration_seconds_bucket[5m]))) * 1000" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "type": "timeseries",
+      "title": "Guard denials per minute (by guard)",
+      "targets": [
+        { "expr": "sum by (guard) (rate(lcc_governor_guard_denied_total[5m])) * 60" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Restriction events (24h)",
+      "targets": [
+        { "expr": "sum(increase(lcc_restriction_detected_total[24h]))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Circuit-breaker state",
+      "targets": [
+        { "expr": "sum by (provider, endpoint, state) (lcc_circuit_breaker_state)" }
+      ]
+    }
+  ]
+}

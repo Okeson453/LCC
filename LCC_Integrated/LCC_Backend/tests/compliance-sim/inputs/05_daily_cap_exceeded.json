@@ -1,0 +1,9 @@
+{
+  "name": "daily_cap_exceeded",
+  "member_id": "00000000-0000-0000-0000-000000000001",
+  "action_type": "connection_request",
+  "target_kind": "connection",
+  "target_id": "carol-1",
+  "expected": "deny",
+  "context": { "daily_used": 25, "daily_cap": 25 }
+}

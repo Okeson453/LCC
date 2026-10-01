@@ -1,0 +1,22 @@
+# Linguist overrides — explicitly mark protobuf as generated when in proto/gen/
+proto/gen/** linguist-generated=true
+proto/gen/** linguist-vendored=true
+
+# Markdown files in docs shouldn't be diffable as code
+*.md diff=markdown
+
+# Rust
+*.rs text eol=lf
+
+# Python
+*.py text eol=lf
+
+# YAML
+*.yaml text eol=lf
+*.yml text eol=lf
+
+# Shell
+*.sh text eol=lf
+
+# TOML
+*.toml text eol=lf

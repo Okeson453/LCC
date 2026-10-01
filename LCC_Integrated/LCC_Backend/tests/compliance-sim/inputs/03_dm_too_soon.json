@@ -1,0 +1,9 @@
+{
+  "name": "dm_too_soon_after_previous",
+  "member_id": "00000000-0000-0000-0000-000000000001",
+  "action_type": "dm",
+  "target_kind": "dm",
+  "target_id": "bob-1",
+  "expected": "deny",
+  "context": { "previous_dm_hours_ago": 2 }
+}

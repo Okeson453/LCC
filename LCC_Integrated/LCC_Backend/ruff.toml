@@ -1,0 +1,49 @@
+# OKESON-LCC ruff policy
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    "proto/gen/**",
+    "**/__pycache__",
+    ".venv/**",
+    "build/**",
+    "dist/**",
+]
+
+[lint]
+select = [
+    "E", "W", "F", "I", "B", "C4", "UP", "N",
+    "S",  # bandit security
+    "A",  # builtins
+    "C90", # mccabe
+    "D",  # pydocstyle
+    "RUF",
+    "TID", # tidy imports
+    "PT", # pytest style
+    "Q",  # quotes
+    "RET",
+    "SIM",
+    "ARG",
+]
+ignore = [
+    "D100", "D101", "D102", "D103", "D104",
+    "S101", "S104", "S301", "S311",
+]
+
+[lint.mccabe]
+max-complexity = 12
+
+[lint.per-file-ignores]
+"**/tests/**/*.py" = ["D", "S", "B", "N802"]
+"**/__main__.py" = ["D", "S"]
+"**/proto/gen/**" = ["ALL"]
+
+[lint.isort]
+known-first-party = ["lcc", "intelligence_common", "llm_client", "kb_client", "vector_db", "event_bus", "compliance_types"]
+combine-as-imports = true
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+docstring-code-format = true

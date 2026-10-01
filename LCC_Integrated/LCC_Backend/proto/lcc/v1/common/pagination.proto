@@ -1,0 +1,17 @@
+syntax = "proto3";
+package lcc.v1.common;
+
+// Cursor-based pagination. Responses include next_cursor (empty when exhausted)
+// and has_more. limit is capped at 100 server-side.
+message PageRequest {
+  string cursor = 1;
+  uint32 limit = 2;          // 1..100; default 25
+  string sort_field = 3;     // optional, e.g. "captured_at"
+  bool sort_descending = 4;
+}
+
+message PageResponse {
+  string next_cursor = 1;
+  bool has_more = 2;
+  uint32 total_count = 3; // best-effort; not exact for very large sets
+}

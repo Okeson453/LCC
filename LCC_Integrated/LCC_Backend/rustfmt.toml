@@ -1,0 +1,22 @@
+# OKESON-LCC rustfmt policy
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+hard_tabs = false
+newline_style = "Auto"
+use_small_heuristics = "Default"
+reorder_imports = true
+reorder_modules = true
+remove_nested_parens = true
+format_strings = false
+format_macro_matchers = false
+normalize_comments = false
+normalize_doc_attributes = false
+condense_wildcard_suffixes = false
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+match_arm_blocks = false
+match_arm_leading_pipes = "Never"
+trailing_comma = "Vertical"
+trailing_semicolon = false
+use_try_shorthand = true

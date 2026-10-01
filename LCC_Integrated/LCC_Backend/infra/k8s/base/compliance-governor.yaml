@@ -1,0 +1,88 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-governor
+  namespace: lcc-engine
+  labels:
+    app: compliance-governor
+    app.kubernetes.io/part-of: lcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compliance-governor
+  template:
+    metadata:
+      labels:
+        app: compliance-governor
+        app.kubernetes.io/part-of: lcc
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: compliance-governor
+          image: registry.lcc.local/lcc/compliance-governor:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: compliance-governor
+            - name: HTTP_PORT
+              value: "8080"
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-governor
+  namespace: lcc-engine
+spec:
+  selector:
+    app: compliance-governor
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compliance-governor
+  namespace: lcc-engine
+automountServiceAccountToken: false

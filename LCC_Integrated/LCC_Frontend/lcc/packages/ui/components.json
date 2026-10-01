@@ -1,0 +1,20 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "default",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind-preset.cjs",
+    "css": "../web-dashboard/src/styles/globals.css",
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "aliases": {
+    "components": "@lcc/ui",
+    "utils": "@lcc/ui/utils/cn",
+    "ui": "@lcc/ui/primitives",
+    "lib": "@lcc/ui/utils",
+    "hooks": "@/hooks"
+  }
+}

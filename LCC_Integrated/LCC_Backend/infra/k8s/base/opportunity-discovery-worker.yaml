@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opportunity-discovery-worker
+  namespace: lcc-engine
+  labels:
+    app: opportunity-discovery-worker
+    app.kubernetes.io/part-of: lcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: opportunity-discovery-worker
+  template:
+    metadata:
+      labels:
+        app: opportunity-discovery-worker
+        app.kubernetes.io/part-of: lcc
+      annotations:
+        # F-AUDIT-38: the workers expose no /metrics endpoint.
+        prometheus.io/scrape: "false"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: opportunity-discovery-worker
+          image: registry.lcc.local/lcc/opportunity-discovery-worker:0.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_NAME
+              value: opportunity-discovery-worker
+            # F-AUDIT-39: the workers read LCC_DATABASE_URL, not HTTP_PORT.
+            - name: LCC_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: url
+            - name: LCC_SERVICE_NAME
+              value: opportunity-discovery-worker
+            - name: LCC_POLL_INTERVAL_SECONDS
+              value: "60"
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          # F-AUDIT-38: these workers are batch loops with no HTTP
+          # listener, so the previous httpGet probes on /healthz and
+          # /readyz could never succeed and the pod never went Ready.
+          # An exec probe checks the process itself instead.
+          livenessProbe:
+            exec:
+              command: ["pgrep", "-f", "opportunity-discovery-worker"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: opportunity-discovery-worker
+  namespace: lcc-engine
+automountServiceAccountToken: false

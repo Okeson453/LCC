@@ -1,0 +1,29 @@
+{
+  "name": "@lcc/api-types",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generated TypeScript types from backend OpenAPI + protobuf. Single source of truth for the wire format the frontend consumes.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./generated/*": "./src/generated/*",
+    "./manual": "./src/manual/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./zod-schemas": "./src/runtime/zod-schemas.ts",
+    "./brand": "./src/runtime/brand.ts"
+  },
+  "files": ["src"],
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}

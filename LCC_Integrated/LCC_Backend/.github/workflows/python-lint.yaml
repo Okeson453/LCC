@@ -1,0 +1,32 @@
+name: Python Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-lint:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # F-AUDIT-30: was two `echo` steps — ruff and mypy never ran.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install workspace
+        run: uv sync --frozen --all-extras --dev
+
+      - name: ruff check
+        run: uv run --frozen ruff check .
+
+      - name: ruff format --check
+        run: uv run --frozen ruff format --check .

@@ -1,0 +1,54 @@
+# OKESON-LLC CODEOWNERS
+# This file controls who must approve changes to which files.
+# Last reviewed: 2026-04-22.
+
+# Default: any change needs review from at least one owner of the directory.
+/                                         @okeson-lcc/core-eng
+
+# Rust Core Engine
+/engine/core/                             @okeson-lcc/core-eng
+/engine/core/services/compliance-governor/ @okeson-lcc/compliance-team
+/engine/core/services/integration-gateway/ @okeson-lcc/compliance-team @okeson-lcc/core-eng
+/engine/core/services/identity-svc/       @okeson-lcc/security-team
+/engine/core/services/audit-svc/          @okeson-lcc/security-team
+
+# Shared crates — boundaries
+/crates/integrations/                     @okeson-lcc/core-eng @okeson-lcc/compliance-team
+/crates/audit-client/                     @okeson-lcc/core-eng
+/crates/security/                         @okeson-lcc/security-team
+/crates/auth/                             @okeson-lcc/security-team
+/crates/compliance/                       @okeson-lcc/compliance-team
+
+# Python Intelligence Engine
+/engine/intelligence/                     @okeson-lcc/intel-eng
+/packages/                                @okeson-lcc/intel-eng
+
+# Cross-engine contracts (proto)
+# Any change here MUST be reviewed by both engines.
+/proto/                                   @okeson-lcc/core-eng @okeson-lcc/intel-eng
+
+# Database schemas — DBAs + Core Eng
+/schemas/migrations/                      @okeson-lcc/dba-team @okeson-lcc/core-eng
+
+# Compliance configs (the most sensitive — two-reviewer gate at activate)
+/config/compliance/                       @okeson-lcc/compliance-team
+/config/compliance/ccfg-*.yaml            @okeson-lcc/compliance-team @okeson-lcc/security-team
+
+# Infrastructure (k8s + terraform)
+/infra/k8s/                               @okeson-lcc/platform-team @okeson-lcc/security-team
+/infra/terraform/                         @okeson-lcc/platform-team
+/infra/ci/                                @okeson-lcc/platform-team
+
+# Boundary enforcement script — any change requires security review
+/tools/scripts/check_boundaries.sh       @okeson-lcc/security-team @okeson-lcc/core-eng
+
+# Observability
+/observability/                           @okeson-lcc/observability-team
+
+# Docs
+/docs/                                    @okeson-lcc/tech-writing
+/docs/adr/                                @okeson-lcc/core-eng
+/docs/runbooks/                           @okeson-lcc/observability-team
+
+# Compliance / governance docs — extra review
+/docs/compliance/                         @okeson-lcc/compliance-team @okeson-lcc/legal-team

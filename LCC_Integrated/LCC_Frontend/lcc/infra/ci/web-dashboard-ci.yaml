@@ -1,0 +1,74 @@
+name: web-dashboard
+
+on:
+  push:
+    paths:
+      - 'apps/web-dashboard/**'
+      - 'packages/**'
+      - 'infra/k8s/base/web-dashboard/**'
+      - '.github/workflows/web-dashboard-ci.yaml'
+  pull_request:
+
+concurrency:
+  group: web-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 8 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
+      - run: pnpm --filter @lcc/web-dashboard typecheck
+      - run: pnpm --filter @lcc/web-dashboard lint
+      - run: pnpm -r --filter @lcc/web-dashboard... build
+      - run: pnpm --filter @lcc/web-dashboard test -- --coverage
+      - name: Bundle size budget
+        run: ./tools/scripts/bundle-size-check.sh apps/web-dashboard
+      - name: Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v11
+        with:
+          configPath: ./apps/web-dashboard/lighthouse.config.js
+
+  e2e:
+    name: Playwright e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 8 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
+      - run: pnpm exec playwright install --with-deps
+      - run: pnpm --filter @lcc/web-dashboard test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web-dashboard/playwright-report
+
+  visual:
+    name: Visual diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 8 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
+      - run: pnpm exec playwright install --with-deps
+      - run: pnpm --filter @lcc/web-dashboard test:visual

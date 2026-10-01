@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcc.local/schemas/events/voice_sample_added.schema.json",
+  "title": "voice_sample_added",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["header", "payload"],
+  "properties": {
+    "header": {
+      "$ref": "envelope.schema.json"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

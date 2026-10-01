@@ -1,0 +1,29 @@
+{
+  "member_id": "00000000-0000-0000-0000-000000000001",
+  "records": [
+    {
+      "category": "achievements",
+      "title": "Launched LinkedIn Growth Engine",
+      "body": "Built and shipped an internal LinkedIn content scheduling tool used by 12 go-to-market team members. Increased outbound response rate from 4% to 11% over 8 weeks.",
+      "source_kind": "manual"
+    },
+    {
+      "category": "skills",
+      "title": "Distributed Systems",
+      "body": "10 years of experience building distributed systems in Rust, Go, and Python. Specialties: consensus algorithms, event sourcing, observability.",
+      "source_kind": "manual"
+    },
+    {
+      "category": "projects",
+      "title": "Open-source LLM Eval Harness",
+      "body": "Author of an open-source harness for evaluating LLM applications against domain-specific rubrics. 1.2k stars on GitHub.",
+      "source_kind": "manual"
+    },
+    {
+      "category": "voice_samples",
+      "title": "Approved post: launch announcement",
+      "body": "shipped today. latency down 30%.\n\nnext: a public demo on wednesday.",
+      "source_kind": "manual"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+experiment_id: daily_cap_doubling_v1
+description: Test 2x daily caps for new members in week 1
+status: active
+split:
+  control: 50
+  treatment: 50
+treatment_config_ref: ccfg-2025-01-15-rc2
+metrics:
+  primary: outbound_response_rate
+  guardrails:
+    - restriction_rate_per_member
+    - daily_cap_utilization_pct

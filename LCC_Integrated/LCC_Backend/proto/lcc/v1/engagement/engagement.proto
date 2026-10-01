@@ -1,0 +1,118 @@
+syntax = "proto3";
+package lcc.v1.engagement;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+import "lcc/v1/intelligence/ai.proto";
+
+enum EngagementTaskStatus {
+  ENGAGEMENT_STATUS_UNSPECIFIED = 0;
+  ENGAGEMENT_STATUS_QUEUED = 1;
+  ENGAGEMENT_STATUS_DRAFTED = 2;
+  ENGAGEMENT_STATUS_APPROVED = 3;
+  ENGAGEMENT_STATUS_SENT = 4;
+  ENGAGEMENT_STATUS_DISMISSED = 5;
+  ENGAGEMENT_STATUS_EXPIRED = 6;
+}
+
+enum EngagementActionType {
+  ENGAGEMENT_ACTION_UNSPECIFIED = 0;
+  ENGAGEMENT_ACTION_REPLY = 1;
+  ENGAGEMENT_ACTION_COMMENT = 2;
+  ENGAGEMENT_ACTION_LIKE = 3;
+  ENGAGEMENT_ACTION_CONGRATULATE = 4;
+  ENGAGEMENT_ACTION_CONNECTION_ACCEPT = 5;
+  ENGAGEMENT_ACTION_FOLLOW_UP = 6;
+}
+
+message EngagementTask {
+  string id = 1;
+  string member_id = 2;
+  string target_post_id = 3;
+  string contact_id = 4;
+  EngagementActionType action_type = 5;
+  double priority_score = 6;          // ρ if model fitted, else NULL (rule-based fallback)
+  EngagementTaskStatus status = 7;
+  string draft_body = 8;
+  google.protobuf.Timestamp due_at = 9;
+  google.protobuf.Timestamp completed_at = 10;
+  uint32 version = 11;
+}
+
+message DailyRitualRequest {
+  string member_id = 1;
+  uint32 target_account_comment_count = 2;
+  bool include_congratulation = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message DailyRitualResponse {
+  repeated EngagementTask tasks = 1;
+  uint32 total = 2;
+}
+
+message DraftReplyRequest {
+  string task_id = 1;
+  string member_id = 2;
+  uint32 variant_count = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message DraftReplyResponse {
+  EngagementTask task = 1;
+  repeated DraftVariant variants = 2;
+}
+
+message ApproveEngagementRequest {
+  string task_id = 1;
+  string member_id = 2;
+  string user_id = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ApproveEngagementResponse {
+  EngagementTask task = 1;
+}
+
+message DismissEngagementRequest {
+  string task_id = 1;
+  string member_id = 2;
+  string user_id = 3;
+  string reason = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message DismissEngagementResponse {
+  EngagementTask task = 1;
+}
+
+message InboxItem {
+  string id = 1;
+  string kind = 2;                   // "dm"|"comment"|"connection_request"
+  string from_contact_id = 3;
+  string body_preview = 4;
+  google.protobuf.Timestamp received_at = 5;
+  bool read = 6;
+  string thread_id = 7;
+}
+
+message InboxRequest {
+  string member_id = 1;
+  uint32 limit = 2;
+  string cursor = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message InboxResponse {
+  repeated InboxItem items = 1;
+  string next_cursor = 2;
+  uint32 unread_count = 3;
+}
+
+service EngagementSvc {
+  rpc GetDailyRitual(DailyRitualRequest) returns (DailyRitualResponse);
+  rpc DraftReply(DraftReplyRequest) returns (DraftReplyResponse);
+  rpc Approve(ApproveEngagementRequest) returns (ApproveEngagementResponse);
+  rpc Dismiss(DismissEngagementRequest) returns (DismissEngagementResponse);
+  rpc Inbox(InboxRequest) returns (InboxResponse);
+}

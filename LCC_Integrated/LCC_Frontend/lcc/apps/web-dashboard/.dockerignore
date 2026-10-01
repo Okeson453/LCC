@@ -1,0 +1,14 @@
+node_modules
+.next
+.swc
+.turbo
+coverage
+playwright-report
+test-results
+.nyc_output
+.cache
+.DS_Store
+.env*.local
+.git
+*.log
+*.tsbuildinfo

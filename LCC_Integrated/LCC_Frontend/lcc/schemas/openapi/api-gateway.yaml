@@ -1,0 +1,1919 @@
+openapi: 3.1.0
+info:
+  title: OKESON-LCC API Gateway
+  version: 1.0.0
+  description: |
+    HTTP API surface that the frontend consumes. The backend's API Gateway
+    enforces JWT validation, RLS, RBAC, and traces every request with a
+    trace_id and (for mutations) an Idempotency-Key.
+  contact:
+    name: OKESON Backend Team
+    email: backend@okeson.example
+  license:
+    name: Proprietary
+servers:
+  - url: https://api.lcc.okeson.example
+    description: Production
+  - url: https://api.staging.lcc.okeson.example
+    description: Staging
+  - url: http://localhost:8080
+    description: Local dev
+tags:
+  - name: auth
+  - name: members
+  - name: profile
+  - name: content
+  - name: engagement
+  - name: network
+  - name: outreach
+  - name: opportunity
+  - name: analytics
+  - name: approvals
+  - name: admin
+  - name: kb
+  - name: briefing
+paths:
+  /auth/linkedin/start:
+    get:
+      tags: [auth]
+      operationId: startLinkedInOAuth
+      summary: Begin LinkedIn OAuth handshake
+      responses:
+        '302':
+          description: Redirect to LinkedIn
+          headers:
+            Location:
+              schema: { type: string, format: uri }
+  /auth/linkedin/callback:
+    get:
+      tags: [auth]
+      operationId: linkedInOAuthCallback
+      summary: Complete LinkedIn OAuth handshake
+      parameters:
+        - in: query
+          name: code
+          required: true
+          schema: { type: string }
+        - in: query
+          name: state
+          required: true
+          schema: { type: string }
+      responses:
+        '302':
+          description: Redirect to /onboarding or /today
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshToken
+      responses:
+        '200':
+          description: New short-lived JWT issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      responses:
+        '204': { description: Logged out }
+  /members/me:
+    get:
+      tags: [members]
+      operationId: getCurrentMember
+      responses:
+        '200':
+          description: Current member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+    patch:
+      tags: [members]
+      operationId: updateCurrentMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemberUpdate' }
+      responses:
+        '200':
+          description: Updated member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+    delete:
+      tags: [members]
+      operationId: deleteMember
+      responses:
+        '204': { description: Deleted }
+  /members/me/settings:
+    get:
+      tags: [members]
+      operationId: getMemberSettings
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MemberSettings' }
+    patch:
+      tags: [members]
+      operationId: updateMemberSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemberSettingsUpdate' }
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MemberSettings' }
+  /members/{id}/briefing/today:
+    get:
+      tags: [briefing]
+      operationId: getTodaysBriefing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Today's briefing
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Briefing' }
+  /members/{id}/approvals:
+    get:
+      tags: [approvals]
+      operationId: listApprovals
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, decided, expired]
+        - in: query
+          name: tier
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+      responses:
+        '200':
+          description: Approvals
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Approval' }
+  /members/{id}/approvals/{approvalId}:
+    get:
+      tags: [approvals]
+      operationId: getApproval
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: approvalId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Approval
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Approval' }
+  /members/{id}/approvals/{approvalId}/decide:
+    post:
+      tags: [approvals]
+      operationId: decideApproval
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: approvalId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalDecision' }
+      responses:
+        '200':
+          description: Decision recorded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Approval' }
+        '422':
+          description: Compliance Governor denied
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GuardFailure' }
+  /members/{id}/profile/snapshots/latest:
+    get:
+      tags: [profile]
+      operationId: getLatestProfileSnapshot
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Latest profile snapshot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileSnapshot' }
+  /members/{id}/profile/audit:
+    post:
+      tags: [profile]
+      operationId: runProfileAudit
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Audit job accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRef' }
+  /members/{id}/profile/edit-drafts:
+    post:
+      tags: [profile]
+      operationId: generateEditDrafts
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Generated drafts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EditDraft' }
+  /members/{id}/profile/strength-history:
+    get:
+      tags: [profile]
+      operationId: getProfileStrengthHistory
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, 365d]
+      responses:
+        '200':
+          description: Strength history
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProfileStrengthPoint' }
+  /members/{id}/content:
+    get:
+      tags: [content]
+      operationId: listContent
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, pending_approval, scheduled, publishing, published, rejected]
+      responses:
+        '200':
+          description: Content items
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ContentItem' }
+    post:
+      tags: [content]
+      operationId: createContent
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContentCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+  /members/{id}/content/compose:
+    post:
+      tags: [content]
+      operationId: composeContent
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComposeRequest' }
+      responses:
+        '200':
+          description: Composed variants
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ContentVariant' }
+  /members/{id}/content/{contentId}:
+    get:
+      tags: [content]
+      operationId: getContentItem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Content item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+    patch:
+      tags: [content]
+      operationId: updateContentItem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contentId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContentUpdate' }
+      responses:
+        '200':
+          description: Updated content item
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+    delete:
+      tags: [content]
+      operationId: deleteContentItem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted }
+  /members/{id}/content/{contentId}/quality-check:
+    post:
+      tags: [content]
+      operationId: runContentQualityCheck
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Quality report
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QualityReport' }
+  /members/{id}/content/{contentId}/submit-for-approval:
+    post:
+      tags: [content]
+      operationId: submitContentForApproval
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contentId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Submitted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+  /members/{id}/content/{contentId}/schedule:
+    post:
+      tags: [content]
+      operationId: scheduleContent
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contentId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scheduled_at]
+              properties:
+                scheduled_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Scheduled
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+  /members/{id}/content/calendar:
+    get:
+      tags: [content]
+      operationId: getContentCalendar
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Calendar entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CalendarEntry' }
+  /members/{id}/engagement/inbox:
+    get:
+      tags: [engagement]
+      operationId: getEngagementInbox
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: cursor
+          schema: { type: string }
+      responses:
+        '200':
+          description: Inbox items
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InboxItem' }
+  /members/{id}/engagement/queue:
+    get:
+      tags: [engagement]
+      operationId: getEngagementQueue
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Engagement queue
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/QueueItem' }
+  /members/{id}/engagement/tasks/{taskId}/draft-reply:
+    post:
+      tags: [engagement]
+      operationId: draftEngagementReply
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Reply variants
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ReplyVariant' }
+  /members/{id}/engagement/tasks/{taskId}/approve:
+    post:
+      tags: [engagement]
+      operationId: approveEngagementTask
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: taskId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReplyDecision' }
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueueItem' }
+  /members/{id}/contacts:
+    get:
+      tags: [network]
+      operationId: listContacts
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: stage
+          schema:
+            type: string
+            enum: [cold, connected, engaged, conversation, opportunity, closed]
+        - in: query
+          name: expand
+          schema: { type: string, enum: [company] }
+      responses:
+        '200':
+          description: Contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Contact' }
+  /members/{id}/contacts/stale:
+    get:
+      tags: [network]
+      operationId: getStaleContacts
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Stale contacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Contact' }
+  /members/{id}/contacts/{contactId}:
+    get:
+      tags: [network]
+      operationId: getContact
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contactId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Contact
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contact' }
+    patch:
+      tags: [network]
+      operationId: updateContact
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contactId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContactUpdate' }
+      responses:
+        '200':
+          description: Updated contact
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contact' }
+  /members/{id}/contacts/{contactId}/interactions:
+    get:
+      tags: [network]
+      operationId: listContactInteractions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contactId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Interactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Interaction' }
+    post:
+      tags: [network]
+      operationId: logInteraction
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: contactId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InteractionCreate' }
+      responses:
+        '201':
+          description: Logged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Interaction' }
+  /members/{id}/sequences:
+    get:
+      tags: [outreach]
+      operationId: listSequences
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Sequences
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Sequence' }
+    post:
+      tags: [outreach]
+      operationId: createSequence
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SequenceCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sequence' }
+  /members/{id}/sequences/{sequenceId}:
+    get:
+      tags: [outreach]
+      operationId: getSequence
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: sequenceId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Sequence
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SequenceDetail' }
+  /members/{id}/sequences/{sequenceId}/steps/{stepId}/approve:
+    post:
+      tags: [outreach]
+      operationId: approveSequenceStep
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: sequenceId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: stepId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                edited_body: { type: string }
+      responses:
+        '200':
+          description: Step updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SequenceStep' }
+  /members/{id}/sequences/{sequenceId}/pause:
+    post:
+      tags: [outreach]
+      operationId: pauseSequence
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: sequenceId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Paused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Sequence' }
+  /members/{id}/sequences/templates:
+    get:
+      tags: [outreach]
+      operationId: listSequenceTemplates
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SequenceTemplate' }
+  /members/{id}/opportunities:
+    get:
+      tags: [opportunity]
+      operationId: listOpportunities
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Opportunities
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Opportunity' }
+  /members/{id}/opportunities/discover:
+    post:
+      tags: [opportunity]
+      operationId: runOpportunityDiscovery
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Discovery job accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRef' }
+  /members/{id}/opportunities/{opportunityId}:
+    get:
+      tags: [opportunity]
+      operationId: getOpportunity
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: opportunityId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Opportunity
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OpportunityDetail' }
+  /members/{id}/opportunities/{opportunityId}/draft-application:
+    post:
+      tags: [opportunity]
+      operationId: draftOpportunityApplication
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: opportunityId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Application draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationDraft' }
+  /members/{id}/opportunities/{opportunityId}/draft-proposal:
+    post:
+      tags: [opportunity]
+      operationId: draftOpportunityProposal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: opportunityId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Proposal draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProposalDraft' }
+  /members/{id}/analytics/content:
+    get:
+      tags: [analytics]
+      operationId: getContentAnalytics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Content analytics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentAnalytics' }
+  /members/{id}/analytics/profile:
+    get:
+      tags: [analytics]
+      operationId: getProfileAnalytics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Profile analytics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProfileAnalytics' }
+  /members/{id}/analytics/network:
+    get:
+      tags: [analytics]
+      operationId: getNetworkAnalytics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Network analytics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NetworkAnalytics' }
+  /members/{id}/analytics/outreach:
+    get:
+      tags: [analytics]
+      operationId: getOutreachAnalytics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Outreach analytics
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OutreachAnalytics' }
+  /members/{id}/analytics/funnel/job:
+    get:
+      tags: [analytics]
+      operationId: getJobFunnelAnalytics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Job funnel
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FunnelAnalytics' }
+  /members/{id}/analytics/funnel/client:
+    get:
+      tags: [analytics]
+      operationId: getClientFunnelAnalytics
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Client funnel
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FunnelAnalytics' }
+  /members/{id}/analytics/account-health:
+    get:
+      tags: [analytics]
+      operationId: getAccountHealth
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Account health
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountHealth' }
+  /members/{id}/analytics/digest/weekly:
+    get:
+      tags: [analytics]
+      operationId: getWeeklyDigest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Weekly digest
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Digest' }
+  /members/{id}/analytics/digest/monthly:
+    get:
+      tags: [analytics]
+      operationId: getMonthlyDigest
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Monthly digest
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Digest' }
+  /members/{id}/kb/records:
+    get:
+      tags: [kb]
+      operationId: listKbRecords
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [resume, portfolio, voice_sample, case_study, ideal_customer, content_pillar, goal]
+      responses:
+        '200':
+          description: KB records
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/KbRecord' }
+    post:
+      tags: [kb]
+      operationId: createKbRecord
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KbRecordCreate' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KbRecord' }
+  /members/{id}/kb/records/{recordId}:
+    patch:
+      tags: [kb]
+      operationId: updateKbRecord
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: recordId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/KbRecordUpdate' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KbRecord' }
+    delete:
+      tags: [kb]
+      operationId: deleteKbRecord
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: recordId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted }
+  /members/{id}/export:
+    get:
+      tags: [members]
+      operationId: exportMemberData
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Export job accepted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobRef' }
+  /admin/compliance/config-versions:
+    get:
+      tags: [admin]
+      operationId: listComplianceConfigVersions
+      responses:
+        '200':
+          description: Config versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ComplianceConfigVersion' }
+    post:
+      tags: [admin]
+      operationId: proposeComplianceConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ComplianceConfigCreate' }
+      responses:
+        '201':
+          description: Proposed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplianceConfigVersion' }
+  /admin/compliance/config-versions/{versionId}/activate:
+    post:
+      tags: [admin]
+      operationId: activateComplianceConfig
+      parameters:
+        - in: path
+          name: versionId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Activated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplianceConfigVersion' }
+  /admin/compliance/restrictions/{memberId}:
+    get:
+      tags: [admin]
+      operationId: getRestrictionState
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Restriction state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestrictionState' }
+  /admin/compliance/restrictions/{memberId}/clear:
+    post:
+      tags: [admin]
+      operationId: clearRestriction
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Cleared
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestrictionState' }
+components:
+  schemas:
+    Member:
+      type: object
+      required: [id, email, display_name, goal_mode, timezone, oauth_expires_at, is_restricted]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        display_name: { type: string }
+        avatar_url: { type: string, format: uri, nullable: true }
+        goal_mode:
+          type: string
+          enum: [job_hunting, client_acquisition, hybrid]
+        timezone: { type: string }
+        oauth_expires_at: { type: string, format: date-time }
+        is_restricted: { type: boolean }
+        created_at: { type: string, format: date-time }
+    MemberUpdate:
+      type: object
+      properties:
+        display_name: { type: string }
+        avatar_url: { type: string, format: uri }
+        timezone: { type: string }
+    MemberSettings:
+      type: object
+      properties:
+        goal_mode:
+          type: string
+          enum: [job_hunting, client_acquisition, hybrid]
+        notifications_enabled: { type: boolean }
+        quiet_hours_start: { type: string, nullable: true }
+        quiet_hours_end: { type: string, nullable: true }
+        theme: { type: string, enum: [light, dark, system, high_contrast] }
+    MemberSettingsUpdate:
+      type: object
+      properties:
+        goal_mode: { type: string, enum: [job_hunting, client_acquisition, hybrid] }
+        notifications_enabled: { type: boolean }
+        quiet_hours_start: { type: string }
+        quiet_hours_end: { type: string }
+        theme: { type: string, enum: [light, dark, system, high_contrast] }
+    TokenPair:
+      type: object
+      required: [access_token, expires_in]
+      properties:
+        access_token: { type: string }
+        expires_in: { type: integer }
+    Briefing:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        sections:
+          type: array
+          items: { $ref: '#/components/schemas/BriefingSection' }
+        generated_at: { type: string, format: date-time }
+    BriefingSection:
+      type: object
+      required: [kind, title, items]
+      properties:
+        kind:
+          type: string
+          enum: [approvals_due, hot_opportunities, engagement, followups, content_suggestions]
+        title: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/BriefingItem' }
+    BriefingItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        action_url: { type: string, format: uri }
+        tier:
+          type: integer
+          minimum: 1
+          maximum: 5
+    Approval:
+      type: object
+      required: [id, member_id, action_type, tier, status, payload, kb_refs, trace_id, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        action_type:
+          type: string
+          enum: [publish_post, send_connection, send_dm, send_message, apply_opportunity, send_proposal, edit_profile, comment, like]
+        tier:
+          type: integer
+          minimum: 1
+          maximum: 5
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired, failed]
+        payload: { type: object, additionalProperties: true }
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+        governance:
+          type: object
+          nullable: true
+          properties:
+            permit: { type: boolean }
+            failed_guard: { type: string }
+            reason: { type: string }
+        trace_id: { type: string }
+        idempotency_key: { type: string }
+        created_at: { type: string, format: date-time }
+        decided_at: { type: string, format: date-time, nullable: true }
+    ApprovalDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        edited_payload: { type: object, additionalProperties: true }
+        comment: { type: string }
+    GuardFailure:
+      type: object
+      required: [guard, reason]
+      properties:
+        guard: { type: string }
+        reason: { type: string }
+        trace_id: { type: string }
+    KbCitation:
+      type: object
+      required: [record_id, title, category]
+      properties:
+        record_id: { type: string, format: uuid }
+        title: { type: string }
+        category: { type: string }
+        excerpt: { type: string }
+        url: { type: string, format: uri, nullable: true }
+    ProfileSnapshot:
+      type: object
+      required: [id, member_id, captured_at, strength, components]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        captured_at: { type: string, format: date-time }
+        strength:
+          type: integer
+          minimum: 0
+          maximum: 100
+        components:
+          type: object
+          properties:
+            headline: { type: integer, minimum: 0, maximum: 100 }
+            about: { type: integer, minimum: 0, maximum: 100 }
+            experience: { type: integer, minimum: 0, maximum: 100 }
+            skills: { type: integer, minimum: 0, maximum: 100 }
+            network: { type: integer, minimum: 0, maximum: 100 }
+    EditDraft:
+      type: object
+      required: [id, field, current_value, suggested_value, rationale]
+      properties:
+        id: { type: string, format: uuid }
+        field: { type: string }
+        current_value: { type: string }
+        suggested_value: { type: string }
+        rationale: { type: string }
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+    ProfileStrengthPoint:
+      type: object
+      required: [captured_at, strength]
+      properties:
+        captured_at: { type: string, format: date-time }
+        strength: { type: integer, minimum: 0, maximum: 100 }
+        delta: { type: integer }
+    JobRef:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, succeeded, failed] }
+    ContentItem:
+      type: object
+      required: [id, member_id, status, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [draft, pending_approval, scheduled, publishing, published, rejected]
+        body: { type: string }
+        title: { type: string, nullable: true }
+        media: { type: array, items: { $ref: '#/components/schemas/MediaItem' } }
+        variant: { type: string, nullable: true }
+        scheduled_at: { type: string, format: date-time, nullable: true }
+        published_at: { type: string, format: date-time, nullable: true }
+        trace_id: { type: string }
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    MediaItem:
+      type: object
+      required: [id, kind, url]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [image, video, document] }
+        url: { type: string, format: uri }
+        alt: { type: string, nullable: true }
+    ContentCreate:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string }
+        title: { type: string }
+        variant: { type: string }
+        media_ids:
+          type: array
+          items: { type: string, format: uuid }
+    ContentUpdate:
+      type: object
+      properties:
+        body: { type: string }
+        title: { type: string }
+        media_ids:
+          type: array
+          items: { type: string, format: uuid }
+    ContentVariant:
+      type: object
+      required: [variant, body]
+      properties:
+        variant: { type: string, enum: [authority, contrarian, bts, case_study] }
+        body: { type: string }
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+    ComposeRequest:
+      type: object
+      required: [prompt]
+      properties:
+        prompt: { type: string }
+        variants:
+          type: array
+          items: { type: string, enum: [authority, contrarian, bts, case_study] }
+        pillar_id: { type: string, format: uuid, nullable: true }
+    QualityReport:
+      type: object
+      properties:
+        score: { type: integer, minimum: 0, maximum: 100 }
+        flags:
+          type: array
+          items:
+            type: object
+            properties:
+              kind: { type: string, enum: [fluff, tone, banned_phrase, length, unsupported_claim, low_grounding] }
+              severity: { type: string, enum: [info, warn, error] }
+              span: { type: string }
+              message: { type: string }
+        kb_coverage: { type: number, minimum: 0, maximum: 1 }
+    CalendarEntry:
+      type: object
+      required: [date, items]
+      properties:
+        date: { type: string, format: date }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ContentItem' }
+    InboxItem:
+      type: object
+      required: [id, kind, actor, snippet, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [dm, comment, connection_request, mention, reaction] }
+        actor:
+          type: object
+          properties:
+            id: { type: string }
+            display_name: { type: string }
+            avatar_url: { type: string, format: uri, nullable: true }
+        snippet: { type: string }
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+        created_at: { type: string, format: date-time }
+        unread: { type: boolean }
+    QueueItem:
+      type: object
+      required: [id, kind, actor, body, priority, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [comment_target, congratulation_target, followup_target] }
+        actor:
+          type: object
+          properties:
+            id: { type: string }
+            display_name: { type: string }
+            avatar_url: { type: string, format: uri, nullable: true }
+        body: { type: string }
+        priority: { type: string, enum: [low, normal, high] }
+        tags:
+          type: array
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+    ReplyVariant:
+      type: object
+      required: [tone, body]
+      properties:
+        tone: { type: string, enum: [warm, professional, brief, assertive] }
+        body: { type: string }
+    ReplyDecision:
+      type: object
+      required: [variant_index, body]
+      properties:
+        variant_index: { type: integer }
+        body: { type: string }
+    Contact:
+      type: object
+      required: [id, member_id, display_name, stage, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        display_name: { type: string }
+        avatar_url: { type: string, format: uri, nullable: true }
+        headline: { type: string }
+        company:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            name: { type: string }
+        stage:
+          type: string
+          enum: [cold, connected, engaged, conversation, opportunity, closed]
+        tags:
+          type: array
+          items: { type: string }
+        last_interaction_at: { type: string, format: date-time, nullable: true }
+        warmth_score: { type: number, minimum: 0, maximum: 1 }
+        created_at: { type: string, format: date-time }
+    ContactUpdate:
+      type: object
+      properties:
+        tags:
+          type: array
+          items: { type: string }
+        stage: { type: string, enum: [cold, connected, engaged, conversation, opportunity, closed] }
+        notes: { type: string }
+    Interaction:
+      type: object
+      required: [id, kind, occurred_at, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [dm, comment, email, meeting, intro, like, connection] }
+        body: { type: string }
+        occurred_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        direction: { type: string, enum: [inbound, outbound] }
+    InteractionCreate:
+      type: object
+      required: [kind, occurred_at]
+      properties:
+        kind: { type: string }
+        body: { type: string }
+        occurred_at: { type: string, format: date-time }
+        direction: { type: string, enum: [inbound, outbound] }
+    Sequence:
+      type: object
+      required: [id, member_id, name, status, step_count, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        name: { type: string }
+        status:
+          type: string
+          enum: [draft, active, paused, completed, archived]
+        step_count: { type: integer }
+        enrolled_count: { type: integer }
+        reply_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SequenceCreate:
+      type: object
+      required: [name, contact_ids, template_id]
+      properties:
+        name: { type: string }
+        contact_ids:
+          type: array
+          items: { type: string, format: uuid }
+        template_id: { type: string, format: uuid }
+        start_at: { type: string, format: date-time }
+    SequenceDetail:
+      allOf:
+        - $ref: '#/components/schemas/Sequence'
+        - type: object
+          properties:
+            steps:
+              type: array
+              items: { $ref: '#/components/schemas/SequenceStep' }
+            enrolled_contacts:
+              type: array
+              items: { $ref: '#/components/schemas/Contact' }
+    SequenceStep:
+      type: object
+      required: [id, day_offset, body, status]
+      properties:
+        id: { type: string, format: uuid }
+        day_offset: { type: integer }
+        body: { type: string }
+        status:
+          type: string
+          enum: [draft, pending_approval, approved, sent, paused]
+        scheduled_at: { type: string, format: date-time, nullable: true }
+        trace_id: { type: string }
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+    SequenceTemplate:
+      type: object
+      required: [id, name, persona, step_count]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        persona: { type: string }
+        step_count: { type: integer }
+        body_preview: { type: string }
+    Opportunity:
+      type: object
+      required: [id, member_id, title, status, fit_score, captured_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        title: { type: string }
+        kind:
+          type: string
+          enum: [job, client_lead]
+        company: { type: string }
+        url: { type: string, format: uri, nullable: true }
+        status:
+          type: string
+          enum: [discovered, qualified, drafting, applied, interviewing, offer, won, lost, parked]
+        fit_score:
+          type: number
+          minimum: 0
+          maximum: 1
+        fit_breakdown:
+          type: object
+          properties:
+            skills: { type: number }
+            seniority: { type: number }
+            domain: { type: number }
+            location: { type: number }
+            comp: { type: number }
+            culture: { type: number }
+        action_plan:
+          type: string
+          enum: [apply_now, engage_then_message, warm_intro, watchlist, archive]
+        captured_at: { type: string, format: date-time }
+    OpportunityDetail:
+      allOf:
+        - $ref: '#/components/schemas/Opportunity'
+        - type: object
+          properties:
+            description: { type: string }
+            requirements:
+              type: array
+              items: { type: string }
+            posted_at: { type: string, format: date-time }
+            hidden_signals:
+              type: array
+              items: { type: string }
+    ApplicationDraft:
+      type: object
+      required: [id, body]
+      properties:
+        id: { type: string, format: uuid }
+        body: { type: string }
+        attachments:
+          type: array
+          items: { type: string }
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+    ProposalDraft:
+      type: object
+      required: [id, body]
+      properties:
+        id: { type: string, format: uuid }
+        body: { type: string }
+        fee_estimate: { type: string, nullable: true }
+        timeline: { type: string, nullable: true }
+        kb_refs:
+          type: array
+          items: { $ref: '#/components/schemas/KbCitation' }
+    ContentAnalytics:
+      type: object
+      properties:
+        impressions:
+          type: integer
+        engagements:
+          type: integer
+        followers_delta:
+          type: integer
+        by_pillar:
+          type: array
+          items:
+            type: object
+            properties:
+              pillar: { type: string }
+              impressions: { type: integer }
+              engagements: { type: integer }
+        time_series:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              impressions: { type: integer }
+              engagements: { type: integer }
+    ProfileAnalytics:
+      type: object
+      properties:
+        profile_views:
+          type: integer
+        search_appearances:
+          type: integer
+        connection_requests_received:
+          type: integer
+        time_series:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              views: { type: integer }
+              searches: { type: integer }
+    NetworkAnalytics:
+      type: object
+      properties:
+        total_connections:
+          type: integer
+        growth_30d:
+          type: integer
+        warm_intro_count:
+          type: integer
+        stage_breakdown:
+          type: object
+          additionalProperties:
+            type: integer
+    OutreachAnalytics:
+      type: object
+      properties:
+        sent_30d:
+          type: integer
+        reply_rate:
+          type: number
+        meeting_rate:
+          type: number
+        time_series:
+          type: array
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              sent: { type: integer }
+              replies: { type: integer }
+    FunnelAnalytics:
+      type: object
+      properties:
+        stages:
+          type: array
+          items:
+            type: object
+            properties:
+              stage: { type: string }
+              count: { type: integer }
+              conversion_rate: { type: number }
+        period: { type: string, enum: [7d, 30d, 90d] }
+    AccountHealth:
+      type: object
+      required: [score, components, computed_at]
+      properties:
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        components:
+          type: object
+          properties:
+            quota_remaining:
+              type: number
+            grounding_score:
+              type: number
+            approval_throughput:
+              type: number
+            recent_denial_rate:
+              type: number
+        quota_consumed_today:
+          type: integer
+        quota_cap_today:
+          type: integer
+        computed_at:
+          type: string, format: date-time
+        is_restricted:
+          type: boolean
+        restriction_reason:
+          type: string
+          nullable: true
+    Digest:
+      type: object
+      properties:
+        period: { type: string }
+        highlights:
+          type: array
+          items: { type: string }
+        metrics:
+          type: object
+          additionalProperties: true
+        generated_at: { type: string, format: date-time }
+    KbRecord:
+      type: object
+      required: [id, member_id, category, title, body, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        member_id: { type: string, format: uuid }
+        category:
+          type: string
+          enum: [resume, portfolio, voice_sample, case_study, ideal_customer, content_pillar, goal]
+        title: { type: string }
+        body: { type: string }
+        metadata: { type: object, additionalProperties: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    KbRecordCreate:
+      type: object
+      required: [category, title, body]
+      properties:
+        category: { type: string }
+        title: { type: string }
+        body: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    KbRecordUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        body: { type: string }
+        metadata: { type: object, additionalProperties: true }
+    ComplianceConfigVersion:
+      type: object
+      required: [id, version, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer }
+        status:
+          type: string
+          enum: [draft, proposed, active, retired]
+        config:
+          type: object
+          properties:
+            daily_action_cap: { type: integer }
+            connection_per_day_cap: { type: integer }
+            dm_per_day_cap: { type: integer }
+            min_grounding_score: { type: number }
+            tier2_approval_required: { type: boolean }
+            tier3_approval_required: { type: boolean }
+        reviewers:
+          type: array
+          items:
+            type: object
+            properties:
+              reviewer_id: { type: string }
+              decision: { type: string, enum: [pending, approved, rejected] }
+              decided_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        activated_at: { type: string, format: date-time, nullable: true }
+    ComplianceConfigCreate:
+      type: object
+      required: [config]
+      properties:
+        config: { type: object, additionalProperties: true }
+        rationale: { type: string }
+    RestrictionState:
+      type: object
+      required: [member_id, is_restricted, reason]
+      properties:
+        member_id: { type: string, format: uuid }
+        is_restricted: { type: boolean }
+        reason:
+          type: string
+          enum: [denial_rate, manual_review, oauth_expired, governance_fail, abuse_signal, none]
+        reason_detail:
+          type: string
+          nullable: true
+        triggered_at:
+          type: string, format: date-time, nullable: true
+        cleared_at:
+          type: string, format: date-time, nullable: true

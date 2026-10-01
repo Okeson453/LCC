@@ -1,0 +1,88 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kb-intel
+  namespace: lcc-intelligence
+  labels:
+    app: kb-intel
+    app.kubernetes.io/part-of: lcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kb-intel
+  template:
+    metadata:
+      labels:
+        app: kb-intel
+        app.kubernetes.io/part-of: lcc
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8091"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: kb-intel
+          image: registry.lcc.local/lcc/kb-intel:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8091
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: kb-intel
+            - name: HTTP_PORT
+              value: "8091"
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kb-intel
+  namespace: lcc-intelligence
+spec:
+  selector:
+    app: kb-intel
+  ports:
+    - port: 8091
+      targetPort: http
+      name: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kb-intel
+  namespace: lcc-intelligence
+automountServiceAccountToken: false

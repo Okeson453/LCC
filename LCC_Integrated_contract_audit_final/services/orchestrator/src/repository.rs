@@ -1,0 +1,221 @@
+//! Orchestrator repository — reads pre-scored data from Postgres and
+//! computes the briefing payload.
+//!
+//! The DAG-merge per Backend Design Concept §9.4 runs sequentially
+//! after four parallel fetches (now done with `tokio::join!` instead of
+//! the prior 4-serial implementation). All queries are read-only.
+
+use chrono::{DateTime, NaiveDate, Utc};
+use sqlx::PgPool;
+use uuid::Uuid;
+
+use crate::domain::{
+    Briefing, BriefingSections, BriefingKind,
+};
+use crate::domain::lcc_approval::ApprovalSummary;
+use crate::domain::lcc_engagement::TaskSummary;
+use crate::domain::lcc_opportunity::OpportunitySummary;
+use crate::domain::lcc_outreach::SequenceSummary;
+use crate::error::Error;
+
+#[derive(Clone)]
+pub struct PgRepository {
+    pool: PgPool,
+}
+
+impl PgRepository {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
+    /// Fetch the pending approvals queue (read-only — actual mutation
+    /// happens via `approval-svc`).
+    pub async fn pending_approvals(
+        &self,
+        member_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<ApprovalSummary>, Error> {
+        let rows: Vec<(Uuid, String, String, i16, DateTime<Utc>, Option<DateTime<Utc>>)> =
+            sqlx::query_as(
+                r#"
+                SELECT id, resource_type, requested_action->>'action_type',
+                       tier::INT, created_at, expires_at
+                FROM lcc.approvals
+                WHERE member_id = $1 AND decision = 'pending'
+                ORDER BY created_at ASC
+                LIMIT $2
+                "#,
+            )
+            .bind(member_id)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::Internal(format!("approvals query: {e}")))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(id, resource_type, action_type, tier, created_at, expires_at)| {
+                ApprovalSummary {
+                    id,
+                    resource_type,
+                    action_type,
+                    tier,
+                    created_at,
+                    expires_at,
+                }
+            })
+            .collect())
+    }
+
+    /// Fetch hot opportunities (φ ≥ 0.85).
+    pub async fn hot_opportunities(
+        &self,
+        member_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<OpportunitySummary>, Error> {
+        let rows: Vec<(Uuid, Option<String>, Option<String>, Option<f64>, String, DateTime<Utc>)> =
+            sqlx::query_as(
+                r#"
+                SELECT o.id, c.name, o.position::TEXT AS position,
+                       o.fit_score, o.status::TEXT AS status, o.discovered_at
+                FROM lcc.opportunities o
+                LEFT JOIN lcc.companies c ON c.id = o.company_id
+                WHERE o.member_id = $1
+                  AND o.status IN ('qualified', 'contacted', 'conversation')
+                  AND o.fit_score >= 0.85
+                ORDER BY o.fit_score DESC NULLS LAST, o.discovered_at DESC
+                LIMIT $2
+                "#,
+            )
+            .bind(member_id)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::Internal(format!("opportunities query: {e}")))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(id, company_name, position, fit_score, status, discovered_at)| {
+                OpportunitySummary {
+                    id,
+                    company_name,
+                    position,
+                    fit_score,
+                    status,
+                    discovered_at,
+                }
+            })
+            .collect())
+    }
+
+    /// Fetch the engagement queue (overdue replies, planned comments).
+    pub async fn engagement_queue(
+        &self,
+        member_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<TaskSummary>, Error> {
+        let rows: Vec<(Uuid, String, Option<f64>, Option<DateTime<Utc>>)> = sqlx::query_as(
+            r#"
+            SELECT id, action_type, priority_score, due_at
+            FROM lcc.engagement_replies
+            WHERE member_id = $1
+              AND status IN ('queued', 'drafted')
+              AND (due_at IS NULL OR due_at <= NOW() + INTERVAL '1 day')
+            ORDER BY priority_score DESC NULLS LAST, due_at NULLS LAST
+            LIMIT $2
+            "#,
+        )
+        .bind(member_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::Internal(format!("engagement query: {e}")))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(id, action_type, priority_score, due_at)| TaskSummary {
+                id,
+                action_type,
+                priority_score,
+                due_at,
+            })
+            .collect())
+    }
+
+    /// Fetch due-follow-ups (active sequences whose next step is due).
+    pub async fn due_followups(
+        &self,
+        member_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<SequenceSummary>, Error> {
+        let rows: Vec<(Uuid, Uuid, i32, Option<DateTime<Utc>>, String)> = sqlx::query_as(
+            r#"
+            SELECT s.id, s.contact_id, s.current_step,
+                   s.last_step_sent_at, s.status::TEXT AS status
+            FROM lcc.sequences s
+            WHERE s.member_id = $1
+              AND s.status = 'active'
+              AND EXISTS (
+                  SELECT 1 FROM lcc.sequence_steps st
+                  WHERE st.sequence_id = s.id
+                    AND st.sent_at IS NULL
+                    AND st.scheduled_at <= NOW()
+              )
+            ORDER BY s.last_step_sent_at NULLS FIRST
+            LIMIT $2
+            "#,
+        )
+        .bind(member_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::Internal(format!("followups query: {e}")))?;
+
+        Ok(rows
+            .into_iter()
+            .map(|(id, contact_id, current_step, last_step_sent_at, status)| {
+                SequenceSummary {
+                    id,
+                    contact_id,
+                    current_step,
+                    last_step_sent_at,
+                    status,
+                }
+            })
+            .collect())
+    }
+
+    /// Assemble the daily briefing using concurrent fan-out.
+    pub async fn assemble_briefing(
+        &self,
+        member_id: Uuid,
+        date: NaiveDate,
+    ) -> Result<Briefing, Error> {
+        // DAG-merge per Backend Design Concept §9.4 — concurrent fetch
+        // then sequential merge. The orchestrator does not perform any
+        // model inference itself; it only orders pre-scored data.
+        let (approvals, opportunities, engagement, followups) = tokio::join!(
+            self.pending_approvals(member_id, 25),
+            self.hot_opportunities(member_id, 10),
+            self.engagement_queue(member_id, 25),
+            self.due_followups(member_id, 25),
+        );
+
+        Ok(Briefing {
+            member_id,
+            date,
+            generated_at: Utc::now(),
+            kind: BriefingKind::Morning,
+            sections: BriefingSections {
+                approvals_due: approvals?,
+                hot_opportunities: opportunities?,
+                engagement: engagement?,
+                followups: followups?,
+            },
+        })
+    }
+}

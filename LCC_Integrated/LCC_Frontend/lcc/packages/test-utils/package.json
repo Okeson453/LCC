@@ -1,0 +1,44 @@
+{
+  "name": "@lcc/test-utils",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared test helpers, MSW handlers, render utilities, fixtures, and Playwright page objects.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./render": "./src/render.tsx",
+    "./render-hook": "./src/render-hook.tsx",
+    "./providers/*": "./src/providers/*",
+    "./msw/*": "./src/msw/*",
+    "./playwright/*": "./src/playwright/*",
+    "./a11y/*": "./src/a11y/*",
+    "./mocks/*": "./src/mocks/*",
+    "./utils/*": "./src/utils/*"
+  },
+  "files": ["src"],
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@lcc/api-types": "workspace:*",
+    "@lcc/realtime": "workspace:*",
+    "@lcc/tokens": "workspace:*",
+    "@lcc/ui": "workspace:*",
+    "@tanstack/react-query": "^5.40.0",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/user-event": "^14.5.2",
+    "axe-core": "^4.9.0",
+    "msw": "^2.3.0",
+    "next-themes": "^0.3.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "vitest": "^1.6.0"
+  }
+}

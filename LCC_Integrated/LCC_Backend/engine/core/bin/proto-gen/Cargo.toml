@@ -1,0 +1,19 @@
+[package]
+name = "lcc-proto-gen"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+license = "Proprietary"
+
+[[bin]]
+name = "lcc-proto-gen"
+path = "src/main.rs"
+
+[dependencies]
+walkdir = "2.5"
+clap = { version = "4.5", features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true

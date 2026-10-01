@@ -1,0 +1,105 @@
+syntax = "proto3";
+package lcc.v1.intelligence;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+// ComputeH_cRequest — called by Compliance Governor guard 4 when H_c is stale (>6h).
+// Returns the recomputed value plus per-component breakdown for observability.
+message ComputeH_cRequest {
+  string member_id = 1;
+  string compliance_config_version = 2;
+  bool force_recompute = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message H_cComponents {
+  double acceptance_rate = 1;        // A_r, [0,1]
+  double reply_rate = 2;              // R_r, [0,1]
+  double quota_utilization = 3;       // Q_u, [0,1]
+  double tenure_factor = 4;           // T_a, [0,1]
+  repeated double weights = 5;        // w_1..w_4
+}
+
+message H_cResult {
+  double h_c = 1;                    // [0,1]
+  H_cComponents components = 2;
+  google.protobuf.Timestamp computed_at = 3;
+  bool h_c_undefined = 4;            // true if any input metric missing → treat as H_c=0
+  string reason = 5;
+}
+
+message ComputeH_cResponse {
+  H_cResult result = 1;
+}
+
+// ComputePhiRequest — re-derive φ for an opportunity (job/client track)
+message ComputePhiRequest {
+  string member_id = 1;
+  string opportunity_id = 2;
+  string goal_mode = 3;              // "job_hunting"|"client_acquisition"|"hybrid"
+  string compliance_config_version = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ComputePhiResponse {
+  string opportunity_id = 1;
+  double phi = 2;
+  FitScoreComponents components = 3;
+  bool eligible = 4;                 // φ ≥ φ_qualification_threshold
+  bool rule_based_fallback = 5;
+}
+
+// ReplyProbability features (for ρ inference — Technical Design Spec §5)
+message ReplyProbabilityFeatures {
+  string member_id = 1;
+  string contact_id = 2;
+  uint32 mutual_count = 3;
+  float personalization_score = 4;
+  bool prior_interaction_flag = 5;
+  string contact_tier = 6;           // "VIP"|"standard"|"peer"
+  string last_interaction_age_days = 7;
+  repeated string tag_match_flags = 8;
+}
+
+message PredictReplyProbabilityRequest {
+  ReplyProbabilityFeatures features = 1;
+  lcc.v1.common.TraceContext trace = 2;
+}
+
+message PredictReplyProbabilityResponse {
+  double rho = 1;                    // [0,1]
+  bool rule_based_fallback = 2;      // true if member has <200 labeled sends
+  uint32 labeled_send_count = 3;     // current sample size for transparency
+  string model_version = 4;
+  string reason = 5;
+}
+
+// Calibration status — for reporting
+message CalibrationStatusRequest {}
+message CalibrationStatusResponse {
+  uint32 h_c_labeled_account_days = 1;
+  uint32 rho_labeled_sends = 2;
+  bool h_c_calibrated = 3;
+  bool rho_calibrated = 4;
+  string h_c_active_weights_version = 5;
+  string rho_active_model_version = 6;
+  google.protobuf.Timestamp last_h_c_fit_at = 7;
+  google.protobuf.Timestamp last_rho_fit_at = 8;
+}
+
+service ScoringIntel {
+  rpc ComputeH_c(ComputeH_cRequest) returns (ComputeH_cResponse);
+  rpc ComputePhi(ComputePhiRequest) returns (ComputePhiResponse);
+  rpc PredictReplyProbability(PredictReplyProbabilityRequest) returns (PredictReplyProbabilityResponse);
+  rpc CalibrationStatus(CalibrationStatusRequest) returns (CalibrationStatusResponse);
+}
+
+message FitScoreComponents {
+  double skill = 1;
+  double seniority = 2;
+  double geo = 3;
+  double comp = 4;
+  double trigger_recency = 5;
+  string goal_mode = 6;
+}

@@ -1,0 +1,112 @@
+syntax = "proto3";
+package lcc.v1.approval;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+enum ApprovalStatus {
+  APPROVAL_STATUS_UNSPECIFIED = 0;
+  APPROVAL_STATUS_PENDING = 1;
+  APPROVAL_STATUS_APPROVED = 2;
+  APPROVAL_STATUS_REJECTED = 3;
+  APPROVAL_STATUS_AUTO_EXECUTED = 4;     // Tier 1 with auto_execute=true
+  APPROVAL_STATUS_EXPIRED = 5;
+}
+
+enum RiskTier {
+  RISK_TIER_UNSPECIFIED = 0;
+  RISK_TIER_1_DRAFT_OR_EDIT = 1;
+  RISK_TIER_2_LIGHT_ENGAGEMENT = 2;
+  RISK_TIER_3_NETWORK_GROWTH = 3;
+  RISK_TIER_4_ONE_TO_ONE_OUTREACH = 4;
+  RISK_TIER_5_HIGH_STAKES = 5;
+}
+
+message Approval {
+  string id = 1;
+  string member_id = 2;
+  string resource_type = 3;           // "content_item"|"sequence_step"|...
+  string resource_id = 4;
+  string requested_by = 5;            // "system:<service>"
+  string rule_version = 6;            // compliance_config_version
+  RiskTier risk_tier = 7;
+  ApprovalStatus status = 8;
+  google.protobuf.Timestamp decided_at = 9;
+  string decided_by = 10;             // user_id or "system:auto_execute"
+  string decided_reason = 11;
+  google.protobuf.Timestamp expires_at = 12;
+  google.protobuf.Timestamp created_at = 13;
+  uint32 version = 14;
+}
+
+message RequestApprovalRequest {
+  string member_id = 1;
+  string resource_type = 2;
+  string resource_id = 3;
+  string requested_by = 4;
+  RiskTier risk_tier = 5;
+  string rule_version = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  lcc.v1.common.TraceContext trace = 8;
+}
+
+message RequestApprovalResponse {
+  Approval approval = 1;
+}
+
+message DecideApprovalRequest {
+  string member_id = 1;
+  string approval_id = 2;
+  bool approve = 3;
+  string user_id = 4;
+  string reason = 5;
+  lcc.v1.common.TraceContext trace = 6;
+}
+
+message DecideApprovalResponse {
+  Approval approval = 1;
+}
+
+message BulkDecideRequest {
+  string member_id = 1;
+  repeated string approval_ids = 2;
+  bool approve = 3;
+  string user_id = 4;
+  string reason = 5;
+  lcc.v1.common.TraceContext trace = 6;
+}
+
+message BulkDecideResponse {
+  repeated Approval approvals = 1;
+  uint32 succeeded = 2;
+  uint32 failed = 3;
+}
+
+message ListApprovalsRequest {
+  string member_id = 1;
+  ApprovalStatus status_filter = 2;
+  string resource_type_filter = 3;
+  uint32 limit = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ListApprovalsResponse {
+  repeated Approval approvals = 1;
+}
+
+message ExpireApprovalsRequest {
+  google.protobuf.Timestamp now = 1;
+  lcc.v1.common.TraceContext trace = 2;
+}
+
+message ExpireApprovalsResponse {
+  uint32 expired_count = 1;
+}
+
+service ApprovalSvc {
+  rpc RequestApproval(RequestApprovalRequest) returns (RequestApprovalResponse);
+  rpc DecideApproval(DecideApprovalRequest) returns (DecideApprovalResponse);
+  rpc BulkDecide(BulkDecideRequest) returns (BulkDecideResponse);
+  rpc ListApprovals(ListApprovalsRequest) returns (ListApprovalsResponse);
+  rpc ExpireApprovals(ExpireApprovalsRequest) returns (ExpireApprovalsResponse);
+}

@@ -1,0 +1,10 @@
+/* Tier-1 read-only overlay. Disabled if not on whitelisted surface. */
+.lcc-ext-read-overlay {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483646;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  pointer-events: none;
+}
+.lcc-ext-read-overlay > * { pointer-events: auto; }

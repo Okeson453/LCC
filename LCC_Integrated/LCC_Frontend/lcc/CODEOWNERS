@@ -1,0 +1,33 @@
+# CODEOWNERS — OKESON-LCC frontend monorepo
+# Per-directory ownership for required reviews.
+
+# Default owner
+*                       @team/frontend
+
+# Frontend apps
+/apps/web-dashboard/    @team/frontend
+/apps/browser-extension/ @team/frontend @team/security
+
+# Shared frontend packages
+/packages/ui/           @team/frontend @team/design
+/packages/api-types/    @team/frontend @team/backend
+/packages/realtime/     @team/frontend @team/backend
+/packages/approval-gate/ @team/frontend @team/compliance
+/packages/compliance-state/ @team/frontend @team/compliance
+/packages/tokens/       @team/frontend @team/design
+/packages/i18n/         @team/frontend
+/packages/test-utils/   @team/frontend
+
+# Infrastructure
+/infra/                 @team/frontend @team/devops
+/infra/ci/              @team/frontend @team/devops
+/infra/k8s/             @team/frontend @team/devops
+/tools/                 @team/frontend
+
+# Documentation and governance
+/docs/                  @team/frontend
+/docs/frontend/adr/     @team/frontend @team/architecture
+/docs/frontend/runbooks/ @team/frontend @team/devops
+
+# Generated files (require backend co-review)
+**/generated/           @team/frontend @team/backend

@@ -1,0 +1,200 @@
+syntax = "proto3";
+package lcc.v1.network;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+enum RelationshipStage {
+  RELATIONSHIP_UNSPECIFIED = 0;
+  RELATIONSHIP_COLD = 1;
+  RELATIONSHIP_CONNECTED = 2;
+  RELATIONSHIP_ENGAGED = 3;
+  RELATIONSHIP_CONVERSATION = 4;
+  RELATIONSHIP_OPPORTUNITY = 5;
+  RELATIONSHIP_CLOSED = 6;
+}
+
+enum ContactTier {
+  TIER_UNSPECIFIED = 0;
+  TIER_VIP = 1;
+  TIER_STANDARD = 2;
+  TIER_PEER = 3;
+}
+
+enum ConnectionStatus {
+  CONNECTION_UNSPECIFIED = 0;
+  CONNECTION_NOT_CONNECTED = 1;
+  CONNECTION_PENDING = 2;
+  CONNECTION_CONNECTED = 3;
+}
+
+message Contact {
+  string id = 1;
+  string member_id = 2;
+  string linkedin_url = 3;
+  string name = 4;
+  string title = 5;
+  string company_id = 6;
+  repeated string tags = 7;
+  ContactTier tier = 8;
+  ConnectionStatus connection_status = 9;
+  google.type.Date first_contact_date = 10;
+  google.protobuf.Timestamp last_interaction_at = 11;
+  google.type.Date follow_up_date = 12;
+  RelationshipStage relationship_stage = 13;
+  double health_score = 14;
+  string opportunity_id = 15;
+  google.protobuf.Timestamp third_party_ttl_at = 16;  // ≤48h for cached activity
+  uint32 version = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+message Company {
+  string id = 1;
+  string name = 2;
+  string industry = 3;
+  string size_band = 4;
+  string funding_stage = 5;
+  repeated string tech_stack = 6;
+  string trigger_events_json = 7;
+  string public_signals_json = 8;
+  string enrichment_meta_json = 9;
+  google.protobuf.Timestamp third_party_ttl_at = 10;
+  uint32 version = 11;
+}
+
+message InteractionLogEntry {
+  string id = 1;
+  string contact_id = 2;
+  string member_id = 3;
+  string kind = 4;                   // "message_sent"|"message_received"|"meeting"|...
+  string body = 5;
+  string actor = 6;                   // "user:<user_id>"|"system:<service>"
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+message StaleContact {
+  Contact contact = 1;
+  uint32 days_since_last_interaction = 2;
+  string suggested_action = 3;
+}
+
+message WarmPath {
+  string target_contact_id = 1;
+  repeated string via_contact_ids = 2;
+  uint32 hop_count = 3;
+}
+
+message GDPRPurgeRequest {
+  string member_id = 1;
+  string contact_id = 2;
+  string user_id = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message GDPRPurgeResponse {
+  bool purged = 1;
+  uint32 interactions_anonymized = 2;
+}
+
+service NetworkCrmSvc {
+  rpc ListContacts(ListContactsRequest) returns (ListContactsResponse);
+  rpc CreateContact(CreateContactRequest) returns (CreateContactResponse);
+  rpc UpdateContact(UpdateContactRequest) returns (UpdateContactResponse);
+  rpc ListInteractions(ListInteractionsRequest) returns (ListInteractionsResponse);
+  rpc LogInteraction(LogInteractionRequest) returns (LogInteractionResponse);
+  rpc StaleContacts(StaleContactsRequest) returns (StaleContactsResponse);
+  rpc PurgeContact(GDPRPurgeRequest) returns (GDPRPurgeResponse);
+  rpc FindWarmPath(FindWarmPathRequest) returns (FindWarmPathResponse);
+}
+
+message ListContactsRequest {
+  string member_id = 1;
+  RelationshipStage stage_filter = 2;
+  ContactTier tier_filter = 3;
+  uint32 limit = 4;
+  string cursor = 5;
+  lcc.v1.common.TraceContext trace = 6;
+}
+
+message ListContactsResponse {
+  repeated Contact contacts = 1;
+  string next_cursor = 2;
+}
+
+message CreateContactRequest {
+  string member_id = 1;
+  string linkedin_url = 2;
+  string name = 3;
+  string title = 4;
+  string company_id = 5;
+  repeated string tags = 6;
+  ContactTier tier = 7;
+  lcc.v1.common.TraceContext trace = 8;
+}
+
+message CreateContactResponse {
+  Contact contact = 1;
+}
+
+message UpdateContactRequest {
+  string member_id = 1;
+  string contact_id = 2;
+  optional string title = 3;
+  repeated string tags = 4;
+  optional ContactTier tier = 5;
+  optional string notes = 6;
+  lcc.v1.common.TraceContext trace = 7;
+}
+
+message UpdateContactResponse {
+  Contact contact = 1;
+}
+
+message ListInteractionsRequest {
+  string member_id = 1;
+  string contact_id = 2;
+  uint32 limit = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ListInteractionsResponse {
+  repeated InteractionLogEntry entries = 1;
+}
+
+message LogInteractionRequest {
+  string member_id = 1;
+  string contact_id = 2;
+  string kind = 3;
+  string body = 4;
+  string actor = 5;
+  lcc.v1.common.TraceContext trace = 6;
+}
+
+message LogInteractionResponse {
+  InteractionLogEntry entry = 1;
+}
+
+message StaleContactsRequest {
+  string member_id = 1;
+  ContactTier tier_filter = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message StaleContactsResponse {
+  repeated StaleContact contacts = 1;
+}
+
+message FindWarmPathRequest {
+  string member_id = 1;
+  string target_contact_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message FindWarmPathResponse {
+  WarmPath path = 1;
+}
+
+// Use google.type.Date for first_contact_date and follow_up_date
+import "google/type/date.proto";

@@ -1,0 +1,9 @@
+{
+  "name": "post_publish_with_grounding",
+  "member_id": "00000000-0000-0000-0000-000000000001",
+  "action_type": "post_publish",
+  "target_kind": "post",
+  "target_id": "post-2",
+  "expected": "allow",
+  "context": { "kb_refs": ["rec-1", "rec-2"] }
+}

@@ -1,0 +1,17 @@
+# F-AUDIT-41: api-gateway refuses to start with the compiled-in dev JWT
+# secret unless LCC_ENVIRONMENT names a local/dev/test profile. The base
+# manifest sets it to "local", which in a production cluster would have silently
+# accepted the publicly-known secret. This patch forces the real value.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: lcc-engine
+spec:
+  template:
+    spec:
+      containers:
+        - name: api-gateway
+          env:
+            - name: LCC_ENVIRONMENT
+              value: production

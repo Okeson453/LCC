@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lcc
+resources:
+  - bucket.yaml
+  - ingress.yaml
+  - service.yaml
+  - bucket.yaml
+  - service.yaml
+  - ingress.yaml
+  - bucket.yaml
+  - service.yaml
+  - ingress.yaml
+commonLabels:
+  app.kubernetes.io/name: browser-extension-cdn
+  app.kubernetes.io/part-of: linkedin-manager

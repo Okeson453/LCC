@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://okeson.example/schemas/events/member.created.schema.json",
+  "title": "MemberCreated",
+  "description": "Emitted when a new member account is created (post-OAuth).",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "member_id", "email", "goal_mode"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "member.created" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "member_id": { "type": "string", "format": "uuid" },
+    "email": { "type": "string", "format": "email" },
+    "display_name": { "type": "string" },
+    "goal_mode": { "type": "string", "enum": ["job_hunting", "client_acquisition", "hybrid"] },
+    "timezone": { "type": "string" }
+  }
+}

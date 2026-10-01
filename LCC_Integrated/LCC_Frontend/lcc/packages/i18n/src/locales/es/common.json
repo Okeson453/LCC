@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "LinkedIn Manager",
+    "tagline": "Compliance-aware LinkedIn copilot"
+  },
+  "nav": {
+    "today": "Today",
+    "approvals": "Approvals",
+    "pipeline": "Pipeline",
+    "content": "Content",
+    "engagement": "Engagement",
+    "outreach": "Outreach",
+    "opportunities": "Opportunities",
+    "network": "Network",
+    "studio": "Studio",
+    "composer": "Composer",
+    "profile": "Profile",
+    "kb": "Knowledge base",
+    "insights": "Insights",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "copilot": "Copilot"
+  },
+  "actions": {
+    "approve": "Approve",
+    "reject": "Reject",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "retry": "Retry",
+    "submit": "Submit"
+  },
+  "status": {
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "error": "Something went wrong",
+    "retry": "Try again"
+  },
+  "compliance": {
+    "restricted_banner_title": "Account restricted",
+    "contact_support": "Contact support",
+    "grounding_required": "Grounding citations required"
+  }
+}

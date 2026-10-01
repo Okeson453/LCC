@@ -1,0 +1,49 @@
+[package]
+name = "lcc-api-gateway"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+license = "Proprietary"
+
+[[bin]]
+name = "lcc-api-gateway"
+path = "src/main.rs"
+
+[lib]
+name = "lcc_api_gateway"
+path = "src/lib.rs"
+
+[dependencies]
+lcc-error = { path = "../../../../crates/error" }
+lcc-config = { path = "../../../../crates/config" }
+lcc-observability = { path = "../../../../crates/observability" }
+lcc-auth = { path = "../../../../crates/auth" }
+lcc-audit-client = { path = "../../../../crates/audit-client" }
+lcc-events = { path = "../../../../crates/events" }
+lcc-proto = { path = "../../../../crates/proto" }
+lcc-db = { path = "../../../../crates/db" }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+hyper = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+
+# F-AUDIT-07: `middleware/trace_id.rs` uses `rand` and `hex` to mint a trace
+# id, but neither was declared here, so the crate could not compile.
+rand = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1.38", features = ["full", "test-util", "macros"] }
+
+[lints]
+workspace = true

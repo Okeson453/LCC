@@ -1,0 +1,439 @@
+# =============================================================================
+# OKESON-LCC — Realtime & Push Contract (v1.0)
+# =============================================================================
+# Companion to lcc-api-canonical.yaml — WebSocket + SSE + event-streaming
+# channels the dashboard subscribes to for live updates.
+#
+# Where OpenAPI cannot represent a streaming/typed-event contract adequately,
+# this YAML is the authoritative source for:
+#   • Channel URLs (WS + SSE fallback)
+#   • Channel ↔ Bearer-JWT auth requirements
+#   • Channel-specific RBAC
+#   • Event-name catalog
+#   • Event-payload schemas (JSON Schema fragments; share types with REST
+#     where applicable)
+#   • Heartbeat, reconnect, and backoff semantics
+#   • Ordering, duplicate-handling, delivery-guarantee promises
+#   • Connection-limit and timeout behavior
+#
+# Note: The browser-extension Track B (human-assist) channel is intentionally
+# NOT in this contract; it lives in integration-gateway on port 8443 and is
+# described in the Backend Design Concept §37–§39.
+# =============================================================================
+
+version: "1.0"
+title: OKESON-LCC Realtime Contract
+companion_rest: lcc-api-canonical.yaml
+
+# -----------------------------------------------------------------------------
+# Channel catalog (5 required by Design §19 + 1 backend-only)
+# -----------------------------------------------------------------------------
+channels:
+  - id: ws.briefing
+    summary: Daily briefing refresh events (counts only; consumer refetches detail)
+    transport_preference: [websocket, sse]
+    url_ws:   /api/v1/ws/briefing
+    url_sse:  /api/v1/sse/briefing
+    auth: bearer_jwt_audience=lcc-api
+    rbac: [Owner, Assistant, Reviewer]
+    scope: member
+    heartbeat_seconds: 30
+    idle_timeout_seconds: 120
+    reconnect:
+      backoff: exponential
+      base_ms: 500
+      max_ms: 30000
+      jitter: full
+    ordering: per_member
+    delivery: at_least_once_with_event_id_dedup
+    events:
+      - briefing.refresh
+      - briefing.section.updated
+    # No presence/typing — this is a server → client notification channel.
+
+  - id: ws.approvals
+    summary: New pending approval notifications + approval state changes
+    transport_preference: [websocket, sse]
+    url_ws:   /api/v1/ws/approvals
+    url_sse:  /api/v1/sse/approvals
+    auth: bearer_jwt_audience=lcc-api
+    rbac: [Owner, Assistant, Reviewer]
+    scope: member
+    heartbeat_seconds: 30
+    idle_timeout_seconds: 300
+    reconnect: { backoff: exponential, base_ms: 500, max_ms: 30000, jitter: full }
+    ordering: per_member
+    delivery: at_least_once_with_event_id_dedup
+    events:
+      - approval.created
+      - approval.expired
+      - approval.bulk_decided
+
+  - id: ws.engagement
+    summary: Inbound DM / comment / connection-request notifications + reply-draft ready
+    transport_preference: [websocket, sse]
+    url_ws:   /api/v1/ws/engagement
+    url_sse:  /api/v1/sse/engagement
+    auth: bearer_jwt_audience=lcc-api
+    rbac: [Owner, Assistant, Reviewer]
+    scope: member
+    heartbeat_seconds: 30
+    idle_timeout_seconds: 300
+    reconnect: { backoff: exponential, base_ms: 500, max_ms: 30000, jitter: full }
+    ordering: per_member
+    delivery: at_least_once_with_event_id_dedup
+    events:
+      - engagement.inbound.received
+      - engagement.task.created
+      - engagement.draft_ready
+      - engagement.task.expired
+
+  - id: ws.compliance
+    summary: Restriction signal + circuit-breaker state changes
+    transport_preference: [websocket, sse]
+    url_ws:   /api/v1/ws/compliance
+    url_sse:  /api/v1/sse/compliance
+    auth: bearer_jwt_audience=lcc-api
+    rbac: [Owner, Admin]
+    scope: member
+    heartbeat_seconds: 15
+    idle_timeout_seconds: 60
+    reconnect: { backoff: exponential, base_ms: 1000, max_ms: 60000, jitter: full }
+    ordering: per_member
+    delivery: at_least_once_with_event_id_dedup
+    events:
+      - compliance.restriction_detected
+      - compliance.restriction_cleared
+      - compliance.config_activated
+      - compliance.circuit_breaker_state_changed
+
+  - id: ws.sequence
+    summary: Sequence pause/resume/step-sent notifications
+    transport_preference: [websocket, sse]
+    url_ws:   /api/v1/ws/sequence
+    url_sse:  /api/v1/sse/sequence
+    auth: bearer_jwt_audience=lcc-api
+    rbac: [Owner, Assistant, Reviewer]
+    scope: member
+    heartbeat_seconds: 30
+    idle_timeout_seconds: 300
+    reconnect: { backoff: exponential, base_ms: 500, max_ms: 30000, jitter: full }
+    ordering: per_member
+    delivery: at_least_once_with_event_id_dedup
+    events:
+      - sequence.reply_detected
+      - sequence.paused
+      - sequence.resumed
+      - sequence.completed
+      - sequence.step.sent
+      - sequence.step.failed
+
+# -----------------------------------------------------------------------------
+# Envelope (every event on every channel shares this envelope)
+# -----------------------------------------------------------------------------
+envelope:
+  type: object
+  required: [event_id, event_name, occurred_at, member_id, producer_service, payload, trace_id]
+  properties:
+    event_id: { type: string, format: uuid, description: 'UUIDv7; idempotency key for consumers' }
+    event_name: { type: string }
+    occurred_at: { type: string, format: date-time }
+    member_id: { type: string, format: uuid }
+    producer_service: { type: string, enum: [identity-svc, profile-svc, content-svc, engagement-svc, network-crm-svc, opportunity-svc, outreach-svc, analytics-svc, approval-svc, compliance-governor, integration-gateway, orchestrator, ai-worker, kb-intel, opportunity-intel, scoring-intel] }
+    trace_id: { type: string, format: uuid, description: 'UUIDv4' }
+    payload:
+      oneOf:
+        - $ref: '#/definitions/BriefingRefresh'
+        - $ref: '#/definitions/BriefingSectionUpdated'
+        - $ref: '#/definitions/ApprovalCreated'
+        - $ref: '#/definitions/ApprovalExpired'
+        - $ref: '#/definitions/ApprovalBulkDecided'
+        - $ref: '#/definitions/InboundReceived'
+        - $ref: '#/definitions/EngagementTaskCreated'
+        - $ref: '#/definitions/EngagementDraftReady'
+        - $ref: '#/definitions/EngagementTaskExpired'
+        - $ref: '#/definitions/RestrictionDetected'
+        - $ref: '#/definitions/RestrictionCleared'
+        - $ref: '#/definitions/ConfigActivated'
+        - $ref: '#/definitions/CircuitBreakerStateChanged'
+        - $ref: '#/definitions/SequenceReplyDetected'
+        - $ref: '#/definitions/SequencePaused'
+        - $ref: '#/definitions/SequenceResumed'
+        - $ref: '#/definitions/SequenceCompleted'
+        - $ref: '#/definitions/SequenceStepSent'
+        - $ref: '#/definitions/SequenceStepFailed'
+
+# -----------------------------------------------------------------------------
+# Event-payload schemas
+# -----------------------------------------------------------------------------
+definitions:
+
+  BriefingRefresh:
+    type: object
+    required: [date, approvals_due, hot_opportunities, engagement, followups]
+    properties:
+      date: { type: string, format: date }
+      approvals_due: { type: integer, minimum: 0 }
+      hot_opportunities: { type: integer, minimum: 0 }
+      engagement: { type: integer, minimum: 0 }
+      followups: { type: integer, minimum: 0 }
+
+  BriefingSectionUpdated:
+    type: object
+    required: [section]
+    properties:
+      section: { type: string, enum: [approvals_due, hot_opportunities, engagement, followups] }
+      count: { type: integer, minimum: 0 }
+
+  ApprovalCreated:
+    type: object
+    required: [approval_id, resource_type, tier]
+    properties:
+      approval_id: { type: string, format: uuid }
+      resource_type: { type: string }
+      tier: { type: integer, minimum: 1, maximum: 5 }
+      preview: { type: string }
+
+  ApprovalExpired:
+    type: object
+    required: [approval_id]
+    properties:
+      approval_id: { type: string, format: uuid }
+
+  ApprovalBulkDecided:
+    type: object
+    required: [approval_ids, decision]
+    properties:
+      approval_ids:
+        type: array
+        items: { type: string, format: uuid }
+      decision: { type: string, enum: [approve, reject] }
+      decided_by: { type: string }
+
+  InboundReceived:
+    type: object
+    required: [inbox_item_id, kind]
+    properties:
+      inbox_item_id: { type: string, format: uuid }
+      kind: { type: string, enum: [dm, comment, connection_request, mention, reaction] }
+      contact_id: { type: string, format: uuid, nullable: true }
+      preview: { type: string }
+
+  EngagementTaskCreated:
+    type: object
+    required: [task_id, action_type]
+    properties:
+      task_id: { type: string, format: uuid }
+      action_type: { type: string, enum: [reply, comment, like, congratulate, connection_accept, follow_up] }
+      priority_score: { type: number, nullable: true }
+      due_at: { type: string, format: date-time, nullable: true }
+
+  EngagementDraftReady:
+    type: object
+    required: [task_id, variant_count]
+    properties:
+      task_id: { type: string, format: uuid }
+      variant_count: { type: integer, minimum: 1 }
+
+  EngagementTaskExpired:
+    type: object
+    required: [task_id]
+    properties:
+      task_id: { type: string, format: uuid }
+
+  RestrictionDetected:
+    type: object
+    required: [reason]
+    properties:
+      reason: { type: string, enum: [denial_rate, manual_review, oauth_expired, governance_fail, abuse_signal] }
+      detected_at: { type: string, format: date-time }
+      trace_id: { type: string, format: uuid }
+
+  RestrictionCleared:
+    type: object
+    required: [cleared_by]
+    properties:
+      cleared_by: { type: string }
+      cleared_at: { type: string, format: date-time }
+      reason: { type: string }
+
+  ConfigActivated:
+    type: object
+    required: [version_id, version]
+    properties:
+      version_id: { type: string, format: uuid }
+      version: { type: string, description: 'e.g. ccfg-2026-04-15-r3' }
+      activated_at: { type: string, format: date-time }
+      activated_by:
+        type: array
+        minItems: 2
+        items: { type: string, format: uuid }
+      previous_version: { type: string, nullable: true }
+
+  CircuitBreakerStateChanged:
+    type: object
+    required: [provider, endpoint, new_state]
+    properties:
+      provider: { type: string }
+      endpoint: { type: string }
+      new_state: { type: string, enum: [closed, open, half_open] }
+      changed_at: { type: string, format: date-time }
+
+  SequenceReplyDetected:
+    type: object
+    required: [sequence_id, contact_id, source]
+    properties:
+      sequence_id: { type: string, format: uuid }
+      contact_id: { type: string, format: uuid }
+      source: { type: string, enum: [dm, comment, email, manual_flag] }
+      detected_at: { type: string, format: date-time }
+
+  SequencePaused:
+    type: object
+    required: [sequence_id, reason]
+    properties:
+      sequence_id: { type: string, format: uuid }
+      reason: { type: string, enum: [reply_detected, manual, governance_denied, throttle] }
+      paused_at: { type: string, format: date-time }
+
+  SequenceResumed:
+    type: object
+    required: [sequence_id]
+    properties:
+      sequence_id: { type: string, format: uuid }
+      resumed_at: { type: string, format: date-time }
+      resumed_by: { type: string }
+
+  SequenceCompleted:
+    type: object
+    required: [sequence_id, terminal_state]
+    properties:
+      sequence_id: { type: string, format: uuid }
+      terminal_state: { type: string, enum: [completed_engaged, completed_no_reply, abandoned] }
+      completed_at: { type: string, format: date-time }
+
+  SequenceStepSent:
+    type: object
+    required: [sequence_id, step_id]
+    properties:
+      sequence_id: { type: string, format: uuid }
+      step_id: { type: string, format: uuid }
+      step_index: { type: integer, minimum: 0 }
+      sent_at: { type: string, format: date-time }
+      permit_token_id: { type: string, nullable: true }
+
+  SequenceStepFailed:
+    type: object
+    required: [sequence_id, step_id, reason]
+    properties:
+      sequence_id: { type: string, format: uuid }
+      step_id: { type: string, format: uuid }
+      reason: { type: string, enum: [governance_denied, integration_error, circuit_open, restriction, throttle] }
+      failed_at: { type: string, format: date-time }
+      denial_count: { type: integer, minimum: 0 }
+
+# -----------------------------------------------------------------------------
+# Connection-level protocol details
+# -----------------------------------------------------------------------------
+protocol:
+
+  websocket:
+    subprotocol: lcc.v1.realtime
+    framing: text_json
+    # Server → client frame: EventEnvelope (above)
+    # Client → server frames: only { "type": "ping" } and { "type": "subscribe", "channels": [...] }
+    message_size_limit_bytes: 65536
+    per_connection_message_rate_limit: 30/sec
+
+  sse:
+    # SSE fallback per Design §19 "Server-sent events (SSE) is used as a fallback when WS is not feasible."
+    framing: text/event-stream
+    # Event names = event_name from envelope; data = serialized JSON envelope
+    retry_ms: 5000  # tells EventSource to reconnect after 5s if dropped
+
+  auth:
+    transport_methods:
+      websocket:
+        - Authorization: Bearer <jwt>
+        - Sec-WebSocket-Protocol: lcc.v1.realtime  # token also accepted here
+      sse:
+        - Authorization: Bearer <jwt>
+        - Cookie: lcc_access=<jwt>
+      # Query-string token (browser-extension case only):
+      query_string:
+        note: NOT supported for browser dashboard endpoints (Design §43.1 forbids token-in-URL for end users)
+    token_validation:
+      algorithm: HS256
+      audience: lcc-api
+      issuer: lcc-auth
+      clock_skew_seconds: 5
+    rbac_enforcement: server-side; rejected with 1008 (WS close code) / 401 (SSE)
+
+  heartbeat:
+    server_ping_interval_seconds: 30
+    # Client may also send { "type":"ping" } and the server replies { "type":"pong" }
+    pong_timeout_seconds: 10
+    # If no traffic in idle_timeout_seconds, server closes with 1001 (Going Away)
+
+  reconnection:
+    client_responsibilities:
+      - Persist last-event-id (X- Last-Event-ID header for SSE; in-band on WS) for resumption
+      - Exponential backoff with full jitter
+      - Resume by re-sending subscription list; server replays missed events within retention window
+    server_responsibilities:
+      - Persist events to Redis Stream with TTL=7d (per audit F-AUDIT — idempotency)
+      - Honor `last_event_id`; replay in order
+
+  delivery_guarantees:
+    level: at_least_once
+    dedup_strategy: consumer-side keyed on `event_id` (UUIDv7); Redis SETNX with TTL=7d
+    ordering: per member_id (FIFO for events on the same channel for the same member)
+    out_of_order_tolerance: documented acceptable; consumers MUST NOT assume strict ordering across channels
+
+  error_handling:
+    server_to_client_close_codes:
+      1000: "Normal closure"
+      1001: "Going away (idle timeout, server restart)"
+      1008: "Policy violation (bad token, RBAC denied, malformed frame)"
+      1011: "Server error"
+      1013: "Retry after backoff (rate-limit on connection attempts)"
+    sse_error_events:
+      retry_ms: 5000
+      data: { "error": { "code": "...", "message": "..." } }
+
+  connection_limits:
+    per_member: 5
+    per_ip: 50
+    global: 5000
+    enforcement: server-side; new connections over limit receive 1013 / 503
+
+  fallback:
+    polling:
+      enabled_when: both WS and SSE fail
+      endpoint_per_channel: same URL with `?poll=1`
+      interval_ms: 30000
+      note: Falls back to GET semantics; client polls `last_event_id`
+
+# -----------------------------------------------------------------------------
+# Per-event producer/consumer mapping (Design §20.4 events table)
+# -----------------------------------------------------------------------------
+event_producers:
+  briefing.refresh:                 [orchestrator]
+  briefing.section.updated:         [orchestrator, content-svc, opportunity-svc, engagement-svc, outreach-svc]
+  approval.created:                 [content-svc, outreach-svc, opportunity-svc, profile-svc, engagement-svc]
+  approval.expired:                 [approval-svc (nightly cron)]
+  approval.bulk_decided:            [approval-svc]
+  engagement.inbound.received:      [integration-gateway]
+  engagement.task.created:          [engagement-svc, orchestrator]
+  engagement.draft_ready:           [engagement-svc]
+  engagement.task.expired:          [engagement-svc (cron)]
+  compliance.restriction_detected:  [integration-gateway, compliance-governor]
+  compliance.restriction_cleared:   [compliance-governor]
+  compliance.config_activated:      [compliance-governor]
+  compliance.circuit_breaker_state_changed: [integration-gateway]
+  sequence.reply_detected:          [engagement-svc, integration-gateway]
+  sequence.paused:                  [outreach-svc]
+  sequence.resumed:                 [outreach-svc]
+  sequence.completed:               [outreach-svc]
+  sequence.step.sent:               [integration-gateway]
+  sequence.step.failed:             [integration-gateway, compliance-governor]

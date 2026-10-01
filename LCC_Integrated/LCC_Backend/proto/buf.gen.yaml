@@ -1,0 +1,17 @@
+version: v1
+plugins:
+  # Rust: tonic + prost
+  - plugin: buf.build/protocolbuffers/rust:v28.3
+    out: gen/rust
+    opt:
+      - file_descriptor_set=true
+  - plugin: buf.build/grpc/rust:v28.3
+    out: gen/rust
+    opt:
+      - client_util=ClientExt
+
+  # Python: grpcio + grpcio-tools
+  - plugin: buf.build/protocolbuffers/python:v28.3
+    out: gen/python
+  - plugin: buf.build/grpc/python:v28.3
+    out: gen/python

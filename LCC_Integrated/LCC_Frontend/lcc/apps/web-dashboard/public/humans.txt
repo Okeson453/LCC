@@ -1,0 +1,5 @@
+/* TEAM */
+OKESON Frontend Team
+
+/* THANKS */
+Design System contributors, Accessibility reviewers.

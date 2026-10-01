@@ -1,0 +1,94 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Editor
+.vscode/
+.idea/
+*.iml
+*.swp
+
+# Build artifacts
+target/
+dist/
+build/
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+*.rlib
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.cache
+.molecule/
+
+# Node (if frontend tooling is colocated)
+node_modules/
+.next/
+out/
+
+# Coverage
+coverage/
+*.lcov
+*.info
+
+# Generated proto code
+proto/gen/rust/*
+proto/gen/python/*
+!proto/gen/rust/.gitkeep
+!proto/gen/python/.gitkeep
+
+# Generated / downloaded
+*.lock.bak
+.vault-token
+.gitleaks.toml
+
+# K8s / secrets
+*.kubeconfig
+.kube/
+.secrets/
+*.pem
+*.key
+*.crt
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+
+# Local env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.pyright_cache/
+
+# Buf
+.buf/

@@ -1,0 +1,23 @@
+{
+  "sequences": {
+    "title": "Outreach sequences",
+    "new": "New sequence",
+    "pause": "Pause",
+    "resume": "Resume",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "paused": "Paused",
+      "completed": "Completed",
+      "archived": "Archived"
+    }
+  },
+  "steps": {
+    "approve": "Approve step",
+    "edit": "Edit step",
+    "send_now": "Send now"
+  },
+  "templates": {
+    "title": "Templates library"
+  }
+}

@@ -1,0 +1,157 @@
+syntax = "proto3";
+package lcc.v1.identity;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+enum MemberLifecycleState {
+  MEMBER_STATE_UNSPECIFIED = 0;
+  MEMBER_STATE_PROVISIONING = 1;
+  MEMBER_STATE_ACTIVE = 2;
+  MEMBER_STATE_RESTRICTED = 3;
+  MEMBER_STATE_SUSPENDED = 4;
+  MEMBER_STATE_DELETED = 5;
+}
+
+enum GoalMode {
+  GOAL_MODE_UNSPECIFIED = 0;
+  GOAL_MODE_JOB_HUNTING = 1;
+  GOAL_MODE_CLIENT_ACQUISITION = 2;
+  GOAL_MODE_HYBRID = 3;
+}
+
+message MemberAccount {
+  string id = 1;
+  string linkedin_id = 2;
+  google.protobuf.Timestamp oauth_expires_at = 3;
+  repeated string oauth_scopes = 4;
+  string timezone = 5;
+  GoalMode active_goal_mode = 6;
+  bool is_restricted = 7;
+  google.protobuf.Timestamp restricted_since = 8;
+  string restricted_reason = 9;
+  google.protobuf.Timestamp restricted_cleared_at = 10;
+  google.protobuf.Timestamp warmup_started_at = 11;
+  uint32 days_active = 12;
+  MemberLifecycleState lifecycle_state = 13;
+  string role = 14;                   // "owner"|"assistant"|"reviewer"|"admin"|"auditor"
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+  uint32 version = 17;
+}
+
+message OAuthStartRequest {
+  string redirect_uri = 1;
+  string state = 2;                   // CSRF; opaque; stored in HttpOnly cookie
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message OAuthStartResponse {
+  string authorize_url = 1;
+  string state = 2;
+  string code_verifier = 3;           // PKCE: caller stores in HttpOnly cookie
+}
+
+message OAuthCallbackRequest {
+  string code = 1;
+  string state = 2;
+  string code_verifier = 3;
+  string redirect_uri = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message OAuthCallbackResponse {
+  MemberAccount member = 1;
+  string access_token = 2;
+  string refresh_token = 3;
+  google.protobuf.Timestamp access_token_expires_at = 4;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+  lcc.v1.common.TraceContext trace = 2;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;            // rotated
+  google.protobuf.Timestamp access_token_expires_at = 3;
+}
+
+message LogoutRequest {
+  string member_id = 1;
+  string user_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message LogoutResponse {
+  bool success = 1;
+}
+
+message UpdateSettingsRequest {
+  string member_id = 1;
+  optional string timezone = 2;
+  optional GoalMode active_goal_mode = 3;
+  optional bool notify_restriction_changes = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message UpdateSettingsResponse {
+  MemberAccount member = 1;
+  bool cap_change_triggered_config_deploy = 2;  // true if user changed daily caps
+}
+
+message GetMeRequest {
+  string member_id = 1;
+  lcc.v1.common.TraceContext trace = 2;
+}
+
+message GetMeResponse {
+  MemberAccount member = 1;
+}
+
+message DeactivateRequest {
+  string member_id = 1;
+  string user_id = 2;
+  string reason = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message DeactivateResponse {
+  MemberAccount member = 1;
+}
+
+message GDPRExportRequest {
+  string member_id = 1;
+  string user_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message GDPRExportResponse {
+  string export_url = 1;               // signed URL to S3 bucket
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message GDPRDeleteRequest {
+  string member_id = 1;
+  string user_id = 2;
+  bool confirm = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message GDPRDeleteResponse {
+  bool deleted = 1;
+  uint32 rows_affected = 2;
+}
+
+service IdentitySvc {
+  rpc OAuthStart(OAuthStartRequest) returns (OAuthStartResponse);
+  rpc OAuthCallback(OAuthCallbackRequest) returns (OAuthCallbackResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse);
+  rpc GDPRExport(GDPRExportRequest) returns (GDPRExportResponse);
+  rpc GDPRDelete(GDPRDeleteRequest) returns (GDPRDeleteResponse);
+}

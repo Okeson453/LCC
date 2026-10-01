@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcc.local/schemas/events/TOPIC.schema.json",
+  "title": "TOPIC",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["header", "payload"],
+  "properties": {
+    "header": { "$ref": "envelope.schema.json" },
+    "payload": { "type": "object", "additionalProperties": true }
+  }
+}

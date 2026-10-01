@@ -1,0 +1,28 @@
+name: Proto Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  proto-lint:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      # F-AUDIT-30: was two `echo` steps.
+      - uses: bufbuild/buf-action@v1
+        with:
+          lint: true
+      - name: buf lint
+        run: buf lint proto
+      # F-AUDIT-45: buf.lock is a hand-written placeholder
+      # ("digest: shake256:placeholderdigestwillbereplacedbybuf"), so
+      # `buf dep update` is required before a breaking-change check can
+      # resolve deps/buf.build/googleapis/googleapis.
+      - name: buf lint (after dep update)
+        run: |
+          buf dep update proto
+          buf lint proto

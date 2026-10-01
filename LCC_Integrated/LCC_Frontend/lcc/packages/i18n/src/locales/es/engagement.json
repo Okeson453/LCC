@@ -1,0 +1,18 @@
+{
+  "inbox": {
+    "title": "Inbox",
+    "filter_priority": "Priority",
+    "filter_kind": "Kind",
+    "empty": "Inbox is clear"
+  },
+  "queue": {
+    "title": "Daily ritual queue",
+    "empty": "Nothing queued for today"
+  },
+  "reply": {
+    "title": "Reply",
+    "draft_reply": "Draft reply",
+    "approve_send": "Approve & send",
+    "regenerate": "Regenerate variants"
+  }
+}

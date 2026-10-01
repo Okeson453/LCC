@@ -1,0 +1,131 @@
+syntax = "proto3";
+package lcc.v1.profile;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+message ProfileSnapshot {
+  string id = 1;
+  string member_id = 2;
+  google.protobuf.Timestamp captured_at = 3;
+  string headline = 4;
+  string about = 5;
+  repeated string skills = 6;
+  string experience_json = 7;        // canonical JSON
+  double strength_score = 8;         // 0..100
+  string goal_mode = 9;
+  google.protobuf.Timestamp raw_cache_ttl_at = 10;  // ≤24h per §48
+  uint32 version = 11;
+}
+
+message AuditResult {
+  string snapshot_id = 1;
+  double strength_score = 2;
+  repeated AuditFinding findings = 3;
+  string summary = 4;
+}
+
+enum AuditFindingSeverity {
+  AUDIT_SEVERITY_UNSPECIFIED = 0;
+  AUDIT_SEVERITY_INFO = 1;
+  AUDIT_SEVERITY_WARN = 2;
+  AUDIT_SEVERITY_HIGH = 3;
+}
+
+message AuditFinding {
+  string field = 1;                  // "headline"|"about"|"skills"|...
+  AuditFindingSeverity severity = 2;
+  string message = 3;
+  string suggested_fix = 4;
+}
+
+message EditDraft {
+  string id = 1;
+  string member_id = 2;
+  string target_field = 3;
+  string current_value = 4;
+  string proposed_value = 5;
+  string rationale = 6;
+  string approval_id = 7;            // Tier-1 approval (since edit applies manually)
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message StrengthHistoryPoint {
+  google.protobuf.Timestamp captured_at = 1;
+  double strength_score = 2;
+}
+
+service ProfileSvc {
+  rpc CaptureSnapshot(CaptureSnapshotRequest) returns (CaptureSnapshotResponse);
+  rpc RunAudit(RunAuditRequest) returns (RunAuditResponse);
+  rpc GenerateEditDrafts(GenerateEditDraftsRequest) returns (GenerateEditDraftsResponse);
+  rpc ApproveEditDraft(ApproveEditDraftRequest) returns (ApproveEditDraftResponse);
+  rpc StrengthHistory(StrengthHistoryRequest) returns (StrengthHistoryResponse);
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+}
+
+message CaptureSnapshotRequest {
+  string member_id = 1;
+  string headline = 2;
+  string about = 3;
+  repeated string skills = 4;
+  string experience_json = 5;
+  string goal_mode = 6;
+  lcc.v1.common.TraceContext trace = 7;
+}
+
+message CaptureSnapshotResponse {
+  ProfileSnapshot snapshot = 1;
+}
+
+message RunAuditRequest {
+  string member_id = 1;
+  bool use_ai = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message RunAuditResponse {
+  AuditResult result = 1;
+}
+
+message GenerateEditDraftsRequest {
+  string member_id = 1;
+  string target_field = 2;
+  uint32 variant_count = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message GenerateEditDraftsResponse {
+  repeated EditDraft drafts = 1;
+}
+
+message ApproveEditDraftRequest {
+  string draft_id = 1;
+  string member_id = 2;
+  string user_id = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ApproveEditDraftResponse {
+  EditDraft draft = 1;
+}
+
+message StrengthHistoryRequest {
+  string member_id = 1;
+  uint32 limit = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message StrengthHistoryResponse {
+  repeated StrengthHistoryPoint points = 1;
+}
+
+message ListSnapshotsRequest {
+  string member_id = 1;
+  uint32 limit = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message ListSnapshotsResponse {
+  repeated ProfileSnapshot snapshots = 1;
+}

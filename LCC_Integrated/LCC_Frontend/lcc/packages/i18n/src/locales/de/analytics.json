@@ -1,0 +1,23 @@
+{
+  "dashboard": {
+    "title": "Insights",
+    "weekly_digest": "Weekly digest",
+    "monthly_digest": "Monthly digest"
+  },
+  "metrics": {
+    "impressions": "Impressions",
+    "engagements": "Engagements",
+    "followers_delta": "Followers delta",
+    "reply_rate": "Reply rate",
+    "meeting_rate": "Meeting rate",
+    "profile_views": "Profile views",
+    "search_appearances": "Search appearances"
+  },
+  "account_health": {
+    "title": "Account health",
+    "quota_remaining": "Quota remaining",
+    "grounding_score": "Grounding score",
+    "approval_throughput": "Approval throughput",
+    "denial_rate": "Denial rate"
+  }
+}

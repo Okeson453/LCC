@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: browser-extension-cdn
+  namespace: lcc
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  tls:
+    - hosts:
+        - cdn.lcc.example
+      secretName: browser-extension-cdn-tls
+  rules:
+    - host: cdn.lcc.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: browser-extension-cdn
+                port:
+                  number: 80

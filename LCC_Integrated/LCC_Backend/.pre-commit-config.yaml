@@ -1,0 +1,73 @@
+repos:
+  - repo: local
+    hooks:
+      - id: rust-fmt
+        name: cargo fmt
+        entry: cargo fmt --all -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: rust-clippy
+        name: cargo clippy
+        entry: cargo clippy --workspace --all-targets -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: py-ruff
+        name: ruff check
+        entry: uv run --frozen ruff check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: py-ruff-fmt
+        name: ruff format --check
+        entry: uv run --frozen ruff format --check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: py-mypy
+        name: mypy --strict
+        entry: uv run --frozen mypy --strict .
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [manual]
+
+      - id: buf-lint
+        name: buf lint
+        entry: buf lint proto
+        language: system
+        types: [protobuf]
+        pass_filenames: false
+
+      - id: secret-scan
+        name: secret scan
+        entry: bash -c 'git diff --cached --name-only | xargs -I{} grep -lE "(BEGIN RSA|BEGIN OPENSSH|BEGIN PRIVATE|sk-[A-Za-z0-9]{20,})" {} 2>/dev/null | head -20 | test -z'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: no-secrets
+        name: no hardcoded secrets
+        entry: bash tools/scripts/scan_secrets.sh
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: yaml-validate
+        name: yaml validation
+        entry: bash -c 'find . -name "*.yaml" -o -name "*.yml" | xargs -I{} python -c "import yaml,sys;yaml.safe_load(open(sys.argv[1]))" {}'
+        language: system
+        types: [yaml]
+        pass_filenames: false
+
+      - id: no-todo
+        name: no TODO/FIXME placeholders
+        entry: bash -c '! grep -rE "TODO|FIXME|XXX|HACK" --include="*.rs" --include="*.py" engine/ crates/ packages/ proto/ 2>/dev/null | grep -v "^Binary" | head -5'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]

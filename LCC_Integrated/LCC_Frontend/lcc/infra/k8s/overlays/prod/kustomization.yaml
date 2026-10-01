@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: lcc-prod
+resources:
+  - ../../base/web-dashboard
+  - ../../base/browser-extension-cdn
+namePrefix: prod-
+patches:
+  - target: { kind: Deployment, name: web-dashboard }
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 6

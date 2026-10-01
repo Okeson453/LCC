@@ -1,0 +1,79 @@
+syntax = "proto3";
+package lcc.v1.intelligence;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+message VoiceSample {
+  string id = 1;
+  string member_id = 2;
+  string text = 3;
+  string source = 4;                  // "user_pasted"|"linkedin_consented"
+  string embedding_id = 5;
+  google.protobuf.Timestamp added_at = 6;
+  repeated string tags = 7;
+}
+
+message AddVoiceSampleRequest {
+  string member_id = 1;
+  string text = 2;
+  string source = 3;
+  repeated string tags = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message AddVoiceSampleResponse {
+  VoiceSample sample = 1;
+}
+
+message RemoveVoiceSampleRequest {
+  string sample_id = 1;
+  string member_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message RemoveVoiceSampleResponse {
+  bool removed = 1;
+}
+
+message ListVoiceSamplesRequest {
+  string member_id = 1;
+  uint32 limit = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message ListVoiceSamplesResponse {
+  repeated VoiceSample samples = 1;
+}
+
+message EmbedVoiceSampleRequest {
+  string sample_id = 1;
+  string member_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message EmbedVoiceSampleResponse {
+  string sample_id = 1;
+  string embedding_id = 2;
+  string model_id = 3;
+}
+
+message RetrieveVoiceSamplesRequest {
+  string member_id = 1;
+  string query_text = 2;
+  uint32 top_k = 3;                   // default 3
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message RetrieveVoiceSamplesResponse {
+  repeated VoiceSample samples = 1;
+  repeated float scores = 2;
+}
+
+service VoiceIntel {
+  rpc AddVoiceSample(AddVoiceSampleRequest) returns (AddVoiceSampleResponse);
+  rpc RemoveVoiceSample(RemoveVoiceSampleRequest) returns (RemoveVoiceSampleResponse);
+  rpc ListVoiceSamples(ListVoiceSamplesRequest) returns (ListVoiceSamplesResponse);
+  rpc EmbedVoiceSample(EmbedVoiceSampleRequest) returns (EmbedVoiceSampleResponse);
+  rpc RetrieveVoiceSamples(RetrieveVoiceSamplesRequest) returns (RetrieveVoiceSamplesResponse);
+}

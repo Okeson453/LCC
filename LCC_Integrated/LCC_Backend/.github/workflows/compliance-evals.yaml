@@ -1,0 +1,18 @@
+name: Compliance Evals
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  compliance-evals:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        run: echo "Setup compliance-evals"
+      - name: Run
+        run: echo "Run compliance-evals"

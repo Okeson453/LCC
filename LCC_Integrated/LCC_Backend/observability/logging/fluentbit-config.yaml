@@ -1,0 +1,28 @@
+[PARSER]
+    Name        json
+    Format      json
+    Time_Key    time
+    Time_Format %Y-%m-%dT%H:%M:%S.%LZ
+
+[INPUT]
+    Name              tail
+    Path              /var/log/containers/*lcc-*.log
+    Parser            json
+    Tag               kube.*
+    Refresh_Interval  5
+
+[FILTER]
+    Name                modify
+    Match               kube.*
+    Set                 cluster=lcc
+
+[FILTER]
+    Name                grep
+    Match               kube.*
+    Regex               log (?!.*password=).*$
+
+[OUTPUT]
+    Name                forward
+    Match               *
+    Host                fluentd
+    Port                24224

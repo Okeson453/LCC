@@ -1,0 +1,187 @@
+syntax = "proto3";
+package lcc.v1.outreach;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+import "lcc/v1/intelligence/ai.proto";
+
+enum SequenceType {
+  SEQ_TYPE_UNSPECIFIED = 0;
+  SEQ_TYPE_CONNECTION_REQUEST = 1;
+  SEQ_TYPE_INTRODUCTION = 2;
+  SEQ_TYPE_JOB_INQUIRY = 3;
+  SEQ_TYPE_CLIENT_PROPOSAL = 4;
+  SEQ_TYPE_ENGINEERING_PITCH = 5;
+  SEQ_TYPE_FOLLOW_UP = 6;
+  SEQ_TYPE_REFERRAL = 7;
+  SEQ_TYPE_RECRUITER_RESPONSE = 8;
+  SEQ_TYPE_EXECUTIVE_OUTREACH = 9;
+  SEQ_TYPE_THANK_YOU = 10;
+}
+
+enum SequenceStatus {
+  SEQ_STATUS_UNSPECIFIED = 0;
+  SEQ_STATUS_DRAFT = 1;
+  SEQ_STATUS_ACTIVE = 2;
+  SEQ_STATUS_PAUSED = 3;
+  SEQ_STATUS_COMPLETED_ENGAGED = 4;
+  SEQ_STATUS_COMPLETED_NO_REPLY = 5;
+  SEQ_STATUS_ABANDONED = 6;
+}
+
+enum SequenceStepStatus {
+  STEP_STATUS_UNSPECIFIED = 0;
+  STEP_STATUS_PENDING = 1;
+  STEP_STATUS_SCHEDULED = 2;
+  STEP_STATUS_APPROVED = 3;
+  STEP_STATUS_SENT = 4;
+  STEP_STATUS_FAILED = 5;
+  STEP_STATUS_CANCELLED = 6;
+}
+
+message Sequence {
+  string id = 1;
+  string member_id = 2;
+  string contact_id = 3;
+  string opportunity_id = 4;
+  SequenceType type = 5;
+  SequenceStatus status = 6;
+  string paused_reason = 7;
+  uint32 current_step = 8;
+  google.protobuf.Timestamp last_step_sent_at = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp ended_at = 11;
+  uint32 version = 12;
+}
+
+message SequenceStep {
+  string id = 1;
+  string sequence_id = 2;
+  uint32 step_index = 3;
+  google.protobuf.Timestamp scheduled_at = 4;
+  string template_id = 5;
+  string rendered_body = 6;
+  string approval_id = 7;
+  google.protobuf.Timestamp sent_at = 8;
+  string failed_reason = 9;
+  string idempotency_key = 10;
+  SequenceStepStatus status = 11;
+}
+
+message MessageTemplate {
+  string id = 1;
+  string member_id = 2;
+  string persona = 3;                 // "CTO"|"CEO"|"Founder"|"Recruiter"|"HiringManager"|"Client"|"Peer"|"General"
+  string tone = 4;
+  string body_template = 5;
+  repeated string variables = 6;
+  bool active = 7;
+  uint32 version = 8;
+}
+
+message CreateSequenceRequest {
+  string member_id = 1;
+  string contact_id = 2;
+  string opportunity_id = 3;
+  SequenceType type = 4;
+  uint32 step_count = 5;
+  string goal_mode = 6;
+  lcc.v1.common.TraceContext trace = 7;
+}
+
+message CreateSequenceResponse {
+  Sequence sequence = 1;
+  repeated SequenceStep steps = 2;
+  repeated DraftVariant variants = 3;
+}
+
+message ApproveSequenceRequest {
+  string member_id = 1;
+  string sequence_id = 2;
+  string user_id = 3;
+  bool pre_approve_all_steps = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ApproveSequenceResponse {
+  Sequence sequence = 1;
+  repeated string approval_ids = 2;
+}
+
+message PauseSequenceRequest {
+  string member_id = 1;
+  string sequence_id = 2;
+  string reason = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message PauseSequenceResponse {
+  Sequence sequence = 1;
+}
+
+message ResumeSequenceRequest {
+  string member_id = 1;
+  string sequence_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message ResumeSequenceResponse {
+  Sequence sequence = 1;
+}
+
+message AbandonSequenceRequest {
+  string member_id = 1;
+  string sequence_id = 2;
+  string reason = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message AbandonSequenceResponse {
+  Sequence sequence = 1;
+}
+
+message ListSequencesRequest {
+  string member_id = 1;
+  SequenceStatus status_filter = 2;
+  uint32 limit = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ListSequencesResponse {
+  repeated Sequence sequences = 1;
+}
+
+message ApproveStepRequest {
+  string member_id = 1;
+  string sequence_id = 2;
+  string step_id = 3;
+  string user_id = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ApproveStepResponse {
+  SequenceStep step = 1;
+  string approval_id = 2;
+}
+
+message ListTemplatesRequest {
+  string member_id = 1;
+  string persona_filter = 2;
+  bool active_only = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ListTemplatesResponse {
+  repeated MessageTemplate templates = 1;
+}
+
+service OutreachSvc {
+  rpc CreateSequence(CreateSequenceRequest) returns (CreateSequenceResponse);
+  rpc ApproveSequence(ApproveSequenceRequest) returns (ApproveSequenceResponse);
+  rpc PauseSequence(PauseSequenceRequest) returns (PauseSequenceResponse);
+  rpc ResumeSequence(ResumeSequenceRequest) returns (ResumeSequenceResponse);
+  rpc AbandonSequence(AbandonSequenceRequest) returns (AbandonSequenceResponse);
+  rpc ListSequences(ListSequencesRequest) returns (ListSequencesResponse);
+  rpc ApproveStep(ApproveStepRequest) returns (ApproveStepResponse);
+  rpc ListTemplates(ListTemplatesRequest) returns (ListTemplatesResponse);
+}

@@ -1,0 +1,37 @@
+{
+  "queue": {
+    "title": "Pending approvals",
+    "subtitle": "{count} items awaiting your decision",
+    "empty": "No pending approvals. You are caught up.",
+    "filter": {
+      "all_tiers": "All tiers",
+      "tier": "Tier {tier}"
+    },
+    "bulk": {
+      "approve": "Approve ({count})",
+      "reject": "Reject ({count})",
+      "disabled_reason": "Bulk approve is disabled when Tier 3+ items are selected"
+    }
+  },
+  "dialog": {
+    "target": "Target: {target}",
+    "preview": "Preview",
+    "kb_grounding": "Grounding ({count, plural, one {# citation} other {# citations}})",
+    "tier_4_warning": "Heads up: no prior interaction with this contact.",
+    "type_to_confirm": "Type {phrase} to confirm",
+    "comment_label": "Comment (optional)",
+    "denied": "Action denied",
+    "denied_reason": "Reason: {reason}",
+    "denied_guard": "Failed guard: {guard}",
+    "permit_token": "Permit Token (debug)",
+    "submit": "Approve & {action}",
+    "approve_in_progress": "Approving…"
+  },
+  "tier": {
+    "1": "Draft",
+    "2": "Publish",
+    "3": "Connect",
+    "4": "Message",
+    "5": "Apply / Propose"
+  }
+}

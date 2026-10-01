@@ -1,0 +1,125 @@
+syntax = "proto3";
+package lcc.v1.intelligence;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+enum OpportunityType {
+  OPP_TYPE_UNSPECIFIED = 0;
+  OPP_TYPE_JOB = 1;
+  OPP_TYPE_CLIENT = 2;
+}
+
+enum OpportunityStatus {
+  OPP_STATUS_UNSPECIFIED = 0;
+  OPP_STATUS_DISCOVERED = 1;
+  OPP_STATUS_QUALIFIED = 2;
+  OPP_STATUS_DISCARDED = 3;
+  OPP_STATUS_CONTACTED = 4;
+  OPP_STATUS_CONVERSATION = 5;
+  OPP_STATUS_APPLIED = 6;             // job-track
+  OPP_STATUS_PROPOSAL_SENT = 7;       // client-track
+  OPP_STATUS_NEGOTIATION = 8;
+  OPP_STATUS_WON = 9;
+  OPP_STATUS_CLOSED_LOST = 10;
+  OPP_STATUS_DORMANT = 11;
+}
+
+// FitScoreComponents — breakdown of φ (per Technical Design Spec §6.3)
+message FitScoreComponents {
+  double skill = 1;
+  double seniority = 2;
+  double geo = 3;
+  double comp = 4;                    // job-track; or trigger_recency for client-track
+  double trigger_recency = 5;         // client-track only
+  string goal_mode = 6;               // "job_hunting"|"client_acquisition"|"hybrid"
+}
+
+message OpportunityCandidate {
+  string id = 1;
+  string member_id = 2;
+  OpportunityType type = 3;
+  string source = 4;
+  string company_id = 5;
+  string contact_id = 6;
+  string title = 7;
+  string description = 8;
+  string location = 9;
+  bool remote = 10;
+  int64 salary_min = 11;
+  int64 salary_max = 12;
+  string salary_currency = 13;
+  repeated string required_skills = 14;
+  int32 seniority_band = 15;          // 0..3 (intern → exec)
+  string external_url = 16;
+  string trigger_event_kind = 17;      // client: "funding"|"hiring_spree"|...
+  google.protobuf.Timestamp discovered_at = 18;
+}
+
+// ScoreFitRequest — Rust Core → Python Intelligence, called by opportunity-svc
+// when an opportunity reaches the qualified-eligibility filter.
+message ScoreFitRequest {
+  OpportunityCandidate candidate = 1;
+  string member_id = 2;               // RLS scope for KB retrieval
+  string goal_mode = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message FitScore {
+  double phi = 1;                     // [0,1]
+  FitScoreComponents components = 2;
+  string rule_version = 3;            // compliance config version
+  bool rule_based_fallback = 4;       // true if KB unavailable / feature disabled
+  string reason = 5;
+}
+
+message ScoreFitResponse {
+  FitScore fit_score = 1;
+  bool eligible = 2;                  // φ ≥ φ_qualification_threshold
+}
+
+// DiscoverRequest — trigger a discovery run for a member
+message DiscoverRequest {
+  string member_id = 1;
+  OpportunityType type = 2;
+  string target_role = 3;
+  string target_industry = 4;
+  string target_geography = 5;
+  int64 comp_floor = 6;
+  repeated string sources = 7;        // job board / news feed slugs
+  int32 max_results = 8;              // cap returned candidates
+  lcc.v1.common.TraceContext trace = 9;
+}
+
+message DiscoverResponse {
+  repeated OpportunityCandidate candidates = 1;
+  int32 total_discovered = 2;
+  string run_id = 3;                  // UUIDv7 — run correlation
+}
+
+// EnrichCompanyRequest — pull public data for a company (decision-maker identification, recent posts)
+message EnrichCompanyRequest {
+  string company_id = 1;
+  string member_id = 2;               // RLS scope
+  bool include_funding = 3;
+  bool include_hiring_signals = 4;
+  bool include_decision_makers = 5;
+  lcc.v1.common.TraceContext trace = 6;
+}
+
+message EnrichCompanyResponse {
+  string company_id = 1;
+  string enriched_industry = 2;
+  string enriched_size_band = 3;
+  string enriched_funding_stage = 4;
+  repeated string enriched_tech_stack = 5;
+  repeated string decision_maker_contact_ids = 6;
+  string enrichment_source = 7;       // "linkedin_consented"|"rss_feed"|"licensed_provider"
+  google.protobuf.Timestamp enriched_at = 8;
+}
+
+service OpportunityIntel {
+  rpc ScoreFit(ScoreFitRequest) returns (ScoreFitResponse);
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+  rpc EnrichCompany(EnrichCompanyRequest) returns (EnrichCompanyResponse);
+}

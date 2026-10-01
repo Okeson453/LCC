@@ -1,0 +1,21 @@
+[package]
+name = "lcc-audit-svc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lcc-observability = { path = "../../../../crates/observability" }
+lcc-auth = { path = "../../../../crates/auth" }
+lcc-events = { path = "../../../../crates/events" }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+thiserror = "1"
+tracing = { workspace = true }

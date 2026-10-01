@@ -1,0 +1,26 @@
+{
+  "pipeline": {
+    "title": "Opportunity pipeline",
+    "discover": "Run discovery",
+    "fit_score": "Fit score",
+    "action_plan": "Action plan"
+  },
+  "status": {
+    "discovered": "Discovered",
+    "qualified": "Qualified",
+    "drafting": "Drafting",
+    "applied": "Applied",
+    "interviewing": "Interviewing",
+    "offer": "Offer",
+    "won": "Won",
+    "lost": "Lost",
+    "parked": "Parked"
+  },
+  "actions": {
+    "apply_now": "Apply now",
+    "engage_then_message": "Engage then message",
+    "warm_intro": "Warm intro",
+    "watchlist": "Watchlist",
+    "archive": "Archive"
+  }
+}

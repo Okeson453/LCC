@@ -1,0 +1,171 @@
+# OKESON-LCC task runner — cross-language recipes.
+# Usage:
+#   just bootstrap           — spin up local stack + bootstrap tooling
+#   just proto-gen           — regenerate Rust + Python stubs from proto/
+#   just rust-build          — cargo build --workspace
+#   just rust-test           — cargo test --workspace
+#   just rust-clippy         — cargo clippy --workspace -- -D warnings
+#   just rust-fmt            — cargo fmt --check
+#   just rust-deny           — cargo deny check
+#   just py-sync             — uv sync
+#   just py-test             — pytest
+#   just py-lint             — ruff check
+#   just py-type             — mypy --strict
+#   just migrate             — sqlx migrate run
+#   just migrate-verify      — sqlx migrate run --target-version
+#   just bounds              — boundary-check CI gate
+#   just contract-test       — buf lint + buf breaking
+#   just load-test           — k6 runs
+#   just compliance-sim      — account-safety simulations
+
+set shell := ["bash", "-uc"]
+
+# ---- Workspace metadata ----
+ENGINE_DIR := "engine"
+PROTO_DIR := "proto"
+SCHEMA_DIR := "schemas"
+
+# ---- Bootstrap ----
+
+# Bootstrap local dev stack (docker-compose + seeded Postgres + signed certs).
+bootstrap:
+    @echo "==> bootstrapping dev stack"
+    bash tools/scripts/bootstrap_dev.sh
+
+# ---- Proto ----
+
+# Regenerate proto stubs into crates/proto and packages/proto.
+proto-gen:
+    @echo "==> buf generate"
+    buf generate proto
+    @echo "==> moving rust stubs to crates/proto"
+    mkdir -p crates/proto/src
+    rsync -a --delete proto/gen/rust/ crates/proto/src/
+    @echo "==> moving python stubs to packages/proto"
+    mkdir -p packages/proto/src
+    rsync -a --delete proto/gen/python/ packages/proto/src/
+
+# Lint protobuf definitions.
+proto-lint:
+    buf lint proto
+
+# Detect breaking changes vs origin/main.
+proto-breaking:
+    buf breaking proto --against 'origin/main'
+
+# ---- Rust Core ----
+
+# Build the Rust Core Engine + all shared crates.
+rust-build:
+    cargo build --workspace
+
+# Run the full Rust test suite (unit + contract + integration).
+rust-test:
+    cargo test --workspace --all-features
+
+# Clippy with -D warnings.
+rust-clippy:
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+# rustfmt --check.
+rust-fmt:
+    cargo fmt --check
+
+# cargo-deny license + advisory scan.
+rust-deny:
+    cargo deny check
+
+# SQLx offline query verification.
+sqlx-prepare:
+    cargo sqlx prepare --workspace
+
+# ---- Python Intelligence ----
+
+# Install pinned Python dependencies.
+py-sync:
+    uv sync --frozen
+
+# Run pytest with coverage.
+py-test:
+    uv run --frozen pytest --cov
+
+# Run ruff check + format check.
+py-lint:
+    uv run --frozen ruff check .
+    uv run --frozen ruff format --check .
+
+# Run mypy in strict mode.
+py-type:
+    uv run --frozen mypy --strict .
+
+# ---- Database ----
+
+# Apply migrations to the dev DB.
+migrate:
+    sqlx migrate run --source schemas/migrations
+
+# Verify migrations against an ephemeral Postgres.
+migrate-verify:
+    bash tools/scripts/db_migrate.sh --verify
+
+# ---- Boundary enforcement ----
+
+# Verify the Rust Core / Python Intelligence boundary: no cross-engine imports.
+bounds:
+    @echo "==> checking engine boundary"
+    bash tools/scripts/check_boundaries.sh
+
+# ---- Contract tests ----
+
+# Run all contract tests (proto + HTTP).
+contract-test: proto-lint proto-breaking
+    @echo "==> contract tests"
+    cargo test --workspace --test '*contract*'
+    uv run --frozen pytest tests/contract -m contract
+
+# ---- Load tests ----
+
+# Run k6 load tests (requires running cluster).
+load-test:
+    bash tools/scripts/run_load_tests.sh
+
+# ---- Compliance simulations ----
+
+# Run account-safety simulations.
+compliance-sim:
+    @echo "==> compliance-sim — assumptions must be stated per run"
+    uv run --frozen python -m tests.compliance_sim.simulator.account_safety_simulator \
+        --scenario tests/compliance-sim/inputs/scenario_B_moderate.yaml \
+        --runs 1000
+
+# ---- Docker images ----
+
+# Build all Docker images.
+image-build:
+    bash infra/ci/scripts/publish-images.sh build-all
+
+# ---- Local stack ----
+
+# Start the local docker-compose stack.
+stack-up:
+    docker compose -f tools/docker/docker-compose.dev.yaml up -d
+
+# Stop the local stack.
+stack-down:
+    docker compose -f tools/docker/docker-compose.dev.yaml down
+
+# ---- Deploy (skeletons) ----
+
+# Activate a compliance config version (two-reviewer gate at activate).
+activate-ccfg VERSION:
+    bash infra/ci/scripts/activate-compliance-config.sh "{{VERSION}}"
+
+# Roll back to previous compliance config.
+rollback-ccfg:
+    bash infra/ci/scripts/activate-compliance-config.sh --rollback
+
+# ---- Default ----
+
+# Show all recipes.
+default:
+    @just --list

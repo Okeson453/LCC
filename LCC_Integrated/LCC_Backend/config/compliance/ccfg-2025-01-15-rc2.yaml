@@ -1,0 +1,56 @@
+# ccfg-2025-01-15-rc2 — second compliance configuration.
+# Same shape as ccfg-2025-01-01-rc1 with tightened daily caps and a stricter
+# grounding requirement.
+
+version: ccfg-2025-01-15-rc2
+status: rc
+parent_version: ccfg-2025-01-01-rc1
+
+h_c:
+  weights:
+    response_rate: 0.30
+    acceptance_rate: 0.20
+    error_rate_inverted: 0.20
+    restriction_inverted: 0.15
+    engagement_quality: 0.15
+  warmup_threshold: 0.90
+  standard_threshold: 0.70
+  reserve_fraction: 0.15
+
+ab_d:
+  multiplier_floor: 0.4
+  multiplier_ceiling: 1.8
+  baseline: 1.0
+
+rho:
+  labeled_send_threshold: 200
+  vip_boost: 1.5
+
+phi:
+  qualified_threshold: 0.70
+  rule_based_weights:
+    signal_strength: 0.60
+    kb_fit: 0.30
+    diversity_bonus_max: 0.10
+  decay_half_life_days: 10
+
+daily_caps:
+  connection_request: 20
+  dm: 30
+  post_publish: 2
+  sequence_step_send: 15
+  job_application_submit: 5
+  client_proposal_send: 3
+  executive_outreach: 2
+
+cooldowns:
+  connection_request_min_days_between_to_same_target: 120
+  dm_min_hours_between_to_same_target: 48
+
+session_pacing:
+  rolling_window_seconds: 900
+  max_actions_in_window: 4
+
+grounding:
+  min_kb_refs_required: 2
+  low_grounding_blocks_publish: true

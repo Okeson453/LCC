@@ -1,0 +1,31 @@
+/**
+ * Print stylesheet for proposals, applications, reports.
+ */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+
+  nav, aside, footer, [data-no-print], .no-print {
+    display: none !important;
+  }
+
+  a {
+    color: black;
+    text-decoration: underline;
+  }
+
+  h1, h2, h3 {
+    color: black;
+    page-break-after: avoid;
+  }
+
+  .print-page-break {
+    page-break-before: always;
+  }
+}

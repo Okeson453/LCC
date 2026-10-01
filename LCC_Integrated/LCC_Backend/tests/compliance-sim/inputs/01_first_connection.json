@@ -1,0 +1,9 @@
+{
+  "name": "first_connection_request",
+  "member_id": "00000000-0000-0000-0000-000000000001",
+  "action_type": "connection_request",
+  "target_kind": "connection",
+  "target_id": "alice-1",
+  "expected": "allow",
+  "context": {}
+}

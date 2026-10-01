@@ -1,0 +1,16 @@
+syntax = "proto3";
+package lcc.v1.common;
+
+import "google/protobuf/timestamp.proto";
+
+// TraceContext propagates a request trace through every service hop,
+// including across the Rust Core ↔ Python Intelligence engine boundary.
+// Single trace_id spans both runtimes via x-trace-id header / metadata.
+message TraceContext {
+  string trace_id = 1;  // UUIDv7, generated at API Gateway
+  string span_id = 2;   // current span
+  string parent_span_id = 3;
+  google.protobuf.Timestamp started_at = 4;
+  string actor = 5;     // user_id or "system:<service>"
+  string member_id = 6; // RLS scope (tenant)
+}

@@ -1,0 +1,190 @@
+openapi: 3.1.0
+info:
+  title: OKESON-LCC Public API
+  version: 0.1.0
+  description: |
+    The single public-facing HTTP API for OKESON-LCC. Terminates at the
+    api-gateway, which forwards to upstream domain services.
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://api.lcc.example
+    description: Production
+
+security:
+  - bearerAuth: []
+
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Service is alive
+
+  /readyz:
+    get:
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+
+  /v1/admin/governor/evaluate:
+    post:
+      summary: Pre-flight compliance evaluation (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GovernorEvaluateRequest'
+      responses:
+        '200':
+          description: Decision (allow or deny)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernorDecision'
+
+  /v1/profile:
+    get:
+      summary: Get the current profile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+  /v1/content/items:
+    get:
+      summary: List content items
+      parameters:
+        - in: query
+          name: state
+          schema: { type: string }
+      responses:
+        '200':
+          description: List of content items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ContentItem' }
+    post:
+      summary: Create a new content item (draft)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentItemCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ContentItem' }
+
+  /v1/approvals/{id}/decide:
+    post:
+      summary: Decide on a pending approval
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApprovalDecideRequest' }
+      responses:
+        '200':
+          description: Updated approval
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Approval' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    GovernorEvaluateRequest:
+      type: object
+      required: [member_id, action_type, target_kind]
+      properties:
+        member_id: { type: string, format: uuid }
+        action_type: { type: string }
+        target_kind: { type: string }
+        target_id: { type: string }
+        context: { type: object, additionalProperties: true }
+
+    GovernorDecision:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [allow, deny] }
+        reason: { type: string }
+        guards_passed:
+          type: array
+          items: { type: string }
+        guards_failed:
+          type: array
+          items: { type: string }
+        permit_token: { type: string }
+        evaluated_at: { type: string, format: date-time }
+
+    Profile:
+      type: object
+      properties:
+        member_id: { type: string, format: uuid }
+        headline: { type: string }
+        about: { type: string }
+        experience: { type: array, items: { type: object } }
+
+    ContentItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        state: { type: string }
+        body: { type: string }
+        scheduled_at: { type: string, format: date-time }
+
+    ContentItemCreate:
+      type: object
+      required: [kind, body]
+      properties:
+        kind: { type: string }
+        body: { type: string }
+        media: { type: object }
+        pillar: { type: string }
+        scheduled_at: { type: string, format: date-time }
+
+    Approval:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        decision: { type: string }
+        expires_at: { type: string, format: date-time }
+
+    ApprovalDecideRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        rationale: { type: string }

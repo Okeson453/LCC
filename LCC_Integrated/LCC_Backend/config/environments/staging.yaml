@@ -1,0 +1,34 @@
+environment: staging
+log_level: info
+service_urls:
+  api_gateway: http://api-gateway:8080
+  compliance_governor: http://compliance-governor:8080
+  integration_gateway: http://integration-gateway:8080
+  audit_svc: http://audit-svc:8080
+  ai_worker: http://ai-worker:8080
+  opportunity_intel: http://opportunity-intel:8090
+  kb_intel: http://kb-intel:8091
+  voice_intel: http://voice-intel:8092
+  scoring_intel: http://scoring-intel:8093
+
+databases:
+  primary: postgresql://postgres:postgres@postgres:5432/lcc
+  readonly_replica: postgresql://readonly:readonly@postgres-replica:5432/lcc
+
+redis:
+  url: redis://redis:6379
+
+qdrant:
+  url: http://qdrant:6333
+
+feature_flags:
+  default_set: baseline
+  experiments: []
+
+observability:
+  otlp_endpoint: http://otel-collector:4317
+  prometheus_endpoint: /metrics
+
+compliance:
+  config_version: ccfg-2025-01-01-rc1
+  permit_token_ttl_seconds: 60

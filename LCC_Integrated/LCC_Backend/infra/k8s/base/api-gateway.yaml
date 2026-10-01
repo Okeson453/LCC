@@ -1,0 +1,132 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: lcc-engine
+  labels:
+    app: api-gateway
+    app.kubernetes.io/part-of: lcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        app.kubernetes.io/part-of: lcc
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: api-gateway
+          image: registry.lcc.local/lcc/api-gateway:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: api-gateway
+            - name: HTTP_PORT
+              value: "8080"
+            - name: RUST_LOG
+              value: info
+            # F-AUDIT-40: `config.rs::from_env` reads LCC_HTTP_PORT, not
+            # HTTP_PORT, so the port override above was silently ignored and
+            # the service always bound 8080. Set the name it actually reads.
+            - name: LCC_HTTP_PORT
+              value: "8080"
+            # F-AUDIT-41: this variable decides whether the dev JWT secret is
+            # refused. With it unset, `environment` stayed at its `"local"`
+            # default, `is_dev_profile("local")` was true, and the pod would
+            # have started in a production cluster minting tokens under the
+            # publicly-known secret "dev-secret-change-me". Overridden per
+            # overlay below.
+            - name: LCC_ENVIRONMENT
+              value: local
+            # F-AUDIT-42: no manifest set any LCC_*_SVC_URL, so every upstream
+            # fell back to the compiled-in default. The defaults have since
+            # been corrected to the real per-service ports, but pinning them
+            # here makes the wiring explicit and reviewable.
+            - name: LCC_AUDIT_SVC_URL
+              value: "http://audit-svc:8091"
+            - name: LCC_ORCHESTRATOR_URL
+              value: "http://orchestrator:8081"
+            - name: LCC_PROFILE_SVC_URL
+              value: "http://profile-svc:8082"
+            - name: LCC_CONTENT_SVC_URL
+              value: "http://content-svc:8083"
+            - name: LCC_ENGAGEMENT_SVC_URL
+              value: "http://engagement-svc:8084"
+            - name: LCC_NETWORK_SVC_URL
+              value: "http://network-crm-svc:8085"
+            - name: LCC_OPPORTUNITY_SVC_URL
+              value: "http://opportunity-svc:8086"
+            - name: LCC_OUTREACH_SVC_URL
+              value: "http://outreach-svc:8087"
+            - name: LCC_ANALYTICS_SVC_URL
+              value: "http://analytics-svc:8088"
+            - name: LCC_APPROVAL_SVC_URL
+              value: "http://approval-svc:8089"
+            # F-AUDIT-10: must come from the ExternalSecret; with it absent
+            # from a non-local profile the gateway refuses to start.
+            - name: LCC_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: permit-token-signing-key
+                  key: jwt_secret
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: lcc-engine
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-gateway
+  namespace: lcc-engine
+automountServiceAccountToken: false

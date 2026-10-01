@@ -1,0 +1,83 @@
+syntax = "proto3";
+package lcc.v1.intelligence;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+enum KBCategory {
+  KB_CATEGORY_UNSPECIFIED = 0;
+  KB_CATEGORY_SKILL = 1;
+  KB_CATEGORY_EXPERIENCE = 2;
+  KB_CATEGORY_PROJECT = 3;
+  KB_CATEGORY_TECH = 4;
+  KB_CATEGORY_DOMAIN = 5;
+  KB_CATEGORY_ACHIEVEMENT = 6;
+  KB_CATEGORY_GOAL = 7;
+  KB_CATEGORY_TARGET_COMPANY = 8;
+  KB_CATEGORY_TARGET_ROLE = 9;
+  KB_CATEGORY_POSITIONING = 10;
+  KB_CATEGORY_VOICE_SAMPLE = 11;
+  KB_CATEGORY_CASE_STUDY = 12;
+}
+
+message KBRecord {
+  string id = 1;
+  string member_id = 2;
+  KBCategory category = 3;
+  string fact = 4;
+  string structured_json = 5;
+  string source = 6;
+  string embedding_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// EmbedKBRecordRequest — called by Rust Core via event bus when kb.record.created
+message EmbedKBRecordRequest {
+  string record_id = 1;
+  string member_id = 2;
+  bool re_embed = 3;                 // true on model upgrade
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message EmbedKBRecordResponse {
+  string record_id = 1;
+  string embedding_id = 2;
+  string model_id = 3;
+  uint32 embedding_dim = 4;
+  uint64 latency_ms = 5;
+}
+
+// SearchKBRequest — semantic search over the KB for a member
+message SearchKBRequest {
+  string member_id = 1;
+  string query = 2;
+  repeated KBCategory category_filter = 3;
+  uint32 top_k = 4;                  // default 5
+  double min_relevance = 5;          // default 0.0
+  lcc.v1.common.TraceContext trace = 6;
+}
+
+message SearchKBResponse {
+  repeated KBRecord records = 1;
+  repeated float scores = 2;
+  string model_id = 3;
+  bool degraded_mode = 4;            // true if KB unavailable → empty result + flag
+}
+
+// DeleteKBRecordRequest — emit on kb.record.deleted (remove from vector store)
+message DeleteKBRecordRequest {
+  string record_id = 1;
+  string member_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message DeleteKBRecordResponse {
+  bool deleted = 1;
+}
+
+service KBIntel {
+  rpc EmbedKBRecord(EmbedKBRecordRequest) returns (EmbedKBRecordResponse);
+  rpc SearchKB(SearchKBRequest) returns (SearchKBResponse);
+  rpc DeleteKBRecord(DeleteKBRecordRequest) returns (DeleteKBRecordResponse);
+}

@@ -1,0 +1,107 @@
+# ccfg-2025-01-01-rc1 — initial compliance configuration.
+# Validation invariants:
+# - sum(h_c.weights) == 1.0 ±1e-6
+# - h_c.warmup_threshold > h_c.standard_threshold
+# - ab_d.multiplier_floor ∈ [0, 1]
+# - reserve_fraction ∈ [0, 0.30]
+
+version: ccfg-2025-01-01-rc1
+status: rc
+
+h_c:
+  weights:
+    response_rate: 0.30
+    acceptance_rate: 0.20
+    error_rate_inverted: 0.20
+    restriction_inverted: 0.15
+    engagement_quality: 0.15
+  warmup_threshold: 0.85
+  standard_threshold: 0.65
+  reserve_fraction: 0.10
+  bands:
+    - name: warmup
+      min: 0.85
+      max: 1.00
+    - name: standard
+      min: 0.65
+      max: 0.85
+    - name: cold
+      min: 0.00
+      max: 0.65
+
+ab_d:
+  multiplier_floor: 0.5
+  multiplier_ceiling: 2.0
+  baseline: 1.0
+  decay_steps:
+    - trigger: low_acceptance_rate (< 0.20)
+      factor: 0.7
+    - trigger: high_error_rate (> 0.10)
+      factor: 0.8
+    - trigger: restriction_event (> 0)
+      factor: 0.6
+
+rho:
+  labeled_send_threshold: 200
+  vip_boost: 1.5
+  rule_based_weights:
+    vip: 0.35
+    recency: 0.30
+    mutual: 0.10
+    kb_fit: 0.15
+    response_history: 0.10
+
+phi:
+  qualified_threshold: 0.65
+  rule_based_weights:
+    signal_strength: 0.60
+    kb_fit: 0.30
+    diversity_bonus_max: 0.10
+  decay_half_life_days: 14
+
+daily_caps:
+  connection_request: 25
+  dm: 40
+  post_publish: 2
+  sequence_step_send: 20
+  job_application_submit: 8
+  client_proposal_send: 5
+  executive_outreach: 3
+
+cooldowns:
+  connection_request_min_days_between_to_same_target: 90
+  dm_min_hours_between_to_same_target: 24
+
+session_pacing:
+  rolling_window_seconds: 600   # 10 min
+  max_actions_in_window: 5
+
+grounding:
+  min_kb_refs_required: 1
+  low_grounding_blocks_publish: true
+
+restriction_signals:
+  - "your account has been restricted"
+  - "captcha"
+  - "verification challenge"
+  - "unusual login activity"
+  - "we've noticed unusual activity"
+
+track_routing:
+  personal_profile_post_publish: track_b
+  connection_request: track_b
+  dm: track_b
+  sequence_step_send: track_b
+  job_application_submit: track_b
+  client_proposal_send: track_b
+  executive_outreach: track_b
+  comment_post: track_a
+  like_post: track_a
+  profile_view: track_a
+  follow_company: track_a
+
+permit_token:
+  ttl_seconds: 60
+  audience: integration-gateway
+  issuer: compliance-governor
+  signing_alg: HS256

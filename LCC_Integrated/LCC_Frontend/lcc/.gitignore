@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+out
+dist
+build
+.turbo
+.cache
+
+# Test outputs
+coverage
+playwright-report
+test-results
+.nyc_output
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Codegen
+packages/api-types/src/generated/
+*.gen.ts
+*.generated.ts
+
+# Misc
+*.tsbuildinfo
+.eslintcache

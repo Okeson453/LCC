@@ -1,0 +1,144 @@
+---
+# Realtime service — WebSocket + SSE for dashboard channels.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realtime-svc
+  namespace: lcc-engine
+  labels:
+    app: realtime-svc
+    app.kubernetes.io/part-of: lcc
+    app.kubernetes.io/engine: core
+    app.kubernetes.io/language: rust
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: realtime-svc
+  template:
+    metadata:
+      labels:
+        app: realtime-svc
+        app.kubernetes.io/part-of: lcc
+        app.kubernetes.io/engine: core
+        app.kubernetes.io/language: rust
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: realtime-svc
+          image: registry.lcc.local/lcc/realtime-svc:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8093
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: realtime-svc
+            - name: RUST_LOG
+              value: info
+            - name: LCC_HTTP_PORT
+              value: "8093"
+            - name: LCC_ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: lcc-environment
+                  key: environment
+            - name: DATABASE_URL
+              value: "postgres://lcc_app:$(LCC_DB_PASSWORD)@postgres:5432/lcc"
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            - name: LCC_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: permit-token-signing-key
+                  key: jwt_secret
+            - name: LCC_JWT_ISSUER
+              value: "lcc-auth"
+            - name: LCC_JWT_AUDIENCE
+              value: "lcc-api"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime-svc
+  namespace: lcc-engine
+spec:
+  selector:
+    app: realtime-svc
+  ports:
+    - port: 8093
+      targetPort: http
+      name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: realtime-svc
+  namespace: lcc-engine
+spec:
+  podSelector:
+    matchLabels:
+      app: realtime-svc
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Only the api-gateway may reach the realtime service (for WS/SSE proxy).
+    - from:
+        - podSelector:
+            matchLabels:
+              app: api-gateway
+      ports:
+        - port: 8093
+          protocol: TCP
+  egress:
+    # Outbound: Redis (for stream consumption) + Postgres (for member lookups).
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - port: 6379
+          protocol: TCP
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # DNS.
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - port: 53
+          protocol: UDP

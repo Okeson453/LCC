@@ -1,0 +1,40 @@
+name: shared
+
+on:
+  push:
+    paths:
+      - 'packages/**'
+      - 'schemas/**'
+      - 'proto/**'
+      - '.github/workflows/shared-ci.yaml'
+
+concurrency: { group: shared-${{ github.ref }}, cancel-in-progress: true }
+
+permissions: { contents: read }
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 8 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
+      - run: pnpm -r --filter './packages/*' typecheck
+      - run: pnpm -r --filter './packages/*' test
+      - run: pnpm -r --filter './packages/*' lint
+
+  boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 8 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
+      - run: ./tools/scripts/check_boundaries_frontend.sh

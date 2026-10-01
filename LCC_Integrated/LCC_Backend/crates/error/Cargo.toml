@@ -1,0 +1,22 @@
+[package]
+name = "lcc-error"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+axum = { workspace = true }
+tonic = { workspace = true }
+sqlx = { workspace = true }
+redis = { workspace = true }
+http = { workspace = true }
+
+[lints]
+workspace = true

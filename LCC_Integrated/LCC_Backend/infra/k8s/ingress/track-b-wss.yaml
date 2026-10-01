@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: track-b-wss
+  namespace: lcc-engine
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - browser.lcc.example
+      secretName: lcc-browser-tls
+  rules:
+    - host: browser.lcc.example
+      http:
+        paths:
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: integration-gateway
+                port:
+                  number: 8081

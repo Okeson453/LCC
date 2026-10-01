@@ -1,0 +1,19 @@
+# Jaeger tracing configuration (Phase 2 — kept for compatibility).
+# Phase 1-2 uses OpenTelemetry → OTLP → Tempo. Jaeger is a fallback.
+
+extensions:
+  jaeger_query:
+    base_path: /
+    host_port: 0.0.0.0:16686
+
+storage:
+  type: memory
+  memory:
+    max_traces: 50000
+
+query:
+  base_url: http://jaeger-query:16686
+  ui_config: {}
+
+agent:
+  host_ports: [jaeger-agent:6831]

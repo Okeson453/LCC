@@ -1,0 +1,33 @@
+[package]
+name = "lcc-briefing-worker"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+license = "Proprietary"
+
+[[bin]]
+name = "lcc-briefing-worker"
+path = "src/main.rs"
+
+[lib]
+name = "lcc_briefing_worker"
+path = "src/lib.rs"
+
+[dependencies]
+lcc-error = { path = "../../../../crates/error" }
+lcc-observability = { path = "../../../../crates/observability" }
+lcc-events = { path = "../../../../crates/events" }
+lcc-db = { path = "../../../../crates/db" }
+lcc-audit-client = { path = "../../../../crates/audit-client" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+sqlx = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+
+[lints]
+workspace = true

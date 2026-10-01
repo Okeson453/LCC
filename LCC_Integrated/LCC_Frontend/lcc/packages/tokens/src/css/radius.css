@@ -1,0 +1,10 @@
+/**
+ * Radius tokens.
+ */
+
+:root {
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-full: 9999px;
+}

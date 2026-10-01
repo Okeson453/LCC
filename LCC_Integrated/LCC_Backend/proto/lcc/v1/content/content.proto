@@ -1,0 +1,177 @@
+syntax = "proto3";
+package lcc.v1.content;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+import "lcc/v1/intelligence/ai.proto";
+
+enum ContentItemStatus {
+  CONTENT_STATUS_UNSPECIFIED = 0;
+  CONTENT_STATUS_IDEA = 1;
+  CONTENT_STATUS_DRAFTING = 2;
+  CONTENT_STATUS_QUALITY_CHECK = 3;
+  CONTENT_STATUS_PENDING_APPROVAL = 4;
+  CONTENT_STATUS_APPROVED = 5;
+  CONTENT_STATUS_REJECTED = 6;
+  CONTENT_STATUS_SCHEDULED = 7;
+  CONTENT_STATUS_PUBLISHING = 8;
+  CONTENT_STATUS_PUBLISHED = 9;
+  CONTENT_STATUS_PUBLISH_FAILED = 10;
+  CONTENT_STATUS_BLOCKED = 11;
+  CONTENT_STATUS_ARCHIVED = 12;
+}
+
+enum ContentType {
+  CONTENT_TYPE_UNSPECIFIED = 0;
+  CONTENT_TYPE_TEXT_POST = 1;
+  CONTENT_TYPE_CAROUSEL = 2;
+  CONTENT_TYPE_POLL = 3;
+  CONTENT_TYPE_VIDEO_SCRIPT = 4;
+  CONTENT_TYPE_DOCUMENT = 5;
+}
+
+message ContentItem {
+  string id = 1;
+  string member_id = 2;
+  ContentType type = 3;
+  string pillar = 4;
+  string body = 5;
+  repeated string media_refs = 6;
+  ContentItemStatus status = 7;
+  uint32 quality_loop_count = 8;
+  google.protobuf.Timestamp scheduled_at = 9;
+  google.protobuf.Timestamp published_at = 10;
+  string metrics_json = 11;
+  repeated string kb_refs = 12;          // axiom 5: ≥1 required at submit-for-approval
+  string idempotency_key = 13;
+  string failed_reason = 14;
+  uint32 version = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message CreateContentRequest {
+  string member_id = 1;
+  ContentType type = 2;
+  string pillar = 3;
+  string initial_prompt = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message CreateContentResponse {
+  ContentItem item = 1;
+}
+
+message ComposeRequest {
+  string item_id = 1;
+  string member_id = 2;
+  uint32 variant_count = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ComposeResponse {
+  ContentItem item = 1;
+  repeated DraftVariant variants = 2;
+}
+
+message QualityCheckRequest {
+  string item_id = 1;
+  string member_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message QualityCheckResponse {
+  ContentItem item = 1;
+  BrandGuardReport report = 2;
+  bool passed = 3;
+}
+
+message SubmitForApprovalRequest {
+  string item_id = 1;
+  string member_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message SubmitForApprovalResponse {
+  ContentItem item = 1;
+  string approval_id = 2;
+}
+
+message ApproveContentRequest {
+  string item_id = 1;
+  string member_id = 2;
+  string user_id = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message ApproveContentResponse {
+  ContentItem item = 1;
+}
+
+message RejectContentRequest {
+  string item_id = 1;
+  string member_id = 2;
+  string user_id = 3;
+  string reason = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message RejectContentResponse {
+  ContentItem item = 1;
+}
+
+message ScheduleContentRequest {
+  string item_id = 1;
+  string member_id = 2;
+  google.protobuf.Timestamp scheduled_at = 3;
+  string user_id = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ScheduleContentResponse {
+  ContentItem item = 1;
+}
+
+message ListContentRequest {
+  string member_id = 1;
+  ContentItemStatus status_filter = 2;
+  uint32 limit = 3;
+  string cursor = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ListContentResponse {
+  repeated ContentItem items = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message CalendarViewRequest {
+  string member_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+  lcc.v1.common.TraceContext trace = 4;
+}
+
+message CalendarEntry {
+  string item_id = 1;
+  google.protobuf.Timestamp scheduled_at = 2;
+  ContentItemStatus status = 3;
+  string body_preview = 4;
+}
+
+message CalendarViewResponse {
+  repeated CalendarEntry entries = 1;
+}
+
+service ContentSvc {
+  rpc CreateContent(CreateContentRequest) returns (CreateContentResponse);
+  rpc Compose(ComposeRequest) returns (ComposeResponse);
+  rpc QualityCheck(QualityCheckRequest) returns (QualityCheckResponse);
+  rpc SubmitForApproval(SubmitForApprovalRequest) returns (SubmitForApprovalResponse);
+  rpc ApproveContent(ApproveContentRequest) returns (ApproveContentResponse);
+  rpc RejectContent(RejectContentRequest) returns (RejectContentResponse);
+  rpc ScheduleContent(ScheduleContentRequest) returns (ScheduleContentResponse);
+  rpc ListContent(ListContentRequest) returns (ListContentResponse);
+  rpc CalendarView(CalendarViewRequest) returns (CalendarViewResponse);
+}

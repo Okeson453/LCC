@@ -1,0 +1,21 @@
+{
+  "panel": {
+    "title": "Copilot",
+    "placeholder": "Ask anything about your LinkedIn strategy",
+    "send": "Send",
+    "regenerate": "Regenerate",
+    "thinking": "Thinking…",
+    "empty": "Start a conversation"
+  },
+  "quick_prompts": {
+    "draft_proposal": "Draft a proposal for {opportunity}",
+    "find_ctos": "Find 10 fintech CTOs who raised Series A in the last 90 days",
+    "optimize_headline": "Optimize my headline for CTO roles",
+    "weekly_review": "Summarize this week's activity"
+  },
+  "action_proposal": {
+    "approve": "Approve proposal",
+    "reject": "Reject proposal",
+    "edit": "Edit before approving"
+  }
+}

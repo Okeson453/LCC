@@ -1,0 +1,171 @@
+syntax = "proto3";
+package lcc.v1.compliance;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+// RiskTier classification (1..5) — see Backend Design Concept §29.
+enum RiskTier {
+  RISK_TIER_UNSPECIFIED = 0;
+  RISK_TIER_1_DRAFT_OR_EDIT = 1;     // profile edit draft, content drafting, KB record, voice training
+  RISK_TIER_2_LIGHT_ENGAGEMENT = 2;  // comment, like, post publish, profile edit submission
+  RISK_TIER_3_NETWORK_GROWTH = 3;    // connection request
+  RISK_TIER_4_ONE_TO_ONE_OUTREACH = 4; // DM, sequence step send (after first)
+  RISK_TIER_5_HIGH_STAKES = 5;       // job application submit, client proposal send, executive outreach
+}
+
+// ActionType taxonomy. Every candidate action must carry one of these.
+// The Compliance Governor rejects any unclassified type.
+enum ActionType {
+  ACTION_TYPE_UNSPECIFIED = 0;
+  // Tier 1 — drafting / editing (auto)
+  ACTION_TYPE_PROFILE_EDIT_DRAFT = 1;
+  ACTION_TYPE_CONTENT_DRAFT = 2;
+  ACTION_TYPE_KB_RECORD_CREATE = 3;
+  ACTION_TYPE_SEQUENCE_DRAFT = 4;
+  ACTION_TYPE_OPPORTUNITY_DISCOVER = 5;
+  ACTION_TYPE_RESEARCH_SCAN = 6;
+  ACTION_TYPE_VOICE_TRAIN = 7;
+  // Tier 2 — light engagement / publish
+  ACTION_TYPE_COMMENT = 20;
+  ACTION_TYPE_LIKE = 21;
+  ACTION_TYPE_POST_PUBLISH = 22;
+  ACTION_TYPE_PROFILE_EDIT_SUBMIT = 23;
+  // Tier 3 — network growth
+  ACTION_TYPE_CONNECTION_REQUEST = 30;
+  // Tier 4 — 1:1 outreach
+  ACTION_TYPE_DIRECT_MESSAGE = 40;
+  ACTION_TYPE_SEQUENCE_STEP_SEND = 41;
+  // Tier 5 — high stakes
+  ACTION_TYPE_JOB_APPLICATION_SUBMIT = 50;
+  ACTION_TYPE_CLIENT_PROPOSAL_SEND = 51;
+  ACTION_TYPE_EXECUTIVE_OUTREACH = 52;
+}
+
+// GovernorDecision — single-arbiter output. PERMIT/DENY/DEFER are mutually exclusive.
+enum GovernorDecision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_PERMIT = 1;
+  DECISION_DENY = 2;
+  DECISION_DEFER = 3;
+}
+
+// AccountState — the state the Governor consults to evaluate a candidate action.
+// H_c is recomputed if older than 6h before evaluation (see Technical Design Spec §9.1 row 4).
+message AccountState {
+  double h_c = 1;                            // account-health composite (0..1)
+  google.protobuf.Timestamp h_c_computed_at = 2;
+  bool is_restricted = 3;
+  google.protobuf.Timestamp restricted_since = 4;
+  string restricted_reason = 5;
+  uint32 warmup_days_remaining = 6;          // days remaining in 14-28 day warm-up
+  uint32 days_active = 7;                    // tenure for T_a
+  string active_compliance_config_version = 8;
+}
+
+// CandidateAction — every externally-visible action must be proposed to the Governor first.
+// kb_refs is REQUIRED for actions of type that produces external artifacts (post, message, etc.)
+// — empty grounding is rejected by guard 5 (axiom 5) at the Content/Outreach service before
+// reaching the Governor, AND by the Governor's guard 5 as a wire-format guarantee.
+message CandidateAction {
+  string id = 1;                             // UUIDv7 — required for permit_token claim
+  ActionType type = 2;                       // required; UNSPECIFIED → DENY
+  string member_id = 3;                      // tenant scope
+  RiskTier risk_tier = 4;                    // 1..5; UNSPECIFIED → DENY
+  repeated string kb_refs = 5;               // axiom 5: ≥1 required for grounded actions
+  string idempotency_key = 6;                // required; uniqueness in 7d
+  bool requires_approval = 7;
+  bool auto_execute = 8;                     // Tier 1 only — bypasses approval gate
+  optional string target_contact_id = 9;     // contact_id (for guards 3 and sequence)
+  optional string opportunity_id = 10;       // opportunity_id (for downstream correlation)
+  optional string content_item_id = 11;      // for content publish
+  optional string sequence_step_id = 12;     // for sequence send
+  optional string application_id = 13;       // for application submit
+  string dry_run = 14;                       // "true" → no Integration Gateway call (debug)
+  map<string, string> metadata = 15;         // extensible
+  lcc.v1.common.TraceContext trace = 16;
+}
+
+// PermitMetadata — issued only on DECISION_PERMIT.
+message PermitMetadata {
+  string permit_token = 1;            // HSM-signed JWT, ≤60s TTL (RUST-§18 / §20.3 of design concept)
+  string approval_id = 2;             // approval row UUID
+  uint64 delay_ms = 3;                // suggested delay before send (jitter)
+  bool reserve_consumed = 4;          // reserve was consumed for this action
+  string active_compliance_config_version = 5;
+  google.protobuf.Timestamp issued_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+// EvaluateActionRequest — synchronous, inline, in the request path (Non-Negotiable §12).
+message EvaluateActionRequest {
+  CandidateAction candidate_action = 1;
+  AccountState account_state = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+// EvaluateActionResponse
+message EvaluateActionResponse {
+  GovernorDecision decision = 1;
+  string failed_guard = 2;                 // name of the guard that denied
+  string reason = 3;                       // human-readable
+  PermitMetadata permit_metadata = 4;      // populated on PERMIT
+  google.protobuf.Timestamp decided_at = 5;
+  uint32 guard_evaluation_duration_ms = 6; // for SLO tracking
+}
+
+// ActivateConfigVersionRequest — two-reviewer sign-off at activate time (Non-Negotiable §4).
+message ActivateConfigVersionRequest {
+  string config_version_id = 1;
+  string reviewer_a_user_id = 2;
+  string reviewer_a_signature = 3;          // HMAC of (version_id, timestamp) with reviewer_a_key
+  string reviewer_b_user_id = 4;
+  string reviewer_b_signature = 5;
+  string canary_member_id = 6;             // optional — for staged rollout
+  lcc.v1.common.TraceContext trace = 7;
+}
+
+message ActivateConfigVersionResponse {
+  bool accepted = 1;
+  string audit_log_id = 2;
+  string activated_version_id = 3;
+  string previous_version_id = 4;
+  google.protobuf.Timestamp activated_at = 5;
+}
+
+// ListConfigVersionsRequest/Response — for admin
+message ListConfigVersionsRequest {
+  bool include_proposals = 1;
+  uint32 limit = 2;
+}
+
+message ComplianceConfigSummary {
+  string id = 1;
+  string version = 2;
+  google.protobuf.Timestamp activated_at = 3;
+  bool active = 4;
+  repeated string signed_by = 5;
+  string proposer = 6;
+}
+
+message ListConfigVersionsResponse {
+  repeated ComplianceConfigSummary versions = 1;
+}
+
+// Health-check
+message HealthCheckRequest {}
+message HealthCheckResponse {
+  enum ServingStatus { UNKNOWN = 0; SERVING = 1; NOT_SERVING = 2; }
+  ServingStatus status = 1;
+  string active_compliance_config_version = 2;
+  uint64 uptime_seconds = 3;
+  uint32 in_flight_evaluations = 4;
+}
+
+// Governor service — single arbiter. All callers (Core services) use this.
+service Governor {
+  rpc EvaluateAction(EvaluateActionRequest) returns (EvaluateActionResponse);
+  rpc ActivateConfigVersion(ActivateConfigVersionRequest) returns (ActivateConfigVersionResponse);
+  rpc ListConfigVersions(ListConfigVersionsRequest) returns (ListConfigVersionsResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}

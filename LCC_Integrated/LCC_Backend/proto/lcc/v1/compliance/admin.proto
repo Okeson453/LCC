@@ -1,0 +1,146 @@
+syntax = "proto3";
+package lcc.v1.compliance;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+// Compliance config payload — versioned, two-reviewer signed at activate time.
+message ComplianceConfigPayload {
+  // Account Health Composite weights (must sum to 1.0; range checks in CI)
+  repeated double h_c_weights = 1;       // length 4: w_acceptance, w_reply, w_quota, w_tenure
+
+  // CAP_base table (Scenario B by default; varies per member in warm-up)
+  message ActionCaps {
+    int32 connection_request = 1;
+    int32 direct_message = 2;
+    int32 comment = 3;
+    int32 like = 4;
+    int32 profile_edit_submission = 5;
+    int32 post_publish = 6;
+  }
+  ActionCaps caps = 2;
+
+  // Warm-up floor (H_c < 0.3) — caps per day
+  ActionCaps warm_up_floor_caps = 3;
+
+  // Minimum inter-action spacing (seconds)
+  message Spacing {
+    int32 connection_request = 1;
+    int32 direct_message = 2;
+    int32 comment = 3;
+    int32 like = 4;
+  }
+  Spacing min_spacing_seconds = 4;
+
+  // φ weights (job-track; client-track substitutes S_trigger_recency)
+  repeated double phi_weights = 5;       // length 4: skill, seniority, geo, comp
+
+  // Reserve mechanics — 15% by default (range 0..30)
+  double reserve_fraction = 6;
+
+  // RiskTier minimum H_c thresholds
+  message RiskTierThresholds {
+    double tier_1 = 1;
+    double tier_2 = 2;
+    double tier_3 = 3;
+    double tier_4 = 4;
+    double tier_5 = 5;
+  }
+  RiskTierThresholds risk_tier_min_h_c = 7;
+
+  // Duplicate-target cooldown
+  int32 duplicate_target_cooldown_days = 8;  // default 30
+
+  // Session pacing jitter minimum
+  int32 session_jitter_min_seconds = 9;       // default 8
+
+  // φ qualification threshold (default 0.55)
+  double phi_qualification_threshold = 10;
+
+  // Permit token TTL seconds (default 60)
+  int32 permit_token_ttl_seconds = 11;
+
+  // H_c warm-up vs standard boundary (default 0.4 / 0.7)
+  double h_c_warmup_threshold = 12;
+  double h_c_standard_threshold = 13;
+
+  // ActionBudget multiplier floor (default 0.3 — never zero)
+  double ab_d_multiplier_floor = 14;
+
+  // API_SUPPORTED_SET — Track A routing decisions (JSON-encoded list)
+  string api_supported_set_json = 15;
+}
+
+// ConfigVersionProposal — an in-flight, not-yet-activated config version.
+message ConfigVersionProposal {
+  string id = 1;                          // UUIDv7
+  string version = 2;                     // "ccfg-YYYY-MM-DD-r{n}"
+  ComplianceConfigPayload payload = 3;
+  string proposer_user_id = 4;
+  google.protobuf.Timestamp proposed_at = 5;
+  string static_check_status = 6;        // "passed" | "failed:<reason>"
+  repeated string review_notes = 7;
+}
+
+// ComplianceConfigVersion — activated versions (chain via previous_id).
+message ComplianceConfigVersion {
+  string id = 1;
+  string version = 2;
+  ComplianceConfigPayload payload = 3;
+  google.protobuf.Timestamp activated_at = 4;
+  repeated string two_reviewer_signed_by = 5;
+  string previous_version_id = 6;
+  string activated_by = 7;
+  string canary_member_id = 8;
+  bool is_active = 9;
+}
+
+message ProposeConfigVersionRequest {
+  ComplianceConfigPayload payload = 1;
+  string proposer_user_id = 2;
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message ProposeConfigVersionResponse {
+  ComplianceConfigSummary summary = 1;
+  string static_check_report = 2;
+}
+
+message ReviewConfigVersionRequest {
+  string version_id = 1;
+  string reviewer_user_id = 2;
+  string reviewer_notes = 3;
+  bool approve = 4;
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+message ReviewConfigVersionResponse {
+  ComplianceConfigSummary summary = 1;
+  uint32 reviewer_count = 2;
+}
+
+// Admin service
+service ComplianceAdmin {
+  rpc ProposeConfigVersion(ProposeConfigVersionRequest) returns (ProposeConfigVersionResponse);
+  rpc ReviewConfigVersion(ReviewConfigVersionRequest) returns (ReviewConfigVersionResponse);
+  rpc GetConfigVersion(GetConfigVersionRequest) returns (GetConfigVersionResponse);
+}
+
+message GetConfigVersionRequest {
+  string version_id = 1;
+  bool include_payload = 2;
+}
+
+message GetConfigVersionResponse {
+  ComplianceConfigVersion version = 1;
+}
+
+// Re-declare summary here for compatibility (also declared in governor.proto).
+message ComplianceConfigSummary {
+  string id = 1;
+  string version = 2;
+  google.protobuf.Timestamp activated_at = 3;
+  bool active = 4;
+  repeated string signed_by = 5;
+  string proposer = 6;
+}

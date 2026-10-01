@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./.next",
+    "rootDir": "./",
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@lcc/ui": ["../../packages/ui/src/index.ts"],
+      "@lcc/ui/*": ["../../packages/ui/src/*"],
+      "@lcc/api-types": ["../../packages/api-types/src/index.ts"],
+      "@lcc/api-types/*": ["../../packages/api-types/src/*"],
+      "@lcc/realtime": ["../../packages/realtime/src/index.ts"],
+      "@lcc/realtime/*": ["../../packages/realtime/src/*"],
+      "@lcc/approval-gate": ["../../packages/approval-gate/src/index.ts"],
+      "@lcc/approval-gate/*": ["../../packages/approval-gate/src/*"],
+      "@lcc/compliance-state": ["../../packages/compliance-state/src/index.ts"],
+      "@lcc/compliance-state/*": ["../../packages/compliance-state/src/*"],
+      "@lcc/tokens": ["../../packages/tokens/src/index.ts"],
+      "@lcc/tokens/*": ["../../packages/tokens/src/*"],
+      "@lcc/i18n": ["../../packages/i18n/src/index.ts"],
+      "@lcc/i18n/*": ["../../packages/i18n/src/*"],
+      "@lcc/test-utils": ["../../packages/test-utils/src/index.ts"],
+      "@lcc/test-utils/*": ["../../packages/test-utils/src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "src/**/*", "tests/**/*", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next", "playwright-report"]
+}

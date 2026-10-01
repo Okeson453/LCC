@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://okeson.example/schemas/events/compliance.restriction_detected.schema.json",
+  "title": "ComplianceRestrictionDetected",
+  "description": "Emitted when the Compliance Governor places a member into restricted state.",
+  "type": "object",
+  "required": ["event_id", "event_type", "occurred_at", "member_id", "reason", "trace_id"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "event_type": { "const": "compliance.restriction_detected" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "member_id": { "type": "string", "format": "uuid" },
+    "reason": {
+      "type": "string",
+      "enum": ["denial_rate", "manual_review", "oauth_expired", "governance_fail", "abuse_signal"]
+    },
+    "reason_detail": { "type": "string" }
+  }
+}

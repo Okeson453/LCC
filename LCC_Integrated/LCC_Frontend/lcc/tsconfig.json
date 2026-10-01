@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "./packages/ui" },
+    { "path": "./packages/api-types" },
+    { "path": "./packages/realtime" },
+    { "path": "./packages/approval-gate" },
+    { "path": "./packages/compliance-state" },
+    { "path": "./packages/tokens" },
+    { "path": "./packages/i18n" },
+    { "path": "./packages/test-utils" },
+    { "path": "./apps/web-dashboard" },
+    { "path": "./apps/browser-extension" }
+  ]
+}

@@ -1,0 +1,85 @@
+syntax = "proto3";
+package lcc.v1.integration;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+import "lcc/v1/compliance/governor.proto";
+
+// Track selector — chosen by track(action) formula in integration-gateway.
+enum Track {
+  TRACK_UNSPECIFIED = 0;
+  TRACK_A_OFFICIAL_API = 1;  // LinkedIn Marketing/Share API etc.
+  TRACK_B_HUMAN_ASSIST = 2;  // Browser-extension WSS
+}
+
+// RestrictionSignal — detected in response content (axiom 6).
+// Any match → account-wide pause, never same-session retry.
+enum RestrictionSignal {
+  RESTRICTION_SIGNAL_NONE = 0;
+  RESTRICTION_SIGNAL_ACCOUNT_RESTRICTED = 1;
+  RESTRICTION_SIGNAL_CAPTCHA_CHALLENGE = 2;
+  RESTRICTION_SIGNAL_VERIFICATION_REQUIRED = 3;
+  RESTRICTION_SIGNAL_RATE_LIMIT_429 = 4;
+  RESTRICTION_SIGNAL_AUTH_REVOKED = 5;
+  RESTRICTION_SIGNAL_QUOTA_EXHAUSTED = 6;
+}
+
+// ExecuteActionRequest — ONLY called by services that hold a valid permit_token
+// from the Compliance Governor. The Integration Gateway verifies the signature
+// before executing ANY action (Non-Negotiable §1, §2, §15).
+message ExecuteActionRequest {
+  string permit_token = 1;             // HSM-signed JWT from Compliance Governor
+  lcc.v1.compliance.CandidateAction candidate_action = 2;
+  Track preferred_track = 3;           // default AUTO (use track(action) formula)
+  uint32 max_retries = 4;              // default 5
+  lcc.v1.common.TraceContext trace = 5;
+}
+
+// ExecuteActionResponse
+message ExecuteActionResponse {
+  bool success = 1;
+  Track executed_track = 2;
+  bytes platform_response_body = 3;     // raw, redacted
+  string platform_response_id = 4;      // e.g. LinkedIn share ugcPost URN
+  string idempotency_key = 5;           // echoed
+  RestrictionSignal restriction_signal = 6;
+  string restriction_signal_reason = 7;
+  google.protobuf.Timestamp executed_at = 8;
+  uint32 attempt_count = 9;            // 1 = first try, >1 = retried
+  uint64 duration_ms = 10;
+  string error_code = 11;
+  string error_message = 12;
+}
+
+// ExecuteActionBatchRequest — fan-out for sequences (each step has its own permit_token)
+message ExecuteActionBatchRequest {
+  repeated ExecuteActionRequest items = 1;
+  lcc.v1.common.TraceContext trace = 2;
+}
+
+message ExecuteActionBatchResponse {
+  repeated ExecuteActionResponse results = 1;
+}
+
+// VerifyPermitTokenRequest — used internally; Integration Gateway calls this
+// to verify a permit_token before executing.
+message VerifyPermitTokenRequest {
+  string permit_token = 1;
+  string expected_action_id = 2;
+}
+
+message VerifyPermitTokenResponse {
+  bool valid = 1;
+  string reason = 2;
+  string action_id = 3;
+  string member_id = 4;
+  lcc.v1.compliance.ActionType action_type = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+// Integration service — the ONLY service permitted to call LinkedIn.
+service IntegrationGateway {
+  rpc ExecuteAction(ExecuteActionRequest) returns (ExecuteActionResponse);
+  rpc ExecuteActionBatch(ExecuteActionBatchRequest) returns (ExecuteActionBatchResponse);
+  rpc VerifyPermitToken(VerifyPermitTokenRequest) returns (VerifyPermitTokenResponse);
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@lcc/tokens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Design tokens for the OKESON-LCC frontend. Single source of truth for color, spacing, typography, motion, and risk-tier palette across all surfaces.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css/*": "./src/css/*",
+    "./ts/*": "./src/ts/*",
+    "./tailwind": "./tailwind-preset.cjs"
+  },
+  "files": ["src", "tailwind-preset.cjs"],
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "echo 'tokens package: no build (source-only)'",
+    "clean": "rm -rf dist .turbo"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0",
+    "tailwindcss": ">=3.4.0"
+  }
+}

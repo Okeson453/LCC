@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-dashboard
+  namespace: lcc
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  tls:
+    - hosts:
+        - lcc.example
+      secretName: web-dashboard-tls
+  rules:
+    - host: lcc.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-dashboard
+                port:
+                  number: 3000

@@ -1,0 +1,131 @@
+[workspace]
+resolver = "2"
+members = [
+    "engine/core/services/*",
+    "engine/core/workers/*",
+    "engine/core/bin/*",
+    "crates/*",
+]
+
+exclude = [
+    "target",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Proprietary"
+authors = ["OKESON-LCC Engineering"]
+repository = "https://github.com/okeson-lcc/lcc"
+rust-version = "1.78"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.38", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-trait = "0.1"
+futures = "0.3"
+
+# HTTP / axum
+axum = { version = "0.7", features = ["macros", "matched-path", "tokio", "tracing"] }
+tower = { version = "0.5", features = ["util", "retry", "timeout", "limit"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "util"] }
+hyper = { version = "1.4", features = ["server", "http1", "http2"] }
+http = "1.1"
+http-body-util = "0.1"
+
+# gRPC
+tonic = { version = "0.12", features = ["transport", "tls", "gzip", "server"] }
+prost = "0.13"
+prost-types = "0.13"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate"] }
+deadpool-redis = "0.18"
+redis = { version = "0.27", features = ["tokio-comp", "streams", "connection-manager"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+figment = { version = "0.10", features = ["yaml", "env", "toml"] }
+envy = "0.4"
+
+# Crypto
+jsonwebtoken = "9.3"
+aes-gcm = "0.10"
+sha2 = "0.10"
+hex = "0.4"
+base64 = "0.22"
+rand = "0.8"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+
+# Time / IDs
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["v4", "v7", "serde"] }
+ulid = "1.1"
+
+# Tracing / metrics
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+tracing-opentelemetry = "0.27"
+opentelemetry = "0.26"
+opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
+opentelemetry-otlp = "0.26"
+opentelemetry-prometheus = "0.17"
+prometheus = "0.13"
+
+# Errors
+thiserror = "1"
+anyhow = "1"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# WebSocket (Track B browser extension)
+tokio-tungstenite = "0.23"
+
+# Vault / HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"] }
+vaultrs = "0.7"
+
+# Test utilities
+testcontainers = "0.20"
+tokio-test = "0.4"
+wiremock = "0.6"
+mockall = "0.13"
+parking_lot = "0.12"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+correctness = { level = "deny" }
+suspicious = { level = "warn" }
+complexity = { level = "warn" }
+perf = { level = "warn" }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_must_use = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+opt-level = 3
+
+[profile.dev]
+opt-level = 0
+debug = 1
+
+# Boundary enforcement: only integration-gateway may import crates/integrations.
+# Other crates that accidentally add it as a dependency will fail cargo's resolve.
+[workspace.metadata.integration-boundary]
+allowed_importers = ["engine/core/services/integration-gateway"]
+
+[lints]
+workspace = true

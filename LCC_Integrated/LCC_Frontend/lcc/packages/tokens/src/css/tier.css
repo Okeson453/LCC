@@ -1,0 +1,38 @@
+/**
+ * Risk-tier color tokens — the visual backbone of the approval-first UX.
+ *
+ * Tier 1 = draft-only (slate)
+ * Tier 2 = publish / comment (blue)
+ * Tier 3 = connection request (amber)
+ * Tier 4 = direct message (orange)
+ * Tier 5 = apply / proposal (red)
+ *
+ * Every approval-item UI consumes these tokens via RiskTierBadge.tsx.
+ */
+
+:root,
+[data-theme='dark'] {
+  --color-tier-1: hsl(215 16% 47%);
+  --color-tier-1-bg: hsl(215 16% 47% / 0.12);
+  --color-tier-2: hsl(212 96% 60%);
+  --color-tier-2-bg: hsl(212 96% 60% / 0.12);
+  --color-tier-3: hsl(38 92% 50%);
+  --color-tier-3-bg: hsl(38 92% 50% / 0.12);
+  --color-tier-4: hsl(20 90% 53%);
+  --color-tier-4-bg: hsl(20 90% 53% / 0.12);
+  --color-tier-5: hsl(0 72% 51%);
+  --color-tier-5-bg: hsl(0 72% 51% / 0.12);
+}
+
+[data-theme='light'] {
+  --color-tier-1: hsl(215 16% 47%);
+  --color-tier-1-bg: hsl(215 16% 47% / 0.12);
+  --color-tier-2: hsl(212 96% 48%);
+  --color-tier-2-bg: hsl(212 96% 48% / 0.12);
+  --color-tier-3: hsl(32 95% 44%);
+  --color-tier-3-bg: hsl(32 95% 44% / 0.12);
+  --color-tier-4: hsl(20 90% 44%);
+  --color-tier-4-bg: hsl(20 90% 44% / 0.12);
+  --color-tier-5: hsl(0 72% 45%);
+  --color-tier-5-bg: hsl(0 72% 45% / 0.12);
+}

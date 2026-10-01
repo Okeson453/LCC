@@ -1,0 +1,9 @@
+{
+  "name": "post_publish_low_grounding",
+  "member_id": "00000000-0000-0000-0000-000000000001",
+  "action_type": "post_publish",
+  "target_kind": "post",
+  "target_id": "post-1",
+  "expected": "deny",
+  "context": { "kb_refs": [] }
+}

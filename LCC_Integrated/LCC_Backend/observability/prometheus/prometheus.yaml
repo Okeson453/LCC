@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: lcc
+
+scrape_configs:
+  - job_name: api-gateway
+    static_configs:
+      - targets: ['api-gateway:8080']
+  - job_name: compliance-governor
+    static_configs:
+      - targets: ['compliance-governor:8080']
+  - job_name: integration-gateway
+    static_configs:
+      - targets: ['integration-gateway:8080']
+  - job_name: ai-worker
+    static_configs:
+      - targets: ['ai-worker:8080']
+  - job_name: opportunity-intel
+    static_configs:
+      - targets: ['opportunity-intel:8090']
+  - job_name: kb-intel
+    static_configs:
+      - targets: ['kb-intel:8091']
+  - job_name: voice-intel
+    static_configs:
+      - targets: ['voice-intel:8092']
+  - job_name: scoring-intel
+    static_configs:
+      - targets: ['scoring-intel:8093']
+
+rule_files:
+  - alerts.yaml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']

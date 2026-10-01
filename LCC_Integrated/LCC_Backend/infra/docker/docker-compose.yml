@@ -1,0 +1,254 @@
+# F-AUDIT-43: the obsolete `version:` key is ignored by Compose v2 and
+# emits a warning on every run; the Compose Specification is versionless.
+version: "3.9"
+
+x-common-env: &common-env
+  RUST_LOG: info
+  ENVIRONMENT: local
+  OTLP_ENDPOINT: http://otel-collector:4317
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lcc
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - ../../schemas/migrations:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    ports:
+      - "6333:6333"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ../../observability/otel/collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+    volumes:
+      - ../../observability/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - ../../observability/prometheus/alerts.yaml:/etc/prometheus/alerts.yaml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../../observability/grafana/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ../../observability/grafana/lcc-governance.json:/var/lib/grafana/dashboards/lcc-governance.json:ro
+
+  audit-svc:
+    image: registry.lcc.local/lcc/audit-svc:0.1.0
+    environment:
+      <<: *common-env
+    ports:
+      - "18091:8091"
+    depends_on: [postgres]
+
+  compliance-governor:
+    image: registry.lcc.local/lcc/compliance-governor:0.1.0
+    environment:
+      <<: *common-env
+    ports:
+      - "18080:8080"
+    depends_on: [postgres, redis]
+
+  integration-gateway:
+    image: registry.lcc.local/lcc/integration-gateway:0.1.0
+    environment:
+      <<: *common-env
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID}
+    ports:
+      - "18081:8080"
+      - "18581:8081"
+    depends_on: [postgres, redis]
+
+  api-gateway:
+    image: registry.lcc.local/lcc/api-gateway:0.1.0
+    environment:
+      <<: *common-env
+    ports:
+      - "18000:8080"
+    depends_on: [audit-svc, compliance-governor, integration-gateway]
+
+  ai-worker:
+    image: registry.lcc.local/lcc/ai-worker:0.1.0
+    environment:
+      <<: *common-env
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    ports:
+      - "18110:8080"
+    depends_on: [postgres, redis, qdrant, audit-svc]
+
+  opportunity-intel:
+    image: registry.lcc.local/lcc/opportunity-intel:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18090:8090"
+    depends_on: [postgres, redis, qdrant]
+
+  kb-intel:
+    image: registry.lcc.local/lcc/kb-intel:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18592:8091"
+    depends_on: [postgres, redis, qdrant]
+
+  voice-intel:
+    image: registry.lcc.local/lcc/voice-intel:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18092:8092"
+    depends_on: [postgres, redis, qdrant]
+
+  scoring-intel:
+    image: registry.lcc.local/lcc/scoring-intel:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18093:8093"
+    depends_on: [postgres, redis]
+
+  profile-svc:
+    image: registry.lcc.local/lcc/profile-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18082:8082"
+    depends_on: [postgres, redis]
+
+  content-svc:
+    image: registry.lcc.local/lcc/content-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18083:8083"
+    depends_on: [postgres, redis]
+
+  engagement-svc:
+    image: registry.lcc.local/lcc/engagement-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18084:8084"
+    depends_on: [postgres, redis]
+
+  network-crm-svc:
+    image: registry.lcc.local/lcc/network-crm-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18085:8085"
+    depends_on: [postgres, redis]
+
+  opportunity-svc:
+    image: registry.lcc.local/lcc/opportunity-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18086:8086"
+    depends_on: [postgres, redis]
+
+  outreach-svc:
+    image: registry.lcc.local/lcc/outreach-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18087:8087"
+    depends_on: [postgres, redis]
+
+  analytics-svc:
+    image: registry.lcc.local/lcc/analytics-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18088:8088"
+    depends_on: [postgres]
+
+  approval-svc:
+    image: registry.lcc.local/lcc/approval-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18089:8089"
+    depends_on: [postgres, redis]
+
+  identity-svc:
+    image: registry.lcc.local/lcc/identity-svc:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18591:8090"
+    depends_on: [postgres]
+
+  orchestrator:
+    image: registry.lcc.local/lcc/orchestrator:0.1.0
+    environment: { <<: *common-env }
+    ports:
+      - "18585:8081"
+    depends_on: [redis]
+
+  briefing-worker:
+    image: registry.lcc.local/lcc/briefing-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [postgres, redis]
+
+  sequence-step-scheduler:
+    image: registry.lcc.local/lcc/sequence-step-scheduler:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [postgres, redis]
+
+  opportunity-discovery-worker:
+    image: registry.lcc.local/lcc/opportunity-discovery-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [postgres, redis]
+
+  staleness-scanner:
+    image: registry.lcc.local/lcc/staleness-scanner:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [postgres]
+
+  data-purge-worker:
+    image: registry.lcc.local/lcc/data-purge-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [postgres]
+
+  audit-integrity-worker:
+    image: registry.lcc.local/lcc/audit-integrity-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [postgres]
+
+  enrichment-worker:
+    image: registry.lcc.local/lcc/enrichment-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [redis]
+
+  re-embed-worker:
+    image: registry.lcc.local/lcc/re-embed-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [qdrant]
+
+  voice-train-worker:
+    image: registry.lcc.local/lcc/voice-train-worker:0.1.0
+    environment: { <<: *common-env }
+    depends_on: [qdrant, redis]

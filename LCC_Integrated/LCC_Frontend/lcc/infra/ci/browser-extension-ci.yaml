@@ -1,0 +1,32 @@
+name: browser-extension
+
+on:
+  push:
+    paths:
+      - 'apps/browser-extension/**'
+      - 'packages/**'
+      - '.github/workflows/browser-extension-ci.yaml'
+
+concurrency: { group: ext-${{ github.ref }}, cancel-in-progress: true }
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    name: Test & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 8 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else pnpm install; fi
+      - run: pnpm --filter @lcc/browser-extension typecheck
+      - run: pnpm --filter @lcc/browser-extension lint
+      - run: pnpm --filter @lcc/browser-extension test
+      - run: pnpm --filter @lcc/browser-extension build
+      - name: Manifest linter (chrome 120+ baseline)
+        run: ./tools/scripts/manifest-linter.sh apps/browser-extension/public/manifest.json

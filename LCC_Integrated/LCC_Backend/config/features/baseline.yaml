@@ -1,0 +1,28 @@
+# baseline.yaml — feature flag set.
+
+version: baseline
+enabled_features:
+  - id: ai_drafts
+    enabled: true
+    rollout_percentage: 100
+  - id: voice_matching
+    enabled: true
+    rollout_percentage: 100
+  - id: opportunity_discovery
+    enabled: true
+    rollout_percentage: 100
+  - id: sequence_autopilot
+    enabled: false
+    rollout_percentage: 0
+  - id: profile_edit_suggestions
+    enabled: true
+    rollout_percentage: 50
+  - id: client_proposals
+    enabled: true
+    rollout_percentage: 100
+  - id: executive_outreach
+    enabled: false
+    rollout_percentage: 0
+  - id: ab_testing_daily_caps
+    enabled: false
+    rollout_percentage: 0

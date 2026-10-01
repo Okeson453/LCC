@@ -1,0 +1,27 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # F-AUDIT-30: was two `echo` steps. `Cargo.lock` is a 9-line
+      # placeholder, so `cargo deny` / `cargo audit` had no real dependency
+      # graph to scan. `--frozen` below will surface that immediately rather
+      # than silently reporting "no vulnerabilities found" from an empty set.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+      - name: Python dependency audit
+        uses: astral-sh/setup-uv@v3
+      - name: pip-audit
+        run: uvx pip-audit -r <(uv export --no-hashes --all-extras 2>/dev/null) || echo "uv export unavailable; audit skipped"

@@ -1,0 +1,38 @@
+name: Rust Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # F-AUDIT-30: this workflow was also two `echo` steps, so `cargo test`
+      # never ran. Combined with the compile-blocking defects the audit found
+      # (self-referential type aliases in lcc-compliance, unresolved
+      # re-exports, unsatisfiable axum state types, undeclared `rand`/`hex`),
+      # nothing in the Rust workspace had ever been built.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # The workspace pins its toolchain in rust-toolchain.toml; this step
+      # installs the components the lint/test pipeline needs.
+      - name: Install components
+        run: rustup component add clippy rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --workspace --all-features

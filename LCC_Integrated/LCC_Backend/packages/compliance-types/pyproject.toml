@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "compliance-types"
+version = "0.1.0"
+description = "Python mirror of crates/compliance — types and constants"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+
+dependencies = [
+    "pydantic>=2.9.0",
+    "enum-tools>=0.12.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/compliance_types"]

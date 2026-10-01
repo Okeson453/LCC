@@ -1,0 +1,21 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: lcc-otel
+  namespace: lcc-observability
+spec:
+  mode: deployment
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+    exporters:
+      otlphttp/prom:
+        endpoint: http://prometheus:9090/api/v1/otlp
+    service:
+      pipelines:
+        metrics:
+          receivers: [otlp]
+          exporters: [otlphttp/prom]

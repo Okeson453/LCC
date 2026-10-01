@@ -1,0 +1,32 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: compliance-governor-pdb
+  namespace: lcc-engine
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: compliance-governor
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: integration-gateway-pdb
+  namespace: lcc-engine
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: integration-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-worker-pdb
+  namespace: lcc-intelligence
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ai-worker

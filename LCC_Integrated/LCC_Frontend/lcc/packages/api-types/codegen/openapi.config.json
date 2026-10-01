@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi-ts.dev/schema.json",
+  "input": "../../schemas/openapi/api-gateway.yaml",
+  "output": "./src/generated/http/index.ts",
+  "options": {
+    "enum": true,
+    "immutable": true,
+    "defaultNonNullable": true,
+    "emptyObjectsUnknown": true,
+    "alphabetize": true,
+    "exportType": true
+  }
+}

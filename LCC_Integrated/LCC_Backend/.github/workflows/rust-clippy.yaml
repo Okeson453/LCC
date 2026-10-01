@@ -1,0 +1,25 @@
+name: Rust Clippy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-clippy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      # F-AUDIT-30: was two `echo` steps. The workspace already declares
+      # `correctness = "deny"` plus `unwrap_used/expect_used/panic/todo` and
+      # `unsafe_code = "deny"` in Cargo.toml [workspace.lints] — none of which
+      # were ever enforced, which is how `unsafe { std::mem::zeroed() }` in
+      # crates/events/src/consumer.rs:207 reached main.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings

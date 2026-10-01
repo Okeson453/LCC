@@ -1,0 +1,88 @@
+//! Tracing initialization — JSON formatter + OTLP exporter.
+
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+use tracing_subscriber::{
+    fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry,
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TracingConfig {
+    pub service_name: String,
+    pub service_version: String,
+    pub deployment_environment: String,
+    pub otlp_endpoint: Option<String>,
+    pub log_format: LogFormat,
+    pub log_level: String,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum LogFormat {
+    Json,
+    Pretty,
+}
+
+impl Default for TracingConfig {
+    fn default() -> Self {
+        Self {
+            service_name: "lcc-unknown".into(),
+            service_version: "0.1.0".into(),
+            deployment_environment: "dev".into(),
+            otlp_endpoint: None,
+            log_format: LogFormat::Json,
+            log_level: "info".into(),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum TracingError {
+    #[error("tracing init failed: {0}")]
+    Init(String),
+}
+
+/// Initialize the global tracing subscriber.
+///
+/// Should be called once at service start (in `main`). After this, all
+/// `tracing::info!` / `tracing::warn!` etc. emit JSON logs (or pretty in dev)
+/// and optionally forward to OTLP.
+pub fn init_tracing(config: TracingConfig) -> Result<(), TracingError> {
+    let env_filter = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new(&config.log_level))
+        .map_err(|e| TracingError::Init(e.to_string()))?;
+
+    let registry = Registry::default().with(env_filter);
+
+    match config.log_format {
+        LogFormat::Json => {
+            let fmt_layer = fmt::layer()
+                .json()
+                .with_current_span(true)
+                .with_span_list(false)
+                .with_target(true)
+                .with_file(false)
+                .with_line_number(false);
+            registry.with(fmt_layer).try_init().map_err(|e| TracingError::Init(e.to_string()))?;
+        }
+        LogFormat::Pretty => {
+            let fmt_layer = fmt::layer()
+                .pretty()
+                .with_target(true);
+            registry.with(fmt_layer).try_init().map_err(|e| TracingError::Init(e.to_string()))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config_constructs() {
+        let c = TracingConfig::default();
+        assert_eq!(c.service_name, "lcc-unknown");
+        assert_eq!(c.log_level, "info");
+    }
+}

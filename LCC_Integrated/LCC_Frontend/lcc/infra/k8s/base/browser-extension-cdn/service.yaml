@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: browser-extension-cdn
+  namespace: lcc
+spec:
+  selector:
+    app.kubernetes.io/name: browser-extension-cdn
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

@@ -1,0 +1,24 @@
+[project]
+name = "opportunity-intel"
+version = "0.1.0"
+description = "OKESON-LCC Opportunity Intelligence (discovery, φ scoring, enrichment)"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "intelligence-common",
+    "kb-client",
+    "vector-db",
+    "compliance-types",
+    "lcc-proto",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opportunity_intel"]

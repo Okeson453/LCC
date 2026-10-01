@@ -1,0 +1,17 @@
+# OKESON-LCC clippy policy
+# Engine boundary: deny crates/integrations outside integration-gateway.
+disallowed-methods = []
+disallowed-types = []
+avoid-breaking-exported-api = false
+
+# Cognitive complexity limit
+cognitive-complexity-threshold = 30
+
+# Too-many-arguments threshold
+too-many-arguments-threshold = 8
+
+# Single-character loop variable names disallowed (except for `i`, `j`, `k` in tightly-scoped loops)
+single-char-binding-names-threshold = 5
+
+[doc]
+valid-idents = ["LinkedIn", "OAuth", "PKCE", "TLS", "mTLS", "gRPC", "PostgreSQL", "Qdrant", "Rust", "Python", "JWT", "HTTP", "HTTPS", "API", "URL", "UUID", "UUIDv7", "SDK", "Redis", "Vault", "KMS"]

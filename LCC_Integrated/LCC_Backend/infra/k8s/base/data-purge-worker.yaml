@@ -1,0 +1,76 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-purge-worker
+  namespace: lcc-engine
+  labels:
+    app: data-purge-worker
+    app.kubernetes.io/part-of: lcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: data-purge-worker
+  template:
+    metadata:
+      labels:
+        app: data-purge-worker
+        app.kubernetes.io/part-of: lcc
+      annotations:
+        # F-AUDIT-38: the workers expose no /metrics endpoint.
+        prometheus.io/scrape: "false"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: data-purge-worker
+          image: registry.lcc.local/lcc/data-purge-worker:0.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_NAME
+              value: data-purge-worker
+            # F-AUDIT-39: the workers read LCC_DATABASE_URL, not HTTP_PORT.
+            - name: LCC_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: url
+            - name: LCC_SERVICE_NAME
+              value: data-purge-worker
+            - name: LCC_POLL_INTERVAL_SECONDS
+              value: "60"
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          # F-AUDIT-38: these workers are batch loops with no HTTP
+          # listener, so the previous httpGet probes on /healthz and
+          # /readyz could never succeed and the pod never went Ready.
+          # An exec probe checks the process itself instead.
+          livenessProbe:
+            exec:
+              command: ["pgrep", "-f", "data-purge-worker"]
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: data-purge-worker
+  namespace: lcc-engine
+automountServiceAccountToken: false

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lcc.local/schemas/events/envelope.schema.json",
+  "title": "EventEnvelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["event_id", "topic", "trace_id", "producer_service", "occurred_at", "idempotency_key", "schema_version"],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "topic": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "producer_service": { "type": "string" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "member_id": { "type": ["string", "null"], "format": "uuid" },
+    "idempotency_key": { "type": "string" },
+    "schema_version": { "type": "integer", "minimum": 1 }
+  }
+}

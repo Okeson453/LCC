@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "plugins": [
+    {
+      "name": "ts",
+      "out": "../../proto/gen/typescript",
+      "opt": {
+        "target": "ts",
+        "import_suffix": "_pb.js",
+        "mode": "grpc-js"
+      }
+    }
+  ]
+}

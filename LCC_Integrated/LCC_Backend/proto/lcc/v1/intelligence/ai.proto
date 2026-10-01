@@ -1,0 +1,172 @@
+syntax = "proto3";
+package lcc.v1.intelligence;
+
+import "google/protobuf/timestamp.proto";
+import "lcc/v1/common/trace.proto";
+
+// DraftKind — discriminates the response payload.
+enum DraftKind {
+  DRAFT_KIND_UNSPECIFIED = 0;
+  DRAFT_KIND_CONTENT = 1;
+  DRAFT_KIND_REPLY = 2;
+  DRAFT_KIND_OUTREACH = 3;
+  DRAFT_KIND_PROFILE_EDIT = 4;
+  DRAFT_KIND_PROPOSAL = 5;
+}
+
+// KBRef — KB record citation (axiom 5; required for grounded actions)
+message KBRef {
+  string record_id = 1;
+  string category = 2;
+  string fact = 3;
+  float relevance_score = 4;
+}
+
+// BrandGuardReport — quality check result
+message BrandGuardReport {
+  bool passed = 1;
+  bool low_grounding = 2;            // empty KB refs
+  repeated string banned_phrases_found = 3;
+  repeated string fluff_spans = 4;
+  float tone_alignment_score = 5;
+  uint32 char_count = 6;
+  bool length_ok = 7;
+  bool grammar_ok = 8;
+  repeated string flagged_spans = 9;
+}
+
+// LLMCallMetadata — every LLM call emits audit.event with these fields
+// (Backend Design Concept §41, §56.3).
+message LLMCallMetadata {
+  string prompt_hash = 1;            // SHA-256 hex
+  string completion_hash = 2;
+  string model_id = 3;               // e.g. "gpt-4o-2024-08-06"
+  uint32 tokens_in = 4;
+  uint32 tokens_out = 5;
+  uint64 latency_ms = 6;
+  double cost_usd = 7;
+  string model_tier = 8;             // "premium"|"standard"|"cheap"|"rule_based"
+  bool fallback_used = 9;
+}
+
+// DraftContentRequest — content draft (post, carousel, video script, poll)
+message DraftContentRequest {
+  string member_id = 1;
+  string prompt = 2;
+  string pillar = 3;                 // content pillar (security, trading, etc.)
+  string format_hint = 4;            // "text_post" | "carousel" | etc.
+  uint32 variant_count = 5;          // 1..5, default 3
+  uint32 kb_top_k = 6;               // default 5
+  uint32 voice_top_k = 7;            // default 3
+  lcc.v1.common.TraceContext trace = 8;
+}
+
+// DraftVariant
+message DraftVariant {
+  string body = 1;
+  repeated string media_suggestions = 2;
+  repeated KBRef kb_refs = 3;
+  BrandGuardReport brand_guard = 4;
+  float confidence = 5;
+}
+
+// DraftContentResponse
+message DraftContentResponse {
+  string content_item_id = 1;
+  repeated DraftVariant variants = 2;
+  string fallback_used = 3;          // "none"|"rule_based"|"kb_unavailable"
+  LLMCallMetadata llm_call = 4;
+}
+
+// DraftReplyRequest — engagement reply draft
+message DraftReplyRequest {
+  string member_id = 1;
+  string inbound_message_id = 2;
+  string inbound_message_body = 3;
+  string context_kind = 4;           // "dm"|"comment"|"connection_request"
+  string contact_id = 5;
+  uint32 variant_count = 6;          // default 3
+  lcc.v1.common.TraceContext trace = 7;
+}
+
+message DraftReplyResponse {
+  string engagement_task_id = 1;
+  repeated DraftVariant variants = 2;
+  LLMCallMetadata llm_call = 3;
+}
+
+// DraftOutreachRequest — connection request or first-touch
+message DraftOutreachRequest {
+  string member_id = 1;
+  string contact_id = 2;
+  string persona = 3;                // "CTO"|"CEO"|"Recruiter"|"HiringManager"|"Client"|...
+  string tone = 4;                   // "value_first"|"direct"|"warm"
+  string goal = 5;                   // "introduction"|"job_inquiry"|"client_proposal"|...
+  string context = 6;                // free-form context (recent post, trigger event)
+  uint32 variant_count = 7;
+  lcc.v1.common.TraceContext trace = 8;
+}
+
+message DraftOutreachResponse {
+  string draft_id = 1;
+  repeated DraftVariant variants = 2;
+  LLMCallMetadata llm_call = 3;
+}
+
+// DraftProfileEditRequest — profile edit proposal
+message DraftProfileEditRequest {
+  string member_id = 1;
+  string target_field = 2;           // "headline"|"about"|"experience.description"|...
+  string current_value = 3;
+  string goal_mode = 4;              // "job_hunting"|"client_acquisition"|"hybrid"
+  string prompt = 5;
+  uint32 variant_count = 6;
+  lcc.v1.common.TraceContext trace = 7;
+}
+
+message DraftProfileEditResponse {
+  string edit_draft_id = 1;
+  repeated DraftVariant variants = 2;
+  LLMCallMetadata llm_call = 3;
+}
+
+// DraftProposalRequest — client proposal one-pager
+message DraftProposalRequest {
+  string member_id = 1;
+  string opportunity_id = 2;
+  string contact_id = 3;
+  string discovery_call_notes = 4;   // free-form
+  string proposed_scope = 5;
+  string pricing_structure = 6;
+  uint32 variant_count = 7;
+  lcc.v1.common.TraceContext trace = 8;
+}
+
+message DraftProposalResponse {
+  string draft_id = 1;
+  repeated DraftVariant variants = 2;
+  LLMCallMetadata llm_call = 3;
+}
+
+// EmbedRequest — generic single-text embedding
+message EmbedRequest {
+  string text = 1;
+  string model_hint = 2;             // optional override
+  lcc.v1.common.TraceContext trace = 3;
+}
+
+message EmbedResponse {
+  repeated float embedding = 1;      // dim depends on model (default 384)
+  string model_id = 2;
+  uint64 latency_ms = 3;
+}
+
+// AI/RAG Worker service
+service AIWorker {
+  rpc DraftContent(DraftContentRequest) returns (DraftContentResponse);
+  rpc DraftReply(DraftReplyRequest) returns (DraftReplyResponse);
+  rpc DraftOutreach(DraftOutreachRequest) returns (DraftOutreachResponse);
+  rpc DraftProfileEdit(DraftProfileEditRequest) returns (DraftProfileEditResponse);
+  rpc DraftProposal(DraftProposalRequest) returns (DraftProposalResponse);
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+}

@@ -1,0 +1,3 @@
+# v2 directory reserved for breaking changes to the proto contract.
+# Per-package versioning: breaking changes bump from lcc.v1.<svc> to lcc.v2.<svc>.
+# This directory intentionally empty until v2 work begins.
