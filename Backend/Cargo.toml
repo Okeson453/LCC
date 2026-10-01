@@ -127,5 +127,3 @@ debug = 1
 [workspace.metadata.integration-boundary]
 allowed_importers = ["engine/core/services/integration-gateway"]
 
-[lints]
-workspace = true
