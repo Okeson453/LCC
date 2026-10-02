@@ -1,6 +1,6 @@
 //! Integration tests for integrations
 
-use integrations as _lib;
+use lcc_integrations as _lib;
 
 #[test]
 fn placeholder() {

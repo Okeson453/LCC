@@ -1,6 +1,6 @@
 //! Integration tests for auth
 
-use auth as _lib;
+use lcc_auth as _lib;
 
 #[test]
 fn placeholder() {

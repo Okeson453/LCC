@@ -1,6 +1,6 @@
 //! Smoke tests for integration-gateway.
 
-use lcc_integration_gateway::config::Config;
+use integration_gateway::config::Config;
 use serde_json::json;
 
 #[test]

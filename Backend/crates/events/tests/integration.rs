@@ -1,6 +1,6 @@
 //! Integration tests for events
 
-use events as _lib;
+use lcc_events as _lib;
 
 #[test]
 fn placeholder() {

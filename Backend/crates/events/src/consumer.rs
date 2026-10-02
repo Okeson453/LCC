@@ -198,17 +198,24 @@ impl Consumer {
 mod tests {
     use super::*;
 
+    /// A pool built from a URL connects lazily, so this needs no live Redis.
+    fn lazy_pool() -> RedisPool {
+        deadpool_redis::Config::from_url("redis://127.0.0.1:6379")
+            .create_pool(Some(deadpool_redis::Runtime::Tokio1))
+            .expect("pool config")
+    }
+
     #[test]
     fn consumer_group_constants() {
-        let consumer = Consumer::new(
-            // We can't actually create a pool in unit tests; just verify field
-            // assignment doesn't crash on Copy types.
-            unsafe { std::mem::zeroed() },
-            "test-group",
-            "test-consumer",
-        );
+        let consumer = Consumer::new(lazy_pool(), "test-group", "test-consumer");
         assert_eq!(consumer.consumer_group, "test-group");
         assert_eq!(consumer.consumer_name, "test-consumer");
         assert_eq!(consumer.stream_prefix, "lcc");
+    }
+
+    #[test]
+    fn stream_prefix_is_overridable() {
+        let consumer = Consumer::new(lazy_pool(), "g", "c").with_prefix("custom");
+        assert_eq!(consumer.stream_prefix, "custom");
     }
 }

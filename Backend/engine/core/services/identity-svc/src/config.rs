@@ -5,6 +5,15 @@ use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    pub redis_url: String,
+    /// Logical service name, used for tracing, metrics and the
+    /// `x-service` header. Fixed per service, not per deployment.
+    pub service_name: String,
+    /// Where this service sends audit events.
+    pub audit_svc_url: String,
+    /// The Compliance Governor, which every external action is gated on.
+    pub compliance_governor_url: String,
+
     pub database_url: String,
     pub http_port: u16,
     pub linkedin_client_id: String,
@@ -23,6 +32,33 @@ pub struct Config {
     #[serde(skip)]
     pub unused_jti: std::sync::Arc<Mutex<std::collections::HashSet<String>>>,
 }
+/// Documented local-development defaults. The ports match the `containerPort`
+/// pinned in `infra/k8s/base/*.yaml`, and the upstream URLs match the
+/// api-gateway's `Default`, so a local stack and a k8s stack agree.
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            redis_url: "redis://redis:6379".into(),
+            service_name: "identity-svc".into(),
+            audit_svc_url: "http://audit-svc:8091".into(),
+            compliance_governor_url: "http://compliance-governor:8080".into(),
+            database_url: "postgres://lcc:lcc@postgres:5432/lcc".into(),
+            http_port: 8090,
+            linkedin_client_id: "dev-linkedin-client-id".into(),
+            linkedin_client_secret: "dev-linkedin-client-secret".into(),
+            public_oauth_redirect_uri: "http://localhost:3000/api/v1/auth/linkedin/callback".into(),
+            auth_jwt_secret: "dev-secret-change-me".into(),
+            jwt_issuer: "lcc-identity-svc".into(),
+            jwt_audience: "lcc-api".into(),
+            access_token_ttl_secs: 900,
+            refresh_token_ttl_secs: 2592000,
+            token_encryption_key: "dev-token-encryption-key".into(),
+            http_client: reqwest::Client::new(),
+            unused_jti: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+        }
+    }
+}
+
 
 impl Config {
     pub fn from_env() -> Result<Self, String> {
@@ -50,8 +86,17 @@ impl Config {
         }
 
         Ok(Self {
+            service_name: "identity-svc".into(),
+            audit_svc_url: std::env::var("LCC_AUDIT_SVC_URL")
+                .ok().filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "http://audit-svc:8091".into()),
+            compliance_governor_url: std::env::var("LCC_COMPLIANCE_GOVERNOR_URL")
+                .ok().filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "http://compliance-governor:8080".into()),
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "postgres://lcc_app:dev_lcc_app@postgres:5432/lcc".into()),
+            redis_url: std::env::var("REDIS_URL")
+                .unwrap_or_else(|_| "redis://redis:6379".into()),
             http_port: parse_port("LCC_HTTP_PORT").unwrap_or(8090),
             linkedin_client_id,
             linkedin_client_secret,
@@ -88,3 +133,4 @@ fn parse_port(name: &str) -> Option<u16> {
 fn parse_u32(name: &str) -> Option<u32> {
     std::env::var(name).ok().and_then(|s| s.parse().ok())
 }
+

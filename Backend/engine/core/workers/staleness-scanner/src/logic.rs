@@ -43,6 +43,13 @@ use tracing::info;
 /// Staleness thresholds in days, per Technical Design Spec §9.6.
 const VIP_STALE_DAYS: i32 = 30;
 const STANDARD_STALE_DAYS: i32 = 60;
+/// §9.6 also specifies a 90-day Peer window. `lcc.contacts` carries `is_vip
+/// BOOLEAN` rather than a tier column, so Peer is not selectable today and
+/// every non-VIP contact uses the Standard window. The constant is retained as
+/// the source of truth for when a `tier` column lands, instead of the number
+/// being rediscovered as a magic literal.
+#[allow(dead_code)]
+const PEER_STALE_DAYS: i32 = 90;
 
 /// Relationship strengths §9.6 excludes from a staleness alert. In the
 /// `lcc.relationship_strength` enum only `none` means "closed" — the

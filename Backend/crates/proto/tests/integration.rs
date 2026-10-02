@@ -1,6 +1,6 @@
 //! Integration tests for proto
 
-use proto as _lib;
+use lcc_proto as _lib;
 
 #[test]
 fn placeholder() {

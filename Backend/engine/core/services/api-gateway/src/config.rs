@@ -167,7 +167,7 @@ mod tests {
     #[test]
     fn dev_secret_is_flagged_as_dev_only() {
         // Guards against the sentinel being renamed without updating the check.
-        assert_eq!(Self::default().auth_jwt_secret, DEV_ONLY_JWT_SECRET);
+        assert_eq!(ApiGatewayConfig::default().auth_jwt_secret, DEV_ONLY_JWT_SECRET);
     }
 
     #[test]
@@ -180,3 +180,7 @@ mod tests {
         assert!(!is_dev_profile("prod"));
     }
 }
+
+/// Alias so tooling and tests can refer to every service's config by the
+/// same name.
+pub type Config = ApiGatewayConfig;

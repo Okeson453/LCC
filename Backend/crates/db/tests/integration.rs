@@ -1,6 +1,6 @@
 //! Integration tests for db
 
-use db as _lib;
+use lcc_db as _lib;
 
 #[test]
 fn placeholder() {

@@ -233,6 +233,7 @@ mod tests {
 
     fn test_account() -> AccountState {
         AccountState {
+            member_id: Uuid::new_v4(),
             h_c: 0.8,
             h_c_computed_at: Utc::now(),
             is_restricted: false,

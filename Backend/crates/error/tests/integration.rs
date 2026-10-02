@@ -1,6 +1,6 @@
 //! Integration tests for error
 
-use error as _lib;
+use lcc_error as _lib;
 
 #[test]
 fn placeholder() {

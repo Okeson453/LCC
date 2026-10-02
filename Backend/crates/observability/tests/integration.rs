@@ -1,6 +1,6 @@
 //! Integration tests for observability
 
-use observability as _lib;
+use lcc_observability as _lib;
 
 #[test]
 fn placeholder() {

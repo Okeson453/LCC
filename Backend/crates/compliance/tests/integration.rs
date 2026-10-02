@@ -1,6 +1,6 @@
 //! Integration tests for compliance
 
-use compliance as _lib;
+use lcc_compliance as _lib;
 
 #[test]
 fn placeholder() {

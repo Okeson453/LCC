@@ -25,7 +25,7 @@ rho:
 phi:
   qualified_threshold: 0.65
 "#;
-    let cfg = ComplianceConfig::from_yaml(yaml).expect("valid config should parse");
+    let cfg = ComplianceConfig::from_yaml_str(yaml).expect("valid config should parse");
     assert_eq!(cfg.version, "ccfg-test-1");
 }
 
@@ -52,7 +52,7 @@ rho:
 phi:
   qualified_threshold: 0.65
 "#;
-    let result = ComplianceConfig::from_yaml(yaml);
+    let result = ComplianceConfig::from_yaml_str(yaml);
     assert!(result.is_err(), "weights summing to 0.90 must be rejected");
 }
 
@@ -75,7 +75,7 @@ rho:
 phi:
   qualified_threshold: 0.65
 "#;
-    let result = ComplianceConfig::from_yaml(yaml);
+    let result = ComplianceConfig::from_yaml_str(yaml);
     assert!(result.is_err(), "warmup < standard must be rejected");
 }
 
@@ -98,6 +98,6 @@ rho:
 phi:
   qualified_threshold: 0.65
 "#;
-    let result = ComplianceConfig::from_yaml(yaml);
+    let result = ComplianceConfig::from_yaml_str(yaml);
     assert!(result.is_err(), "reserve_fraction > 0.30 must be rejected");
 }

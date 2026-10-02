@@ -4,6 +4,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::todo)]
 
 pub mod briefing_kind_enum;
+pub mod case;
 pub mod config;
 pub mod domain;
 pub mod error;

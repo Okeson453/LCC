@@ -167,6 +167,7 @@ impl PermitVerifier {
 mod tests {
     use super::*;
     use ed25519_dalek::SigningKey;
+    use base64::Engine as _;
     use lcc_compliance::permit_token::{signing_only_signer, PermitSigner};
     use rand::rngs::OsRng;
 

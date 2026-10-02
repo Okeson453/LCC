@@ -1,6 +1,6 @@
 //! Integration tests for security
 
-use security as _lib;
+use lcc_security as _lib;
 
 #[test]
 fn placeholder() {

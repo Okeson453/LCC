@@ -1,6 +1,6 @@
 //! Smoke tests for compliance-governor.
 
-use lcc_compliance_governor::config::Config;
+use compliance_governor::config::Config;
 use serde_json::json;
 
 #[test]
