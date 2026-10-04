@@ -16,12 +16,12 @@
 //! ## Token shape
 //!
 //! Header:
-//! ```
+//! ```json
 //! { "alg": "EdDSA", "typ": "JWT", "kid": "<key-id>" }
 //! ```
 //!
 //! Claims:
-//! ```
+//! ```json
 //! {
 //!   "iss": "compliance-governor",
 //!   "aud": "integration-gateway",
@@ -105,6 +105,10 @@ pub struct PermitClaimsBuilder {
     now: i64,
 }
 
+/// Hard ceiling on a permit's lifetime. Axiom 1 caps a permit at 60 seconds so
+/// that a token observed in transit is useless almost immediately.
+pub const MAX_PERMIT_TTL_SECONDS: u64 = 60;
+
 impl PermitClaimsBuilder {
     pub fn new(
         member_id: impl Into<String>,
@@ -115,7 +119,7 @@ impl PermitClaimsBuilder {
     ) -> Self {
         let now = Utc::now().timestamp();
         Self {
-            iss: "compliance-governor".into(),
+            iss: PERMIT_ISSUER.into(),
             aud: "integration-gateway".into(),
             sub: member_id.into(),
             act: action_id.into(),
@@ -129,7 +133,18 @@ impl PermitClaimsBuilder {
     }
 
     pub fn approval_id(mut self, id: Option<String>) -> Self { self.appr = id; self }
-    pub fn ttl_seconds(mut self, ttl: i64) -> Self { self.ttl_seconds = ttl; self }
+
+    /// Set the permit lifetime, clamped to `0..=MAX_PERMIT_TTL_SECONDS`.
+    ///
+    /// Axiom 1 requires a permit to be short-lived so a captured token is
+    /// useless quickly. Clamping here rather than trusting every caller means
+    /// the bound holds no matter which code path builds the claims — a caller
+    /// asking for an hour gets a 60-second permit, not an hour-long one.
+    pub fn ttl_seconds(mut self, ttl: i64) -> Self {
+        self.ttl_seconds = ttl.clamp(0, MAX_PERMIT_TTL_SECONDS as i64);
+        self
+    }
+
     pub fn audience(mut self, aud: impl Into<String>) -> Self { self.aud = aud.into(); self }
     pub fn issuer(mut self, iss: impl Into<String>) -> Self { self.iss = iss.into(); self }
 
@@ -206,17 +221,27 @@ impl KeyStore for StaticKeyStore {
     }
 }
 
+/// The only issuer the Governor ever signs as, and the only issuer the
+/// Integration Gateway accepts. Defined once so the signer and the verifier
+/// cannot drift apart.
+pub const PERMIT_ISSUER: &str = "compliance-governor";
+
 // ---- Signer (Compliance Governor side) ----
 
 #[derive(Clone)]
 pub struct PermitSigner {
     keys: Arc<dyn KeyStore>,
     audience: String,
+    issuer: String,
 }
 
 impl PermitSigner {
     pub fn new(keys: Arc<dyn KeyStore>, audience: impl Into<String>) -> Self {
-        Self { keys, audience: audience.into() }
+        Self {
+            keys,
+            audience: audience.into(),
+            issuer: PERMIT_ISSUER.to_string(),
+        }
     }
 
     pub fn issue(&self, claims: &PermitClaims) -> Result<String, PermitError> {
@@ -225,6 +250,16 @@ impl PermitSigner {
             return Err(PermitError::WrongAudience {
                 expected: self.audience.clone(),
                 actual: claims.aud.clone(),
+            });
+        }
+        // ...and must claim to come from this signer. Without this the signer
+        // would happily mint a permit asserting `iss: "attacker"`: the
+        // verifier rejects it, but a token that carries the Governor's own
+        // signature over someone else's issuer claim should never exist.
+        if claims.iss != self.issuer {
+            return Err(PermitError::WrongIssuer {
+                expected: self.issuer.clone(),
+                actual: claims.iss.clone(),
             });
         }
         let kid = self.keys.active_kid();
@@ -305,9 +340,9 @@ impl PermitVerifier {
                 actual: claims.aud,
             });
         }
-        if claims.iss != "compliance-governor" {
+        if claims.iss != PERMIT_ISSUER {
             return Err(PermitError::WrongIssuer {
-                expected: "compliance-governor".into(),
+                expected: PERMIT_ISSUER.into(),
                 actual: claims.iss,
             });
         }

@@ -57,8 +57,10 @@ fn make_placeholder_pool_db() -> sqlx::PgPool {
 mod tests {
     use super::*;
 
-    #[test]
-    fn placeholder_constructs() {
+    // Needs a Tokio runtime: the placeholder deps build a sqlx pool, and
+    // `connect_lazy` spawns that pool's background task.
+    #[tokio::test]
+    async fn placeholder_constructs() {
         let _d = GovernorDeps::placeholder();
     }
 }

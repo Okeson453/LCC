@@ -52,7 +52,7 @@ fn every_action_maps_to_its_documented_tier() {
 fn mapping_covers_every_action_variant() {
     // If a variant is added without a tier assertion, this fails — so a new
     // action can never silently inherit the wrong risk tier.
-    assert_eq!(MAPPING.len(), 18, "a new ActionType needs a tier assertion");
+    assert_eq!(MAPPING.len(), 17, "a new ActionType needs a tier assertion");
 }
 
 #[test]
@@ -65,12 +65,42 @@ fn tier1_drafting_consumes_no_daily_quota() {
 }
 
 #[test]
-fn every_external_action_consumes_quota() {
+fn quota_tracked_tiers_declare_a_cap() {
+    // Tiers 2-4 are the quota-tracked engagement types, and each appears in
+    // `ActionCaps` (§12), so each must declare a positive daily cap.
+    //
+    // Tier 1 is drafting (auto-execute, no quota) and tier 5 is high-stakes
+    // one-off sends that are individually approved rather than batched — tier
+    // 5 has no field in `ActionCaps` at all, so a zero cap there is correct
+    // and is asserted separately below.
+    for (action, tier) in MAPPING {
+        let quota_tracked = matches!(
+            tier,
+            RiskTier::Tier2LightEngagement
+                | RiskTier::Tier3NetworkGrowth
+                | RiskTier::Tier4OneToOneOutreach
+        );
+        if quota_tracked {
+            assert!(
+                action.cap_base() > 0,
+                "{action:?} is quota-tracked but declares no daily cap"
+            );
+            assert!(
+                action.warm_up_cap() > 0,
+                "{action:?} is quota-tracked but has no warm-up floor"
+            );
+        }
+    }
+}
+
+#[test]
+fn warm_up_caps_never_exceed_base_caps() {
+    // The warm-up floor is a restriction, not a bonus.
     for (action, tier) in MAPPING {
         if *tier != RiskTier::Tier1DraftOrEdit {
             assert!(
-                action.cap_base() > 0,
-                "{action:?} acts externally but declares no daily cap"
+                action.warm_up_cap() <= action.cap_base(),
+                "{action:?} warm-up cap exceeds its base cap"
             );
         }
     }

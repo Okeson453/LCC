@@ -13,7 +13,7 @@
 //! VIP or hiring-manager relationship going cold for a month is materially
 //! worse than a peer going cold for three:
 //!
-//! ```rust
+//! ```text
 //! let threshold_days = |tier: &Tier| match tier {
 //!     Tier::Vip     => 30,
 //!     Tier::Standard => 60,

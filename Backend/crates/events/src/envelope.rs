@@ -42,11 +42,16 @@ pub enum EventPayload {
 }
 
 /// Envelope — the full event published to the bus.
+///
+/// Serialises as `{ "header": {...}, "payload": {...} }`, which is what
+/// `schemas/events/*.schema.json` requires (`required: [header, payload]`,
+/// `additionalProperties: false`). It was previously flattened into a single
+/// object, which failed that schema and — because `member_id` exists in both
+/// the header and several payloads — emitted a duplicate JSON key, leaving
+/// deserialisation order-dependent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Envelope {
-    #[serde(flatten)]
     pub header: EventHeader,
-    #[serde(flatten)]
     pub payload: EventPayload,
 }
 
@@ -201,8 +206,18 @@ mod tests {
         .with_member("m_001");
 
         let json = serde_json::to_value(&env).unwrap();
+        // `schemas/events/*.schema.json` requires exactly {header, payload}
+        // and forbids anything else at the top level.
         assert_eq!(json["header"]["topic"], "member_created");
-        assert_eq!(json["type"], "member_created");
+        assert_eq!(json["payload"]["type"], "member_created");
+        assert_eq!(json["payload"]["member_id"], "m_001");
+        let top: Vec<&String> = json.as_object().expect("object").keys().collect();
+        assert_eq!(top, vec!["header", "payload"]);
+
+        // The header and the payload both carry `member_id`; nested, that is
+        // two distinct values. Flattened it produced a duplicate JSON key and
+        // left deserialisation order-dependent.
+        assert_eq!(json["header"]["member_id"], "m_001");
         assert_eq!(json["payload"]["member_id"], "m_001");
     }
 

@@ -368,16 +368,45 @@ mod tests {
     #[test]
     fn weight_components_in_unit_interval() {
         let mut cfg = ComplianceConfig::default();
+
+        // A zero weight disables an axis, which the config forbids.
         cfg.h_c_weights = [0.0, 0.5, 0.25, 0.25];
         assert!(matches!(
             cfg.validate(),
             Err(ComplianceConfigError::InvalidWeightComponent(0, _))
         ));
 
-        cfg.h_c_weights = [1.5, -0.5, 0.0, 0.0];
+        // Every vector below sums to 1.0 on purpose: the sum check runs first,
+        // so a vector that does not sum to 1.0 would report InvalidWeights and
+        // never reach the per-component check being exercised.
+
+        // A weight above 1.0 is rejected.
+        cfg.h_c_weights = [0.5, 1.5, -0.5, -0.5];
         assert!(matches!(
             cfg.validate(),
             Err(ComplianceConfigError::InvalidWeightComponent(1, _))
+        ));
+
+        // A negative weight is rejected.
+        cfg.h_c_weights = [0.9, 0.9, -0.4, -0.4];
+        assert!(matches!(
+            cfg.validate(),
+            Err(ComplianceConfigError::InvalidWeightComponent(2, _))
+        ));
+
+        // Weights that do not sum to 1.0 are rejected as a sum error.
+        cfg.h_c_weights = [0.4, 0.3, 0.2, 0.2];
+        assert!(matches!(
+            cfg.validate(),
+            Err(ComplianceConfigError::InvalidWeights(_))
+        ));
+
+        // When several are wrong, the *first* is reported so the operator is
+        // pointed at the leftmost real problem.
+        cfg.h_c_weights = [1.5, -0.5, 0.0, 0.0];
+        assert!(matches!(
+            cfg.validate(),
+            Err(ComplianceConfigError::InvalidWeightComponent(0, _))
         ));
     }
 

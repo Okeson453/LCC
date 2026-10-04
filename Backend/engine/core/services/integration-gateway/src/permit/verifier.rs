@@ -24,6 +24,7 @@
 
 use chrono::Utc;
 use lcc_compliance::permit_token::PermitClaims;
+use lcc_compliance::permit_token::PermitError as LccPermitError;
 use lcc_compliance::permit_token::PermitVerifier as LccPermitVerifier;
 use thiserror::Error;
 use uuid::Uuid;
@@ -63,6 +64,30 @@ pub enum PermitError {
 #[derive(Debug, Clone)]
 pub struct PermitVerifier {
     inner: LccPermitVerifier,
+}
+
+/// Translate the shared verifier's errors into this crate's variants.
+///
+/// The shared verifier already checks expiry, and collapsing every one of its
+/// errors into `InvalidSignature` made this crate's own `Expired` and
+/// `NotYetValid` variants unreachable — the checks further down could never
+/// run, and a caller could not tell an expired permit from a forged one.
+fn map_base_verify_error(e: LccPermitError) -> PermitError {
+    let now = Utc::now().timestamp();
+    match e {
+        LccPermitError::Expired => PermitError::Expired { now, exp: now },
+        LccPermitError::BadSignature => {
+            PermitError::InvalidSignature("signature verification failed".into())
+        }
+        LccPermitError::Malformed(m) => PermitError::InvalidSignature(format!("malformed: {m}")),
+        LccPermitError::WrongAudience { actual, .. } => PermitError::AudienceMismatch { actual },
+        LccPermitError::WrongIssuer { expected, actual } => PermitError::IssuerMismatch {
+            expected,
+            actual,
+        },
+        LccPermitError::UnknownKey(k) => PermitError::InvalidSignature(format!("unknown kid: {k}")),
+        LccPermitError::NoKey => PermitError::KeyNotLoaded,
+    }
 }
 
 impl PermitVerifier {
@@ -113,7 +138,7 @@ impl PermitVerifier {
         let claims = self
             .inner
             .verify(token)
-            .map_err(|e| PermitError::InvalidSignature(e.to_string()))?;
+            .map_err(map_base_verify_error)?;
 
         // F-71: hard member binding.
         let expected_member_str = expected_member_id.to_string();

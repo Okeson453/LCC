@@ -101,8 +101,10 @@ impl Guard for SessionPacingGuard {
 mod tests {
     use super::*;
 
-    #[test]
-    fn guard_name() {
+    // Needs a Tokio runtime: the placeholder deps build a sqlx pool, and
+    // `connect_lazy` spawns that pool's background task.
+    #[tokio::test]
+    async fn guard_name() {
         let g = SessionPacingGuard::new(GovernorDeps::placeholder());
         assert_eq!(g.name(), "session_pacing");
     }

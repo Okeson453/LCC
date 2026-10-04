@@ -99,10 +99,13 @@ impl Case {
         use TransitionTrigger::*;
         match (state, trigger) {
             (Intake, StartDraft) => Some(Drafting),
+            (Drafting, DraftComplete) => Some(InReview),
             // A rejected review sends the case back for another pass rather
-            // than failing it, so the author can address the feedback.
-            (Drafting, DraftComplete) | (InReview, Reject) => Some(InReview),
-            (Drafting, Reject) => Some(Drafting),
+            // than failing it, so the author can address the feedback. This
+            // must land on `Drafting`: staying in `InReview` would leave the
+            // case queued for a review that already came back negative, and
+            // `try_transition` would report success while nothing moved.
+            (InReview, Reject) => Some(Drafting),
             (InReview, Approve) => Some(Approved),
             (Approved, Schedule) => Some(Scheduled),
             // An approved case may publish immediately or after scheduling.

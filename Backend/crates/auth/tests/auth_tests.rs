@@ -81,11 +81,22 @@ fn malformed_token_fails() {
 
 #[test]
 fn expired_token_fails() {
-    // The issuer always stamps `now + ttl`, so mint one with a zero/negative
-    // window rather than sleeping.
-    let expired = JwtIssuer::new(SECRET, "k1", ISSUER, AUDIENCE, -1);
+    // The issuer always stamps `now + ttl`, so mint one with a negative
+    // window rather than sleeping. It must be expired by more than
+    // `JWT_CLOCK_SKEW_SECS`, otherwise the skew allowance legitimately
+    // accepts it.
+    let expired = JwtIssuer::new(SECRET, "k1", ISSUER, AUDIENCE, -10);
     let (token, _) = expired.issue(&Uuid::now_v7(), "owner").expect("issue");
     assert!(verifier().verify(&token).is_err());
+}
+
+#[test]
+fn expiry_within_clock_skew_is_still_accepted() {
+    // A token that expired seconds ago is accepted inside the skew window;
+    // this is what makes a bounded leeway safe to have at all.
+    let just_expired = JwtIssuer::new(SECRET, "k1", ISSUER, AUDIENCE, 0);
+    let (token, _) = just_expired.issue(&Uuid::now_v7(), "owner").expect("issue");
+    assert!(verifier().verify(&token).is_ok());
 }
 
 #[test]

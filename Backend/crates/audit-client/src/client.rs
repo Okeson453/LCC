@@ -19,6 +19,10 @@ use thiserror::Error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+// The canonical contract fixes these as lowercase wire values
+// (`lcc-api-canonical.yaml`: `outcome: { enum: [success, denied, failed] }`),
+// so the variant names must not leak through as "Success" etc.
+#[serde(rename_all = "snake_case")]
 pub enum AuditOutcome {
     Success,
     Denied,

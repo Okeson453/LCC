@@ -206,17 +206,56 @@ mod tests {
     #[test]
     fn metrics_register() {
         let m = Metrics::new("test-svc").expect("register");
-        let rendered = m.render().unwrap();
+        // A `*Vec` collector has no samples until a labelled child is created,
+        // so an untouched registry renders empty — correct Prometheus
+        // behaviour. Registration is only observable once a child exists, so
+        // create one for each collector we care about.
+        m.http_requests_total
+            .with_label_values(&["test-svc", "GET", "/healthz", "200"])
+            .inc();
+        m.governor_evaluations_total
+            .with_label_values(&["PERMIT", "grounding"])
+            .inc();
+
+        let rendered = m.render().expect("render");
         assert!(rendered.contains("lcc_http_requests_total"));
+        assert!(rendered.contains("lcc_governor_evaluations_total"));
+        assert!(rendered.contains("test-svc"));
+    }
+
+    #[test]
+    fn untouched_registry_renders_empty() {
+        // Documents the behaviour the previous version of this test tripped
+        // over: nothing is exported until something is observed.
+        let m = Metrics::new("unused-svc").expect("register");
+        assert_eq!(m.render().expect("render").trim(), "");
+    }
+
+    #[test]
+    fn render_rejects_a_second_registry_clash() {
+        // Two Metrics with the same service name still get independent
+        // registries — they must not collide on a global default registry.
+        let a = Metrics::new("same-svc").expect("register");
+        let b = Metrics::new("same-svc").expect("register");
+        a.http_requests_total
+            .with_label_values(&["same-svc", "GET", "/a", "200"])
+            .inc();
+        b.http_requests_total
+            .with_label_values(&["same-svc", "GET", "/b", "200"])
+            .inc();
+        let ra = a.render().expect("render a");
+        let rb = b.render().expect("render b");
+        assert!(ra.contains("/a") && !ra.contains("/b"));
+        assert!(rb.contains("/b") && !rb.contains("/a"));
     }
 
     #[test]
     fn counter_increments() {
-        let m = Metrics::new("test-svc").unwrap();
+        let m = Metrics::new("test-svc").expect("test should not panic");
         m.http_requests_total
             .with_label_values(&["test-svc", "GET", "/healthz", "200"])
             .inc();
-        let rendered = m.render().unwrap();
+        let rendered = m.render().expect("test should not panic");
         assert!(rendered.contains("lcc_http_requests_total"));
     }
 }

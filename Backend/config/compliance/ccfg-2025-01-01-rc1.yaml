@@ -1,107 +1,88 @@
 # ccfg-2025-01-01-rc1 — initial compliance configuration.
-# Validation invariants:
-# - sum(h_c.weights) == 1.0 ±1e-6
-# - h_c.warmup_threshold > h_c.standard_threshold
-# - ab_d.multiplier_floor ∈ [0, 1]
-# - reserve_fraction ∈ [0, 0.30]
+#
+# This file is deserialised by `lcc_compliance::config::ComplianceConfig`, so
+# the keys below ARE the schema. It previously used a nested shape
+# (`h_c.weights.{response_rate,acceptance_rate,...}`) that the loader could not
+# read at all, so the Governor could not start against any config in the repo.
+#
+# The old file also carried narrative sections (ab_d decay steps, rho
+# rule-based weights, grounding, track_routing, restriction_signals, ...) that
+# no field in `ComplianceConfig` maps to. They are gone rather than left in
+# place: serde ignores unknown keys, so keeping them would look authoritative
+# while having no effect. See `ComplianceConfig` for the real field list.
+#
+# Validation invariants (enforced by `ComplianceConfig::validate`):
+#   - sum(h_c_weights) == 1.0 ±1e-6
+#   - every h_c_weights entry is in (0, 1]
+#   - h_c_warmup_threshold < h_c_standard_threshold
+#
+# Note the threshold semantics: `h_c_warmup_threshold` is the H_c *below* which
+# an account is treated as still warming up, and `h_c_standard_threshold` is the
+# H_c *above* which it counts as fully standard. They are the ends of an
+# interpolation band, not the upper bound of a named band as the previous
+# nested files described them.
+#   - reserve_fraction ∈ [0, 0.30]
+#   - phi_weights sum to 1.0 ±1e-6
+#   - ab_d_multiplier_floor ∈ [0, 1]
 
 version: ccfg-2025-01-01-rc1
-status: rc
 
-h_c:
-  weights:
-    response_rate: 0.30
-    acceptance_rate: 0.20
-    error_rate_inverted: 0.20
-    restriction_inverted: 0.15
-    engagement_quality: 0.15
-  warmup_threshold: 0.85
-  standard_threshold: 0.65
-  reserve_fraction: 0.10
-  bands:
-    - name: warmup
-      min: 0.85
-      max: 1.00
-    - name: standard
-      min: 0.65
-      max: 0.85
-    - name: cold
-      min: 0.00
-      max: 0.65
+# H_c is a weighted sum over four inputs — acceptance_rate, reply_rate,
+# inverted quota_utilization, tenure_factor. The previous five named weights
+# described a different scorer and do not map onto these four; the §4 initial
+# default is used instead.
+h_c_weights: [0.35, 0.25, 0.20, 0.20]
+h_c_warmup_threshold: 0.4
+h_c_standard_threshold: 0.7
+reserve_fraction: 0.10
 
-ab_d:
-  multiplier_floor: 0.5
-  multiplier_ceiling: 2.0
-  baseline: 1.0
-  decay_steps:
-    - trigger: low_acceptance_rate (< 0.20)
-      factor: 0.7
-    - trigger: high_error_rate (> 0.10)
-      factor: 0.8
-    - trigger: restriction_event (> 0)
-      factor: 0.6
+# Daily caps — Source §12, Scenario B.
+caps:
+  connection_request: 18
+  direct_message: 25
+  comment: 15
+  like: 40
+  profile_edit_submission: 3
+  post_publish: 3
 
-rho:
-  labeled_send_threshold: 200
-  vip_boost: 1.5
-  rule_based_weights:
-    vip: 0.35
-    recency: 0.30
-    mutual: 0.10
-    kb_fit: 0.15
-    response_history: 0.10
+# Warm-up floor caps for new accounts (H_c < 0.3, days 1-28) — Scenario C.
+warm_up_floor_caps:
+  connection_request: 5
+  direct_message: 6
+  comment: 4
+  like: 10
+  profile_edit_submission: 1
+  post_publish: 1
 
-phi:
-  qualified_threshold: 0.65
-  rule_based_weights:
-    signal_strength: 0.60
-    kb_fit: 0.30
-    diversity_bonus_max: 0.10
-  decay_half_life_days: 14
+# Minimum inter-action spacing, in seconds.
+min_spacing_seconds:
+  connection_request: 90
+  direct_message: 60
+  comment: 45
+  like: 15
 
-daily_caps:
-  connection_request: 25
-  dm: 40
-  post_publish: 2
-  sequence_step_send: 20
-  job_application_submit: 8
-  client_proposal_send: 5
-  executive_outreach: 3
+# Minimum H_c required before a tier may act at all.
+risk_tier_min_h_c:
+  tier_1: 0.0
+  tier_2: 0.3
+  tier_3: 0.4
+  tier_4: 0.5
+  tier_5: 0.5
 
-cooldowns:
-  connection_request_min_days_between_to_same_target: 90
-  dm_min_hours_between_to_same_target: 24
+# φ (job-track opportunity) weights and qualification threshold.
+phi_weights: [0.35, 0.30, 0.20, 0.15]
+phi_qualification_threshold: 0.65
 
-session_pacing:
-  rolling_window_seconds: 600   # 10 min
-  max_actions_in_window: 5
+# AB/D multiplier floor — how far the adaptive multiplier may fall.
+ab_d_multiplier_floor: 0.5
 
-grounding:
-  min_kb_refs_required: 1
-  low_grounding_blocks_publish: true
+# Repeat-contact cooldown and session pacing jitter.
+duplicate_target_cooldown_days: 90
+session_jitter_min_seconds: 8
 
-restriction_signals:
-  - "your account has been restricted"
-  - "captcha"
-  - "verification challenge"
-  - "unusual login activity"
-  - "we've noticed unusual activity"
+# Permit token lifetime. Axiom 1 caps this at 60s.
+permit_token_ttl_seconds: 60
 
-track_routing:
-  personal_profile_post_publish: track_b
-  connection_request: track_b
-  dm: track_b
-  sequence_step_send: track_b
-  job_application_submit: track_b
-  client_proposal_send: track_b
-  executive_outreach: track_b
-  comment_post: track_a
-  like_post: track_a
-  profile_view: track_a
-  follow_company: track_a
-
-permit_token:
-  ttl_seconds: 60
-  audience: integration-gateway
-  issuer: compliance-governor
-  signing_alg: HS256
+# The LinkedIn API actions this member is allowed to route to Track A.
+# Everything else is Track B (browser extension).
+api_supported_set_json: '["organization_page_post_publish","oauth_profile_read","jobs_data_read"]'

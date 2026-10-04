@@ -96,6 +96,41 @@ pub enum LccError {
 pub type LccResult<T> = Result<T, LccError>;
 
 impl LccError {
+    /// The stable machine-readable code carried in the canonical error
+    /// envelope. These strings are part of the public API contract, so clients
+    /// switch on them; changing one is a breaking change.
+    pub fn error_code(&self) -> &'static str {
+        match self {
+            LccError::Validation(_) => "validation_failed",
+            LccError::NotFound { .. } => "not_found",
+            LccError::Conflict(_) | LccError::OptimisticConflict => "conflict",
+            LccError::Forbidden(_) => "forbidden",
+            LccError::Unauthorized(_) => "unauthorized",
+            LccError::PermitTokenInvalid(_) => "permit_token_invalid",
+            LccError::RateLimited { .. } => "rate_limited",
+            LccError::ComplianceDenied { .. } => "compliance_denied",
+            LccError::ComplianceDeferred { .. } => "compliance_deferred",
+            LccError::AccountRestricted { .. } | LccError::RestrictionSignal { .. } => {
+                "account_restricted"
+            }
+            LccError::RlsContextMissing | LccError::TenantMismatch { .. } => "tenant_mismatch",
+            LccError::CircuitOpen { .. } => "circuit_open",
+            LccError::Timeout(_) => "upstream_timeout",
+            LccError::Database(_) | LccError::Redis(_) | LccError::HttpClient(_) => {
+                "dependency_error"
+            }
+            LccError::Config(_) => "config_error",
+            LccError::Internal(_) | LccError::Other(_) => "internal_error",
+            _ => "internal_error",
+        }
+    }
+
+    /// Renders this error in the canonical envelope shape,
+    /// `{ "error": { code, message, trace_id } }`.
+    pub fn to_envelope(&self) -> ErrorEnvelope {
+        ErrorEnvelope::new(self.error_code(), self.to_string())
+    }
+
     /// Returns the HTTP status code equivalent for this error.
     pub fn http_status(&self) -> http::StatusCode {
         use http::StatusCode;
@@ -215,6 +250,20 @@ impl ErrorEnvelope {
     pub fn with_details(mut self, details: serde_json::Value) -> Self {
         self.error.details = Some(details);
         self
+    }
+}
+
+/// Every service can render the same envelope, so the shape is defined once
+/// here rather than re-implemented (and drifting) per service.
+impl From<&LccError> for ErrorEnvelope {
+    fn from(e: &LccError) -> Self {
+        e.to_envelope()
+    }
+}
+
+impl From<LccError> for ErrorEnvelope {
+    fn from(e: LccError) -> Self {
+        e.to_envelope()
     }
 }
 

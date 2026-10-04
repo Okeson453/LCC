@@ -85,8 +85,11 @@ fn expired_token_fails_verify() {
 #[test]
 fn wrong_audience_fails_verify() {
     let (sk, vk) = generate_keypair();
-    let signer = signing_only_signer(sk.clone(), "different-audience");
-    let verifier = public_only_verifier(vk, "integration-gateway");
+    // The signer refuses to mint a claim whose audience is not its own, so the
+    // mismatch is introduced on the *verifier* side: the token is minted
+    // correctly, then presented to a gateway expecting a different audience.
+    let signer = signing_only_signer(sk.clone(), "integration-gateway");
+    let verifier = public_only_verifier(vk, "different-audience");
 
     let claims = PermitClaimsBuilder::new(
         "00000000-0000-0000-0000-000000000001",
@@ -160,5 +163,8 @@ fn wrong_issuer_fails_verify() {
     .build();
     claims.iss = "attacker".into();
     let result = signer.issue(&claims);
-    assert!(result.is_err(), "signing with wrong issuer must fail");
+    assert!(
+        matches!(result, Err(PermitError::WrongIssuer { .. })),
+        "the signer must refuse to mint a claim asserting a different issuer"
+    );
 }

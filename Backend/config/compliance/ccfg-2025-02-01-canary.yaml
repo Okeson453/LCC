@@ -1,51 +1,52 @@
 # ccfg-2025-02-01-canary — canary config (per-member pilot only).
+#
+# Same schema as ccfg-2025-01-01-rc1. This is the tightest of the three and is
+# intended for a capped pilot cohort rather than general rollout.
 
 version: ccfg-2025-02-01-canary
-status: canary
-parent_version: ccfg-2025-01-15-rc2
-applies_to:
-  - role: pilot_member
-    max_members: 25
 
-h_c:
-  weights:
-    response_rate: 0.30
-    acceptance_rate: 0.20
-    error_rate_inverted: 0.20
-    restriction_inverted: 0.15
-    engagement_quality: 0.15
-  warmup_threshold: 0.92
-  standard_threshold: 0.72
-  reserve_fraction: 0.20
+h_c_weights: [0.35, 0.25, 0.20, 0.20]
+h_c_warmup_threshold: 0.55
+h_c_standard_threshold: 0.8
+reserve_fraction: 0.20
 
-ab_d:
-  multiplier_floor: 0.3
-  multiplier_ceiling: 1.5
-
-rho:
-  labeled_send_threshold: 200
-  vip_boost: 1.5
-
-phi:
-  qualified_threshold: 0.75
-
-daily_caps:
-  connection_request: 15
-  dm: 25
+caps:
+  connection_request: 10
+  direct_message: 12
+  comment: 10
+  like: 25
+  profile_edit_submission: 2
   post_publish: 2
-  sequence_step_send: 10
-  job_application_submit: 5
-  client_proposal_send: 2
-  executive_outreach: 2
 
-cooldowns:
-  connection_request_min_days_between_to_same_target: 180
-  dm_min_hours_between_to_same_target: 72
+warm_up_floor_caps:
+  connection_request: 3
+  direct_message: 3
+  comment: 2
+  like: 6
+  profile_edit_submission: 1
+  post_publish: 1
 
-session_pacing:
-  rolling_window_seconds: 1200
-  max_actions_in_window: 3
+min_spacing_seconds:
+  connection_request: 150
+  direct_message: 120
+  comment: 75
+  like: 25
 
-grounding:
-  min_kb_refs_required: 2
-  low_grounding_blocks_publish: true
+risk_tier_min_h_c:
+  tier_1: 0.0
+  tier_2: 0.4
+  tier_3: 0.5
+  tier_4: 0.6
+  tier_5: 0.65
+
+phi_weights: [0.35, 0.30, 0.20, 0.15]
+phi_qualification_threshold: 0.75
+
+ab_d_multiplier_floor: 0.3
+
+duplicate_target_cooldown_days: 180
+session_jitter_min_seconds: 8
+
+permit_token_ttl_seconds: 60
+
+api_supported_set_json: '["organization_page_post_publish","oauth_profile_read","jobs_data_read"]'

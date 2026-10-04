@@ -37,6 +37,13 @@ pub enum JwtError {
     UnknownRole(String),
 }
 
+/// Tolerance for clock skew between the issuer and the verifier, in seconds.
+///
+/// A session token is rejected once it is this far past its `exp`. 30s is
+/// enough to absorb normal NTP drift between pods without materially extending
+/// a session's life.
+pub const JWT_CLOCK_SKEW_SECS: u64 = 30;
+
 pub struct JwtIssuer {
     signing_key: Arc<EncodingKey>,
     key_id: String,
@@ -115,6 +122,11 @@ impl JwtVerifier {
         validation.set_issuer(&[self.expected_issuer.clone()]);
         validation.set_audience(&[self.expected_audience.clone()]);
         validation.set_required_spec_claims(&["exp", "iss", "aud", "sub"]);
+        // Pin the clock-skew allowance explicitly. `jsonwebtoken` defaults to
+        // 60s; leaving it implicit means a token's real lifetime is 60s longer
+        // than the TTL the issuer stamped, and any test or reviewer has to know
+        // that to reason about expiry.
+        validation.leeway = JWT_CLOCK_SKEW_SECS;
 
         let data = decode::<JwtClaims>(token, &self.decoding_key, &validation)?;
         Ok(data.claims)

@@ -5,7 +5,7 @@
 //! Technical Design Spec §9.4 specifies a concurrent fan-out with a single
 //! sequential merge:
 //!
-//! ```rust
+//! ```text
 //! let (opportunities, content_pending, engagement_queue, followups_due) = tokio::join!(
 //!     fetch_new_opportunities(account_id),
 //!     fetch_pending_approvals(ResourceKind::Content, account_id),

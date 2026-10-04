@@ -70,10 +70,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn started_at_is_monotonic() {
-        let s1 = started_at();
+    fn started_at_is_memoised_and_never_moves_backwards() {
+        // `started_at` memoises into a `OnceLock`, so every call in a process
+        // returns the same instant. The previous test asserted `s2 > s1`
+        // across two calls, which can never hold — the value is the same one.
+        let first = started_at();
         std::thread::sleep(std::time::Duration::from_millis(2));
-        let s2 = started_at();
-        assert!(s2 > s1);
+        let second = started_at();
+        assert_eq!(first, second, "the start instant must be stable");
+
+        // It is a real instant, and the uptime it produces is non-decreasing.
+        assert!(second.elapsed() < std::time::Duration::from_secs(86_400));
+        assert!(second.elapsed() >= std::time::Duration::from_millis(2));
     }
 }

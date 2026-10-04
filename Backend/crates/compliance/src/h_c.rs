@@ -50,6 +50,18 @@ fn clamp01(x: f64) -> f64 {
 /// Returns 0.0 if any input is NaN (fail-safe). Inputs are clamped to [0,1].
 /// Weights are not validated here; the caller should validate at config load.
 pub fn h_c(inputs: &H_cInputs, weights: &[f64; 4]) -> f64 {
+    // Source §32: a NaN signal must produce the strictest caps, not a
+    // middling score. Clamping NaN to 0 per-component and then continuing is
+    // NOT fail-safe — it silently downgrades one broken signal to "0% on that
+    // axis" and still returns a plausible, non-restrictive number.
+    if inputs.acceptance_rate.is_nan()
+        || inputs.reply_rate.is_nan()
+        || inputs.quota_utilization.is_nan()
+        || inputs.tenure_factor.is_nan()
+    {
+        return 0.0;
+    }
+
     let a_r = clamp01(inputs.acceptance_rate);
     let r_r = clamp01(inputs.reply_rate);
     let q_u = clamp01(inputs.quota_utilization);
