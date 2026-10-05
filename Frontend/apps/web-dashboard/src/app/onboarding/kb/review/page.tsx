@@ -41,7 +41,7 @@ export default function ReviewKbStep(): React.ReactElement {
               {records.slice(0, 20).map((r) => (
                 <li key={r.id} className="flex items-center justify-between rounded-md border p-3">
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{r.kind}</Badge>
+                    <Badge variant="secondary">{r.category}</Badge>
                     <span className="text-sm font-medium">{r.title}</span>
                   </div>
                   <Button asChild variant="ghost" size="sm">

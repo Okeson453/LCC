@@ -11,9 +11,10 @@ export function OpportunityEvidencePanel({ evidence }: { evidence: OpportunityEv
       <CardContent className="space-y-2">
         {evidence.map((e, i) => (
           <div key={i} className="rounded-md border p-2 text-sm">
-            <p>{e.snippet}</p>
+            <p>{e.summary}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {new Date(e.observed_at).toLocaleString()} · {e.source}
+              {e.createdAt ? new Date(e.createdAt).toLocaleString() : 'undated'}
+              {e.sourceUrl ? ` · ${e.sourceUrl}` : ''}
             </p>
           </div>
         ))}

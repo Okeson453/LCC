@@ -1,5 +1,5 @@
 'use client';
-import { ACTION_TYPE_TO_TIER } from "@lcc/api-types/manual/risk-tier";
+import { tierForActionType } from '@lcc/api-types';
 
 import * as React from 'react';
 import { Textarea, Card, CardContent, CardHeader, CardTitle, Button } from '@lcc/ui';
@@ -29,7 +29,7 @@ export function OpportunityProposalBuilder({ initial, onDraft, onSubmit }: Oppor
           onOpenChange={setOpen}
           approvalId="proposal"
           actionType="send_proposal"
-          tier={ACTION_TYPE_TO_TIER.send_proposal}
+          tier={tierForActionType('send_proposal')}
           preview={body}
           targetLabel="Hiring manager"
           kbRefs={[]}

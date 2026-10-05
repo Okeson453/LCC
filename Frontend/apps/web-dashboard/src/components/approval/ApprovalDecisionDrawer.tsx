@@ -6,18 +6,26 @@
 'use client';
 
 import * as React from 'react';
-import { ApprovalDialog, useApprovalDecision, RiskTierBadge, KbCitationsList, GovernanceTrace } from '@lcc/approval-gate';
+import {
+  ApprovalDialog,
+  useApprovalDecision,
+  RiskTierBadge,
+  KbCitationsList,
+  GovernanceTrace,
+  type ApprovalDecisionInput,
+  type ApprovalDecisionOutput,
+} from '@lcc/approval-gate';
+import { toKbCitations } from '@/lib/kb-citations';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription, Button } from '@lcc/ui';
-import type { Approval, KbCitation } from '@lcc/api-types';
+import type { Approval } from '@lcc/api-types';
 
 export interface ApprovalDecisionDrawerProps {
   approval: Pick<Approval, 'id' | 'action_type' | 'tier' | 'kb_refs' | 'trace_id' | 'idempotency_key' | 'payload' | 'created_at'>;
-  kbByRecordId: Record<string, KbCitation>;
-  decide: (input: { approvalId: string; decision: 'approve' | 'reject'; edited_payload?: unknown; comment?: string }) => Promise<void>;
+  decide: (input: ApprovalDecisionInput) => Promise<ApprovalDecisionOutput>;
   triggerLabel?: string;
 }
 
-export function ApprovalDecisionDrawer({ approval, kbByRecordId, decide, triggerLabel = 'Review' }: ApprovalDecisionDrawerProps): React.ReactElement {
+export function ApprovalDecisionDrawer({ approval, decide, triggerLabel = 'Review' }: ApprovalDecisionDrawerProps): React.ReactElement {
   const decision = useApprovalDecision({ decider: decide });
   const preview = approval.payload && typeof approval.payload === 'object' && 'preview' in approval.payload
     ? String((approval.payload as Record<string, unknown>).preview)
@@ -44,7 +52,7 @@ export function ApprovalDecisionDrawer({ approval, kbByRecordId, decide, trigger
             <p className="whitespace-pre-line text-sm">{preview}</p>
           </div>
 
-          <KbCitationsList citations={approval.kb_refs.map((id) => kbByRecordId[id]).filter(Boolean)} />
+          <KbCitationsList citations={toKbCitations(approval.kb_refs)} />
 
           <GovernanceTrace
             traceId={approval.trace_id}
@@ -69,11 +77,11 @@ export function ApprovalDecisionDrawer({ approval, kbByRecordId, decide, trigger
           tier={approval.tier}
           preview={preview}
           targetLabel={target}
-          kbRefs={approval.kb_refs.map((id) => kbByRecordId[id]).filter(Boolean)}
+          kbRefs={toKbCitations(approval.kb_refs)}
           traceId={approval.trace_id}
           idempotencyKey={approval.idempotency_key}
           isSubmitting={decision.isPending}
-          onApprove={async (input) => { await decision.mutateAsync({ approvalId: approval.id, decision: 'approve', edited_payload: input.editedPreview }); }}
+          onApprove={async (input) => { await decision.mutateAsync({ approvalId: approval.id, decision: 'approve', editedPayload: input.editedPreview !== undefined ? { preview: input.editedPreview } : undefined }); }}
           onReject={async () => { await decision.mutateAsync({ approvalId: approval.id, decision: 'reject' }); }}
         />
       </SheetContent>

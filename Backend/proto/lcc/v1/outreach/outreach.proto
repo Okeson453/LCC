@@ -92,7 +92,9 @@ message CreateSequenceRequest {
 message CreateSequenceResponse {
   Sequence sequence = 1;
   repeated SequenceStep steps = 2;
-  repeated DraftVariant variants = 3;
+  // `DraftVariant` is declared in package lcc.v1.intelligence (ai.proto),
+  // which is imported above; cross-package references must be qualified.
+  repeated lcc.v1.intelligence.DraftVariant variants = 3;
 }
 
 message ApproveSequenceRequest {

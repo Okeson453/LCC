@@ -18,7 +18,7 @@ export function OpportunityActionPlanCard({ plan, actionItems }: { plan: string;
           {actionItems.map((a, i) => (
             <li key={i} className="rounded-md border p-2 text-sm">
               <p>{a.title}</p>
-              {a.due_at ? <p className="mt-1 text-xs text-muted-foreground">Due: {new Date(a.due_at).toLocaleString()}</p> : null}
+              {a.dueDate ? <p className="mt-1 text-xs text-muted-foreground">Due: {new Date(a.dueDate).toLocaleString()}</p> : null}
             </li>
           ))}
         </ul>

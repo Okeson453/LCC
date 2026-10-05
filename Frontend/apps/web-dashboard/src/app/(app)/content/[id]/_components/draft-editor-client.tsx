@@ -8,6 +8,7 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getContentItem, runQualityCheck, submitForApproval, scheduleContent, deleteContentItem } from '@/lib/api/content';
 import { useRouter } from 'next/navigation';
+import { toKbCitations } from '@/lib/kb-citations';
 
 export function DraftEditorClient({ contentId }: { contentId: string }): React.ReactElement {
   const memberQuery = useQuery({ queryKey: ['members', 'me'] as const, queryFn: fetchCurrentMember });
@@ -120,7 +121,7 @@ function Editor({ memberId, contentId, router }: { memberId: string; contentId: 
           tier={2}
           preview={body}
           targetLabel="LinkedIn post"
-          kbRefs={item.kb_refs}
+          kbRefs={toKbCitations(item.kb_refs)}
           traceId={item.trace_id}
           idempotencyKey={item.idempotency_key ?? ''}
           onApprove={async () => {

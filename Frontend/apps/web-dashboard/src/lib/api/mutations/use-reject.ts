@@ -11,11 +11,12 @@ export function useReject(memberId: string) {
     throw new Error('[useReject] memberId is required');
   }
   return useApprovalDecision({
-    decider: (input: ApprovalDecisionInput) => {
+    decider: async (input: ApprovalDecisionInput) => {
       const decision = {
-        decision: 'reject',
+        decision: 'reject' as const,
         comment: input.comment,
       };
+      // Wire shape (`failed_guard`) -> presentation shape (`failedGuard`).
       return decideApproval(memberId, input.approvalId, decision);
     },
   });

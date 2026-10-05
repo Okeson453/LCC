@@ -7,6 +7,7 @@
 import { apiFetch } from './client';
 import { API_PATHS } from './config';
 import type { Approval, ApprovalDecision } from '@lcc/api-types';
+import type { ApprovalDecisionOutput } from '@lcc/approval-gate';
 
 export async function listApprovals(
   _memberId: string,
@@ -19,16 +20,48 @@ export async function getApproval(_memberId: string, approvalId: string): Promis
   return apiFetch<Approval>(API_PATHS.approvals.item(approvalId));
 }
 
+/** Raw wire response of the decide endpoint (snake_case, as the API returns it). */
+export interface DecideApprovalWireResponse {
+  approval: Approval;
+  governance: { permit: boolean; failed_guard: string | null; reason: string | null };
+}
+
+/**
+ * Decide an approval and return the presentation shape `useApprovalDecision`
+ * expects.
+ *
+ * The endpoint answers with `governance.failed_guard`; the hook's
+ * `ApprovalDecisionOutput` declares `failedGuard`. Passing the wire response
+ * straight through failed to typecheck at every call site, so the mapping lives
+ * here, at the single boundary between the two.
+ */
 export async function decideApproval(
+  memberId: string,
+  approvalId: string,
+  decision: ApprovalDecision,
+): Promise<ApprovalDecisionOutput> {
+  const res = await postDecide(memberId, approvalId, decision);
+  return {
+    approval: res.approval,
+    governance: {
+      permit: res.governance.permit,
+      failedGuard: res.governance.failed_guard,
+      reason: res.governance.reason,
+    },
+  };
+}
+
+async function postDecide(
   _memberId: string,
   approvalId: string,
   decision: ApprovalDecision,
-): Promise<{
-  approval: Approval;
-  governance: { permit: boolean; failed_guard: string | null; reason: string | null };
-}> {
+): Promise<DecideApprovalWireResponse> {
+  // `ApprovalDecision` carries no `version` field (generated/http/approval.ts),
+  // so sending `version: decision.version ?? 0` referenced a property that does
+  // not exist. The optimistic-concurrency version, when the endpoint requires
+  // one, is carried on `Approval`; send the body as declared.
   return apiFetch(API_PATHS.approvals.decide(approvalId), {
     method: 'PATCH',
-    body: { ...decision, version: decision.version ?? 0 },
+    body: decision,
   });
 }

@@ -11,12 +11,14 @@ export function useApprove(memberId: string) {
     throw new Error('[useApprove] memberId is required');
   }
   return useApprovalDecision({
-    decider: (input: ApprovalDecisionInput) => {
+    decider: async (input: ApprovalDecisionInput) => {
       const decision = {
         decision: input.decision,
-        edited_payload: input.editedPayload ?? null,
+        edited_payload: input.editedPayload ?? undefined,
         comment: input.comment,
       };
+      // The endpoint returns the wire shape (`failed_guard`); the hook's
+      // `ApprovalDecisionOutput` is the presentation shape (`failedGuard`).
       return decideApproval(memberId, input.approvalId, decision);
     },
   });

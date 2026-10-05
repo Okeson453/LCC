@@ -7,6 +7,7 @@ import { RiskTierBadge } from '@lcc/approval-gate';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getSequence, approveStep, pauseSequence } from '@/lib/api/outreach';
+import { toKbCitations } from '@/lib/kb-citations';
 
 
 export default function SequencePage({ params }: { params: { sequenceId: string } }): React.ReactElement {
@@ -102,7 +103,7 @@ function Body({ memberId, sequenceId }: { memberId: string; sequenceId: string }
             tier={activeStep.tier}
             preview={activeStep.body}
             targetLabel="Contact"
-            kbRefs={activeStep.kb_refs}
+            kbRefs={toKbCitations(activeStep.kb_refs)}
             traceId={activeStep.trace_id}
             idempotencyKey={activeStep.idempotency_key}
             editablePreview={activeStep.tier >= 3}

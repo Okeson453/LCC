@@ -1,6 +1,6 @@
 'use client';
 
-import { logger } from '@lcc/test-utils/mocks/logger';import { ACTION_TYPE_TO_TIER } from "@lcc/api-types/manual/risk-tier";
+import { tierForActionType, type KbCitation } from '@lcc/api-types';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { ApprovalDialog, useApprovalDialog } from '@lcc/approval-gate';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getOpportunity, draftProposal } from '@/lib/api/opportunity';
+import { toKbCitations } from '@/lib/kb-citations';
 
 
 export default function ProposalPage({ params }: { params: { opportunityId: string } }): React.ReactElement {
@@ -27,15 +28,15 @@ function Form({ memberId, opportunityId }: { memberId: string; opportunityId: st
   const oppQuery = useQuery({ queryKey: ['opportunity', 'item', memberId, opportunityId] as const, queryFn: () => getOpportunity(memberId, opportunityId) });
   const [body, setBody] = useState('');
   const [showApproval, setShowApproval] = useState(false);
-  const [kbRefs, setKbRefs] = useState([]);
+  const [kbRefs, setKbRefs] = useState<KbCitation[]>([]);
   const draft = useMutation({
     mutationFn: () => draftProposal(memberId, opportunityId),
-    onSuccess: (r) => { setBody(r.body); setKbRefs(r.kb_refs ?? []); },
+    onSuccess: (r) => { setBody(r.body); setKbRefs(toKbCitations(r.kb_refs)); },
   });
 
   const submit = useMutation({
     mutationFn: () => draftProposal(memberId, opportunityId),
-    onSuccess: () => { setShowApproval(false); logger.info('[proposal] submitted for approval (backend send-proposal pending)'); },
+    onSuccess: () => { setShowApproval(false); console.info('[proposal] submitted for approval (backend send-proposal pending)'); },
   });
 
 
@@ -57,7 +58,7 @@ function Form({ memberId, opportunityId }: { memberId: string; opportunityId: st
             <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={14} aria-label="Proposal body" />
             <div className="flex gap-2">
               <Button onClick={() => draft.mutate()} variant="outline" disabled={draft.isPending} type="button">
-                {generate.isPending ? 'Drafting…' : 'Draft with AI'}
+                {draft.isPending ? 'Drafting…' : 'Draft with AI'}
               </Button>
               <Button onClick={() => setShowApproval(true)} disabled={submit.isPending || !body.trim()} type="button">
                 Submit for approval
@@ -71,7 +72,7 @@ function Form({ memberId, opportunityId }: { memberId: string; opportunityId: st
           onOpenChange={setShowApproval}
           approvalId={opportunityId}
           actionType="send_proposal"
-          tier={ACTION_TYPE_TO_TIER.send_proposal}
+          tier={tierForActionType('send_proposal')}
           preview={body}
           targetLabel={o?.company ?? 'Company'}
           kbRefs={kbRefs}

@@ -3,6 +3,10 @@ package lcc.v1.intelligence;
 
 import "google/protobuf/timestamp.proto";
 import "lcc/v1/common/trace.proto";
+// `FitScoreComponents` is declared in opportunity.proto (same package) and
+// imported rather than re-declared — protoc rejects duplicate definitions
+// within a package.
+import "lcc/v1/intelligence/opportunity.proto";
 
 // ComputeH_cRequest — called by Compliance Governor guard 4 when H_c is stale (>6h).
 // Returns the recomputed value plus per-component breakdown for observability.
@@ -95,11 +99,8 @@ service ScoringIntel {
   rpc CalibrationStatus(CalibrationStatusRequest) returns (CalibrationStatusResponse);
 }
 
-message FitScoreComponents {
-  double skill = 1;
-  double seniority = 2;
-  double geo = 3;
-  double comp = 4;
-  double trigger_recency = 5;
-  string goal_mode = 6;
-}
+// `FitScoreComponents` is intentionally NOT re-declared here. opportunity.proto
+// and this file share package `lcc.v1.intelligence`, and protoc rejects two
+// definitions of the same message within one package. The canonical
+// definition — which carries the field comments — lives in opportunity.proto
+// and is imported above.

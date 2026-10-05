@@ -1,0 +1,56 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// Vendored copy of `google/type/date.proto` from the googleapis repository.
+//
+// `lcc/v1/network/network.proto` uses `google.type.Date` for
+// `first_contact_date` and `follow_up_date`. Resolving it normally requires
+// `buf`, which pulls the dependency from the BSR via `proto/buf.yaml`
+// (`deps: buf.build/googleapis/googleapis`). Neither `buf` nor network access
+// to the BSR is available in the build environment, so protoc could not
+// resolve the import and every `proto-binary` build failed.
+//
+// This file is the upstream definition, vendored unmodified except for this
+// comment, so the build stays self-contained and offline-reproducible. It is
+// listed ahead of any BSR-provided copy in the build's include path.
+//
+// Upstream: https://github.com/googleapis/googleapis
+// Commit pinned in proto/buf.lock: 7a0c7b75e54fa0630023603d5d6f7d12
+
+syntax = "proto3";
+
+package google.type;
+
+option go_package = "google.golang.org/genproto/googleapis/type/date;date";
+option java_multiple_files = true;
+option java_outer_classname = "DateProto";
+option java_package = "com.google.type";
+option objc_class_prefix = "GTP";
+
+// Represents a whole calendar date, with no time of day or timezone.
+// For example, "2023-04-05" is a valid `Date`, while "2023-04-05 10:00:00
+// UTC" is not.
+message Date {
+  // Year of date. Must be from 1 to 9999, or 0 to specify a date without a
+  // year.
+  int32 year = 1;
+
+  // Month of year. Must be from 1 to 12, or 0 to specify a year without a
+  // month and day.
+  int32 month = 2;
+
+  // Day of month. Must be from 1 to 31 and valid for the month and year
+  // specified, or 0 to specify a year and month without a day.
+  int32 day = 3;
+}

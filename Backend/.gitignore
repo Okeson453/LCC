@@ -56,6 +56,13 @@ proto/gen/python/*
 !proto/gen/rust/.gitkeep
 !proto/gen/python/.gitkeep
 
+# lcc-proto `proto-binary` stubs. crates/proto/build.rs regenerates these
+# from proto/**/*.proto (via buf, else tonic-build + protoc) every time the
+# feature is built, so they are build output rather than source: committing
+# them would just risk them drifting from the .proto files they come from.
+crates/proto/src/gen/*
+!crates/proto/src/gen/.gitkeep
+
 # Generated / downloaded
 *.lock.bak
 .vault-token

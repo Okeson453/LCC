@@ -3,9 +3,10 @@
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@lcc/ui';
 import { OpportunityCard } from './OpportunityCard';
-import type { Opportunity, OpportunityStage } from '@lcc/api-types';
+import type { Opportunity } from '@lcc/api-types';
+import type { OpportunityBoardColumn } from './OpportunityKanbanBoard';
 
-export function OpportunityKanbanColumn({ stage, opportunities }: { stage: OpportunityStage; opportunities: Opportunity[] }): React.ReactElement {
+export function OpportunityKanbanColumn({ stage, opportunities }: { stage: OpportunityBoardColumn; opportunities: Opportunity[] }): React.ReactElement {
   return (
     <Card>
       <CardHeader>

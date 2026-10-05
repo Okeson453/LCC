@@ -8,6 +8,7 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getApproval, decideApproval } from '@/lib/api/approval';
 import Link from 'next/link';
+import { toKbCitations } from '@/lib/kb-citations';
 
 export function ApprovalDetailClient({ approvalId }: { approvalId: string }): React.ReactElement {
   const memberQuery = useQuery({ queryKey: ['members', 'me'] as const, queryFn: fetchCurrentMember });
@@ -53,7 +54,7 @@ function Detail({ memberId, approvalId }: { memberId: string; approvalId: string
           preview={preview}
           targetLabel={target}
           editablePreview={a.tier >= 3}
-          kbRefs={a.kb_refs}
+          kbRefs={toKbCitations(a.kb_refs)}
           traceId={a.trace_id}
           idempotencyKey={a.idempotency_key}
           isSubmitting={decision.isPending}

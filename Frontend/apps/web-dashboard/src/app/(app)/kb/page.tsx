@@ -61,7 +61,7 @@ function List({ memberId }: { memberId: string }): React.ReactElement {
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-sm">{r.title}</CardTitle>
-                      <Badge variant="outline">{r.kind}</Badge>
+                      <Badge variant="outline">{r.category}</Badge>
                     </div>
                   </CardHeader>
                   <CardContent>

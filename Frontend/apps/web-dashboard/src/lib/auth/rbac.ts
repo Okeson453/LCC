@@ -19,14 +19,29 @@ const ROLE_RANK: Record<Role, number> = {
   super_admin: 3,
 };
 
-export function isRole(member: Member | null | undefined, role: Role): boolean {
+/**
+ * `Member` (generated/http/member.ts) carries no `role` field — roles come from
+ * the session/JWT, not the member record. Reading `member.role` therefore did
+ * not compile, and defaulting to 'member' would have silently granted every
+ * member only the base role regardless of the real grant.
+ *
+ * Pass the role explicitly from the session instead.
+ */
+export function isRole(
+  member: Member | null | undefined,
+  role: Role,
+  memberRole: Role = 'member',
+): boolean {
   if (!member) return false;
-  const memberRole = (member.role ?? 'member') as Role;
   return ROLE_RANK[memberRole] >= ROLE_RANK[role];
 }
 
-export function hasRole(member: Member | null | undefined, role: Role): boolean {
-  return isRole(member, role);
+export function hasRole(
+  member: Member | null | undefined,
+  role: Role,
+  memberRole?: Role,
+): boolean {
+  return isRole(member, role, memberRole);
 }
 
 export function requireRole(member: Member | null | undefined, role: Role): void {

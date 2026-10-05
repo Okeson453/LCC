@@ -7,6 +7,7 @@ import { LoadingSkeleton, ErrorState } from '@lcc/ui';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { listApprovals } from '@/lib/api/approval';
+import { toKbCitations } from '@/lib/kb-citations';
 
 export function ApprovalsPageClient(): React.ReactElement {
   const memberQuery = useQuery({ queryKey: ['members', 'me'] as const, queryFn: fetchCurrentMember });
@@ -74,7 +75,7 @@ function ApprovalsContent({ memberId }: { memberId: string }): React.ReactElemen
             preview={openApproval.payload && typeof openApproval.payload === 'object' && 'preview' in openApproval.payload ? String((openApproval.payload as Record<string, unknown>).preview) : ''}
             targetLabel={openApproval.payload && typeof openApproval.payload === 'object' && 'target' in openApproval.payload ? String((openApproval.payload as Record<string, unknown>).target) : openApproval.action_type}
             editablePreview={openApproval.tier >= 3}
-            kbRefs={openApproval.kb_refs}
+            kbRefs={toKbCitations(openApproval.kb_refs)}
             traceId={openApproval.trace_id}
             idempotencyKey={openApproval.idempotency_key}
             isSubmitting={decision.isPending}

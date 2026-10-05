@@ -2,18 +2,24 @@
 
 import * as React from 'react';
 import { OpportunityKanbanColumn } from './OpportunityKanbanColumn';
-import type { Opportunity, OpportunityStage } from '@lcc/api-types';
+import type { Opportunity, OpportunityStatus } from '@lcc/api-types';
 
-const COLUMNS: OpportunityStage[] = ['discovered', 'qualified', 'drafting', 'applied', 'interviewing', 'offer', 'won'];
+/** The subset of `OpportunityStatus` rendered as Kanban columns. */
+export type OpportunityBoardColumn = Extract<
+  OpportunityStatus,
+  'discovered' | 'qualified' | 'drafting' | 'applied' | 'interviewing' | 'offer' | 'won'
+>;
+
+const COLUMNS: OpportunityBoardColumn[] = ['discovered', 'qualified', 'drafting', 'applied', 'interviewing', 'offer', 'won'];
 
 export function OpportunityKanbanBoard({ opps }: { opps: Opportunity[] }): React.ReactElement {
-  const grouped = COLUMNS.reduce<Record<OpportunityStage, Opportunity[]>>((acc, s) => {
+  const grouped = COLUMNS.reduce<Record<OpportunityBoardColumn, Opportunity[]>>((acc, s) => {
     acc[s] = [];
     return acc;
-  }, {} as Record<OpportunityStage, Opportunity[]>);
+  }, {} as Record<OpportunityBoardColumn, Opportunity[]>);
 
   for (const o of opps) {
-    const stage = (o.status as OpportunityStage);
+    const stage = o.status as OpportunityBoardColumn;
     if (grouped[stage]) grouped[stage].push(o);
   }
 

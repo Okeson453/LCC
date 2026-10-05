@@ -2,9 +2,9 @@
 
 import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@lcc/ui';
-import type { ProfileExperience } from '@lcc/api-types';
+import type { ProfileExperienceItem } from '@/lib/api/profile';
 
-export function ProfileExperienceList({ experiences }: { experiences: ProfileExperience[] }): React.ReactElement {
+export function ProfileExperienceList({ experiences }: { experiences: ProfileExperienceItem[] }): React.ReactElement {
   return (
     <Card>
       <CardHeader><CardTitle className="text-sm">Experience</CardTitle></CardHeader>
@@ -13,7 +13,7 @@ export function ProfileExperienceList({ experiences }: { experiences: ProfileExp
           <div key={i} className="rounded-md border p-3">
             <p className="text-sm font-medium">{e.title} — {e.company}</p>
             <p className="text-xs text-muted-foreground">
-              {e.starts_at} → {e.ends_at ?? 'present'} · {e.location}
+              {e.start_date} → {e.end_date ?? 'present'} · {e.location}
             </p>
           </div>
         ))}

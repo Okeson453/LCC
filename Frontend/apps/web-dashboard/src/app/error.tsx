@@ -25,11 +25,7 @@ export default function GlobalError({
         description="An unexpected error occurred. Try again, or report the issue with the trace ID below."
         traceId={error.digest}
         onRetry={reset}
-      >
-        <Button asChild variant="outline" size="sm">
-          <a href="/today">Go to Today</a>
-        </Button>
-      </ErrorState>
+      />
     </div>
   );
 }

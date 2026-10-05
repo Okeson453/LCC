@@ -16,11 +16,16 @@ path = "src/lib.rs"
 #   cargo build --features lcc-proto/proto-binary
 # when `buf` is available and the pre-generated stubs are in src/gen/).
 default = []
-proto-binary = []
+# `proto-types` is only needed by the generated `proto-binary` code.
+proto-binary = ["dep:prost-types"]
 
 [dependencies]
 tonic = { workspace = true }
 prost = { workspace = true }
+# Required by the code `tonic-build` generates for `proto-binary` (the
+# well-known types like google.protobuf.Timestamp are emitted against
+# `prost_types`). Optional so the default hand-written build doesn't pull it in.
+prost-types = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
@@ -38,3 +43,9 @@ path = "../../tests/contract/canonical/canonical_contract_test.rs"
 
 [lints]
 workspace = true
+
+# `build.rs` drives `tonic-build` to generate the `src/gen/*.rs` stubs that the
+# `proto-binary` feature includes. It is a build-dependency only, so it never
+# reaches the default (hand-written types) build's dependency graph.
+[build-dependencies]
+tonic-build = "0.12"

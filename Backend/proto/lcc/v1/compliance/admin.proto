@@ -3,6 +3,10 @@ package lcc.v1.compliance;
 
 import "google/protobuf/timestamp.proto";
 import "lcc/v1/common/trace.proto";
+// `ComplianceConfigSummary` is declared in governor.proto (same package). It
+// is imported rather than re-declared here: protoc rejects two definitions of
+// the same message within one package.
+import "lcc/v1/compliance/governor.proto";
 
 // Compliance config payload — versioned, two-reviewer signed at activate time.
 message ComplianceConfigPayload {
@@ -135,12 +139,10 @@ message GetConfigVersionResponse {
   ComplianceConfigVersion version = 1;
 }
 
-// Re-declare summary here for compatibility (also declared in governor.proto).
-message ComplianceConfigSummary {
-  string id = 1;
-  string version = 2;
-  google.protobuf.Timestamp activated_at = 3;
-  bool active = 4;
-  repeated string signed_by = 5;
-  string proposer = 6;
-}
+// `ComplianceConfigSummary` is intentionally NOT re-declared here. This file
+// and governor.proto both live in package `lcc.v1.compliance`, so protoc
+// treats two definitions of the same message as a hard error
+// ("already defined in file ..."), which failed every `proto-binary` build.
+// The canonical definition lives in governor.proto; protobuf resolves it
+// across all files in the package, so the responses above that reference it
+// bind to that one type.

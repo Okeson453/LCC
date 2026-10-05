@@ -28,7 +28,7 @@ export function KbQuickPicker({ memberId, onPick, selected: initial = [] as stri
               <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} aria-label={`Select ${r.title}`} />
               {r.title}
             </span>
-            <Badge variant="outline">{r.kind}</Badge>
+            <Badge variant="outline">{r.category}</Badge>
           </label>
         ))}
       </CardContent>

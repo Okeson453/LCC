@@ -4,9 +4,9 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@lcc/ui';
 import { SequenceStatusBadge } from './SequenceStatusBadge';
-import type { OutreachSequence } from '@lcc/api-types';
+import type { Sequence } from '@lcc/api-types';
 
-export function SequenceCard({ sequence }: { sequence: OutreachSequence }): React.ReactElement {
+export function SequenceCard({ sequence }: { sequence: Sequence }): React.ReactElement {
   return (
     <Link href={`/outreach/${sequence.id}`}>
       <Card className="hover:border-primary/40">

@@ -2,11 +2,12 @@
 
 import * as React from 'react';
 import { Button } from '@lcc/ui';
-import type { OpportunityStage } from '@lcc/api-types';
+import type { OpportunityStatus } from '@lcc/api-types';
 
-const STAGES: OpportunityStage[] = ['discovered', 'qualified', 'drafting', 'applied', 'interviewing', 'offer', 'won'];
+// Same set the Kanban board renders, so a stage picked here always has a column.
+const STAGES: OpportunityStatus[] = ['discovered', 'qualified', 'drafting', 'applied', 'interviewing', 'offer', 'won'];
 
-export function OpportunityStagePicker({ value, onChange }: { value: OpportunityStage; onChange: (s: OpportunityStage) => void | Promise<void> }): React.ReactElement {
+export function OpportunityStagePicker({ value, onChange }: { value: OpportunityStatus; onChange: (s: OpportunityStatus) => void | Promise<void> }): React.ReactElement {
   return (
     <div className="flex flex-wrap gap-1">
       {STAGES.map((s) => (

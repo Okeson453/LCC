@@ -3,13 +3,13 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Button, Badge } from '@lcc/ui';
-import type { ProfileSnapshot } from '@lcc/api-types';
+import type { ProfileView } from '@/lib/api/profile';
 
-export function ProfileHeader({ profile }: { profile: ProfileSnapshot }): React.ReactElement {
+export function ProfileHeader({ profile }: { profile: ProfileView }): React.ReactElement {
   return (
     <header className="flex items-center justify-between">
       <div>
-        <h1 className="text-2xl font-bold">{profile.display_name}</h1>
+        <h1 className="text-2xl font-bold">{profile.display_name || 'Profile'}</h1>
         <p className="text-sm text-muted-foreground">{profile.headline}</p>
       </div>
       <div className="flex gap-2 text-sm">

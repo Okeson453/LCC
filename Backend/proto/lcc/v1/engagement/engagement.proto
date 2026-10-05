@@ -60,7 +60,9 @@ message DraftReplyRequest {
 
 message DraftReplyResponse {
   EngagementTask task = 1;
-  repeated DraftVariant variants = 2;
+  // `DraftVariant` is declared in package lcc.v1.intelligence (ai.proto),
+  // which is imported above; cross-package references must be qualified.
+  repeated lcc.v1.intelligence.DraftVariant variants = 2;
 }
 
 message ApproveEngagementRequest {

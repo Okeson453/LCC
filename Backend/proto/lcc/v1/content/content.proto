@@ -71,7 +71,9 @@ message ComposeRequest {
 
 message ComposeResponse {
   ContentItem item = 1;
-  repeated DraftVariant variants = 2;
+  // `DraftVariant` is declared in package lcc.v1.intelligence (ai.proto),
+  // which is imported above; cross-package references must be qualified.
+  repeated lcc.v1.intelligence.DraftVariant variants = 2;
 }
 
 message QualityCheckRequest {
@@ -82,7 +84,8 @@ message QualityCheckRequest {
 
 message QualityCheckResponse {
   ContentItem item = 1;
-  BrandGuardReport report = 2;
+  // `BrandGuardReport` is declared in package lcc.v1.intelligence (ai.proto).
+  lcc.v1.intelligence.BrandGuardReport report = 2;
   bool passed = 3;
 }
 

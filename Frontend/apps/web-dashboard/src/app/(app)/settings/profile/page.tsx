@@ -20,7 +20,10 @@ function ProfileSettings(): React.ReactElement {
   useEffect(() => {
     if (memberQuery.data) {
       setDisplayName(memberQuery.data.display_name);
-      setHeadline(memberQuery.data.headline);
+      // `Member` has no headline (generated/http/member.ts carries
+      // display_name/goal_mode/timezone). Start blank rather than reading a
+      // field that does not exist.
+      setHeadline('');
     }
   }, [memberQuery.data]);
 

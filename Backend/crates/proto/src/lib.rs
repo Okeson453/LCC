@@ -31,114 +31,64 @@ pub mod scoring_handwritten;
 // Default mode: hand-written types are the canonical types.
 pub use scoring_handwritten::*;
 
-// When the `proto-binary` feature is enabled, attempt to include the
-// real protobuf types from src/gen/. The build.rs script writes those
-// stubs when `buf` is available.
+// When the `proto-binary` feature is enabled, the real protobuf types are
+// included from `src/gen/`. build.rs writes those stubs (via `buf` when it is
+// on PATH, otherwise `tonic-build` + `protoc`).
+//
+// prost emits one file per proto *package* and writes cross-package
+// references as `super::…` chains counted from the including module. The
+// include tree below therefore mirrors the proto package hierarchy
+// (`lcc.v1.<pkg>`) exactly — flattening it to `pub mod <pkg>` made
+// `lcc.v1.network` emit `super::super::super::google::r#type::Date`, which
+// resolves above the crate root and failed to compile (E0433).
 #[cfg(feature = "proto-binary")]
-pub mod common {
-    pub mod trace {
-        include!("gen/lcc.v1.common.trace.rs");
-    }
-    pub mod pagination {
-        include!("gen/lcc.v1.common.pagination.rs");
+pub mod google {
+    pub mod r#type {
+        include!("gen/google.r#type.rs");
     }
 }
 
 #[cfg(feature = "proto-binary")]
-pub mod intelligence {
-    pub mod scoring {
-        include!("gen/lcc.v1.intelligence.scoring.rs");
-    }
-    pub mod ai {
-        include!("gen/lcc.v1.intelligence.ai.rs");
-    }
-    pub mod opportunity {
-        include!("gen/lcc.v1.intelligence.opportunity.rs");
-    }
-    pub mod kb {
-        include!("gen/lcc.v1.intelligence.kb.rs");
-    }
-    pub mod voice {
-        include!("gen/lcc.v1.intelligence.voice.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod compliance {
-    pub mod governor {
-        include!("gen/lcc.v1.compliance.governor.rs");
-    }
-    pub mod admin {
-        include!("gen/lcc.v1.compliance.admin.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod integration {
-    pub mod execute {
-        include!("gen/lcc.v1.integration.execute.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod profile {
-    pub mod profile_svc {
-        include!("gen/lcc.v1.profile.profile.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod content {
-    pub mod content_svc {
-        include!("gen/lcc.v1.content.content.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod engagement {
-    pub mod engagement_svc {
-        include!("gen/lcc.v1.engagement.engagement.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod network {
-    pub mod network_svc {
-        include!("gen/lcc.v1.network.network.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod outreach {
-    pub mod outreach_svc {
-        include!("gen/lcc.v1.outreach.outreach.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod analytics {
-    pub mod analytics_svc {
-        include!("gen/lcc.v1.analytics.analytics.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod approval {
-    pub mod approval_svc {
-        include!("gen/lcc.v1.approval.approval.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod identity {
-    pub mod identity_svc {
-        include!("gen/lcc.v1.identity.identity.rs");
-    }
-}
-
-#[cfg(feature = "proto-binary")]
-pub mod events {
-    pub mod events {
-        include!("gen/lcc.v1.events.events.rs");
+pub mod lcc {
+    pub mod v1 {
+        pub mod common {
+            include!("gen/lcc.v1.common.rs");
+        }
+        pub mod intelligence {
+            include!("gen/lcc.v1.intelligence.rs");
+        }
+        pub mod compliance {
+            include!("gen/lcc.v1.compliance.rs");
+        }
+        pub mod integration {
+            include!("gen/lcc.v1.integration.rs");
+        }
+        pub mod profile {
+            include!("gen/lcc.v1.profile.rs");
+        }
+        pub mod content {
+            include!("gen/lcc.v1.content.rs");
+        }
+        pub mod engagement {
+            include!("gen/lcc.v1.engagement.rs");
+        }
+        pub mod network {
+            include!("gen/lcc.v1.network.rs");
+        }
+        pub mod outreach {
+            include!("gen/lcc.v1.outreach.rs");
+        }
+        pub mod analytics {
+            include!("gen/lcc.v1.analytics.rs");
+        }
+        pub mod approval {
+            include!("gen/lcc.v1.approval.rs");
+        }
+        pub mod identity {
+            include!("gen/lcc.v1.identity.rs");
+        }
+        pub mod events {
+            include!("gen/lcc.v1.events.rs");
+        }
     }
 }
