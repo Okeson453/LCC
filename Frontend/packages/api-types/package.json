@@ -14,7 +14,9 @@
     "./zod-schemas": "./src/runtime/zod-schemas.ts",
     "./brand": "./src/runtime/brand.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
@@ -25,5 +27,8 @@
   },
   "dependencies": {
     "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
   }
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { groupCitations, assertCitationsPresent } from '../src/utils/citation-grouper';
 import type { KbCitation } from '@lcc/api-types';
 
@@ -28,25 +28,26 @@ describe('groupCitations', () => {
 
 describe('assertCitationsPresent', () => {
   it('throws in development when citations are empty', () => {
-    const original = process.env.NODE_ENV;
-    Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true, configurable: true });
+    // `Object.defineProperty(process.env, …)` is rejected by Node
+    // ("only accepts a configurable, writable, and enumerable data
+    // descriptor"); `vi.stubEnv` is the supported way to override it.
+    vi.stubEnv('NODE_ENV', 'development');
     try {
       expect(() => assertCitationsPresent([], 'test')).toThrow(/missing KB citations/);
     } finally {
-      Object.defineProperty(process.env, 'NODE_ENV', { value: original, writable: true, configurable: true });
+      vi.unstubAllEnvs();
     }
   });
 
   it('does not throw in production but warns', () => {
-    const original = process.env.NODE_ENV;
-    Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true, configurable: true });
+    vi.stubEnv('NODE_ENV', 'production');
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       expect(() => assertCitationsPresent([], 'test')).not.toThrow();
       expect(warnSpy).toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
-      Object.defineProperty(process.env, 'NODE_ENV', { value: original, writable: true, configurable: true });
+      vi.unstubAllEnvs();
     }
   });
 
@@ -54,6 +55,3 @@ describe('assertCitationsPresent', () => {
     expect(() => assertCitationsPresent(sample, 'test')).not.toThrow();
   });
 });
-
-// Vitest's `vi` is auto-imported from the globals config.
-declare const vi: { spyOn: <T, K extends keyof T>(obj: T, method: K) => { mockImplementation: (fn: (...args: unknown[]) => unknown) => { mockRestore: () => void } } };
