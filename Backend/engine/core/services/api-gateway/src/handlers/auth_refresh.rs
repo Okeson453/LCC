@@ -1,9 +1,6 @@
 //! OAuth refresh handler.
 
-use axum::{
-    extract::State,
-    Json,
-};
+use axum::{extract::State, Json};
 use serde::Serialize;
 
 use crate::state::AppState;

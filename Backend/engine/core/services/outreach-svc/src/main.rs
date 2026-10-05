@@ -11,7 +11,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = sqlx::postgres::PgPoolOptions::new()
         .max_connections(20)
         .acquire_timeout(std::time::Duration::from_secs(5))
-        .connect(&cfg.database_url).await?;
+        .connect(&cfg.database_url)
+        .await?;
     let redis = deadpool_redis::Config::from_url(&cfg.redis_url)
         .create_pool(Some(deadpool_redis::Runtime::Tokio1))
         .map_err(|e| format!("redis pool: {e}"))?;

@@ -1,4 +1,7 @@
 //! Integration test for the case FSM.
+// Integration tests assert on real return values; `unwrap`/`expect` on a
+// failing assertion is the point, so the production deny does not apply.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use lcc_orchestrator::case::{Case, CaseState, TransitionTrigger};
 use uuid::Uuid;
@@ -9,10 +12,13 @@ fn case_intake_to_published() {
     assert_eq!(case.state, CaseState::Intake);
 
     case.try_transition(TransitionTrigger::StartDraft).unwrap();
-    case.try_transition(TransitionTrigger::DraftComplete).unwrap();
+    case.try_transition(TransitionTrigger::DraftComplete)
+        .unwrap();
     case.try_transition(TransitionTrigger::Approve).unwrap();
-    case.try_transition(TransitionTrigger::PublishStarted).unwrap();
-    case.try_transition(TransitionTrigger::PublishComplete).unwrap();
+    case.try_transition(TransitionTrigger::PublishStarted)
+        .unwrap();
+    case.try_transition(TransitionTrigger::PublishComplete)
+        .unwrap();
     assert_eq!(case.state, CaseState::Published);
 }
 
@@ -20,16 +26,20 @@ fn case_intake_to_published() {
 fn case_reject_loop() {
     let mut case = Case::new(Uuid::new_v4());
     case.try_transition(TransitionTrigger::StartDraft).unwrap();
-    case.try_transition(TransitionTrigger::DraftComplete).unwrap();
+    case.try_transition(TransitionTrigger::DraftComplete)
+        .unwrap();
     case.try_transition(TransitionTrigger::Reject).unwrap();
     assert_eq!(case.state, CaseState::Drafting);
 
     // Second loop.
-    case.try_transition(TransitionTrigger::DraftComplete).unwrap();
+    case.try_transition(TransitionTrigger::DraftComplete)
+        .unwrap();
     case.try_transition(TransitionTrigger::Approve).unwrap();
     case.try_transition(TransitionTrigger::Schedule).unwrap();
-    case.try_transition(TransitionTrigger::PublishStarted).unwrap();
-    case.try_transition(TransitionTrigger::PublishFailed).unwrap();
+    case.try_transition(TransitionTrigger::PublishStarted)
+        .unwrap();
+    case.try_transition(TransitionTrigger::PublishFailed)
+        .unwrap();
     assert_eq!(case.state, CaseState::Failed);
 }
 

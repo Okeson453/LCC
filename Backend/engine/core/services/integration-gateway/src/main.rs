@@ -73,10 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 2. Service config.
     let config = IntegrationGatewayConfig::from_env();
-    tracing::info!(
-        http_port = config.http_port,
-        "integration-gateway starting"
-    );
+    tracing::info!(http_port = config.http_port, "integration-gateway starting");
 
     // 3. Build pools.
     let db = lcc_db::build_pool(&lcc_db::PoolConfig {
@@ -105,7 +102,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     // 7. Rate limiter.
-    let rate_limiter = Arc::new(lcc_integrations::limiter::RateLimiter::with_default_linkedin_limits());
+    let rate_limiter =
+        Arc::new(lcc_integrations::limiter::RateLimiter::with_default_linkedin_limits());
 
     // 8. Compliance config.
     let compliance_config = std::sync::Arc::new(
@@ -113,7 +111,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // 9. Audit client.
-    let audit = lcc_audit_client::AuditClient::connect(lcc_audit_client::AuditClientConfig::default());
+    let audit =
+        lcc_audit_client::AuditClient::connect(lcc_audit_client::AuditClientConfig::default());
 
     // 10. Pending confirmation map for Track B.
     let pending = Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new()));
@@ -137,7 +136,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/healthz", get(health::healthz))
         .route("/readyz", get(readyz))
         .route("/internal/integration/execute", post(execute_track_a_http))
-        .route("/internal/integration/execute-track-b", post(execute_track_b_http))
+        .route(
+            "/internal/integration/execute-track-b",
+            post(execute_track_b_http),
+        )
         .layer(Extension(pending.clone()))
         .with_state(state.clone());
 
@@ -157,6 +159,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+/// Map an executor error onto an HTTP status.
+///
+/// A locally-decided budget rejection is a 429 so the caller can back off; a
+/// breaker that is open is a 503, because the service is temporarily unable
+/// rather than the caller asking too much. Everything else stays a 500.
+fn status_for(e: &error::IntegrationError) -> axum::http::StatusCode {
+    use crate::error::IntegrationError;
+    use axum::http::StatusCode;
+    match e {
+        IntegrationError::RateLimitExceeded { .. } => StatusCode::TOO_MANY_REQUESTS,
+        IntegrationError::CircuitOpen { .. } => StatusCode::SERVICE_UNAVAILABLE,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    }
 }
 
 async fn readyz(
@@ -183,7 +200,7 @@ async fn execute_track_a_http(
         .map(Json)
         .map_err(|e| {
             tracing::error!(error = %e, "execute_track_a failed");
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+            status_for(&e)
         })
 }
 
@@ -211,7 +228,7 @@ async fn execute_track_b_http(
         .map(Json)
         .map_err(|e| {
             tracing::error!(error = %e, "execute_track_b failed");
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+            status_for(&e)
         })
 }
 
@@ -239,12 +256,17 @@ async fn run_track_b_ws(
                     while let Some(msg) = read.next().await {
                         match msg {
                             Ok(tokio_tungstenite::tungstenite::Message::Text(s)) => {
-                                if let Err(e) = track_b_executor::handle_extension_frame(pending.clone(), &s).await {
+                                if let Err(e) =
+                                    track_b_executor::handle_extension_frame(pending.clone(), &s)
+                                        .await
+                                {
                                     tracing::warn!(error = %e, "track_b handle failed");
                                 }
                             }
                             Ok(tokio_tungstenite::tungstenite::Message::Ping(p)) => {
-                                let _ = write.send(tokio_tungstenite::tungstenite::Message::Pong(p)).await;
+                                let _ = write
+                                    .send(tokio_tungstenite::tungstenite::Message::Pong(p))
+                                    .await;
                             }
                             Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => break,
                             _ => {}

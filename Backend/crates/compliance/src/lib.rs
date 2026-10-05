@@ -29,10 +29,8 @@ pub mod rho;
 
 pub use ab_d::ab_d;
 pub use action::{ActionType, RiskTier};
-pub use config::{
-    ActionCaps, ComplianceConfig, ComplianceConfigError, Spacing, DEFAULT_VERSION,
-};
-pub use h_c::{h_c, H_cComponents, H_cInputs};
+pub use config::{ActionCaps, ComplianceConfig, ComplianceConfigError, Spacing, DEFAULT_VERSION};
+pub use h_c::{h_c, HCComponents, HCInputs};
 pub use permit_token::{
     generate_keypair, public_only_verifier, signing_only_signer, KeyStore, PermitClaims,
     PermitClaimsBuilder, PermitError, PermitSigner, PermitVerifier, StaticKeyStore,

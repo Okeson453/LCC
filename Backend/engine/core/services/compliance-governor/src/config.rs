@@ -43,16 +43,17 @@ impl Default for GovernorServiceConfig {
     }
 }
 
-
 impl GovernorServiceConfig {
     pub fn from_env() -> Self {
         Self {
             service_name: "compliance-governor".into(),
             audit_svc_url: std::env::var("LCC_AUDIT_SVC_URL")
-                .ok().filter(|s| !s.is_empty())
+                .ok()
+                .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "http://audit-svc:8091".into()),
             compliance_governor_url: std::env::var("LCC_COMPLIANCE_GOVERNOR_URL")
-                .ok().filter(|s| !s.is_empty())
+                .ok()
+                .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "http://compliance-governor:8080".into()),
             http_port: std::env::var("HTTP_PORT")
                 .ok()
@@ -74,7 +75,9 @@ impl GovernorServiceConfig {
                 .ok()
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "/etc/lcc/compliance/ccfg-active.yaml".into()),
-            permit_signing_seed: std::env::var("PERMIT_SIGNING_SEED").ok().filter(|s| !s.is_empty()),
+            permit_signing_seed: std::env::var("PERMIT_SIGNING_SEED")
+                .ok()
+                .filter(|s| !s.is_empty()),
             scoring_intel_endpoint: std::env::var("SCORING_INTEL_ENDPOINT")
                 .ok()
                 .filter(|s| !s.is_empty())
@@ -85,10 +88,19 @@ impl GovernorServiceConfig {
     /// Load the active compliance config from the configured path.
     pub fn load_compliance_config(
         &self,
-    ) -> Result<lcc_compliance::config::ComplianceConfig, lcc_compliance::config::ComplianceConfigError> {
-        lcc_compliance::config::ComplianceConfig::from_yaml_file(Path::new(&self.compliance_config_path))
+    ) -> Result<
+        lcc_compliance::config::ComplianceConfig,
+        lcc_compliance::config::ComplianceConfigError,
+    > {
+        lcc_compliance::config::ComplianceConfig::from_yaml_file(Path::new(
+            &self.compliance_config_path,
+        ))
     }
 }
+
+/// Alias so tooling and tests can refer to every service's config by the
+/// same name.
+pub type Config = GovernorServiceConfig;
 
 #[cfg(test)]
 mod tests {
@@ -121,8 +133,3 @@ mod tests {
         std::env::remove_var("SCORING_INTEL_ENDPOINT");
     }
 }
-
-/// Alias so tooling and tests can refer to every service's config by the
-/// same name.
-pub type Config = GovernorServiceConfig;
-

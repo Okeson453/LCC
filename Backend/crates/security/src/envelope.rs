@@ -154,10 +154,16 @@ pub fn decrypt_token(
 /// Backwards-compatible helper that requires AAD callers to opt in. New code
 /// MUST use [`encrypt_token`] directly.
 #[deprecated(note = "F-87: pass AAD. Use encrypt_token(plaintext, key, aad).")]
-pub fn encrypt_token_legacy(plaintext: &str, key_bytes: &[u8]) -> Result<EncryptedToken, EnvelopeError> {
+pub fn encrypt_token_legacy(
+    plaintext: &str,
+    key_bytes: &[u8],
+) -> Result<EncryptedToken, EnvelopeError> {
     encrypt_token(plaintext, key_bytes, aad::GENERAL_SECRET)
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,7 +194,10 @@ mod tests {
         let enc = encrypt_token("my-secret", &k, aad::LINKEDIN_OAUTH_TOKEN).unwrap();
         // Trying to decrypt as if it belonged to a different field.
         let err = decrypt_token(&enc, &k, aad::ANTHROPIC_API_KEY).expect_err("must reject");
-        assert!(matches!(err, EnvelopeError::AadMismatch | EnvelopeError::Decrypt(_)));
+        assert!(matches!(
+            err,
+            EnvelopeError::AadMismatch | EnvelopeError::Decrypt(_)
+        ));
     }
 
     #[test]
@@ -196,13 +205,11 @@ mod tests {
         let k = key();
         let err = encrypt_token("x", &k, b"").expect_err("must reject");
         assert!(matches!(err, EnvelopeError::MissingAad));
-        let err2 = decrypt_token(
-            &EncryptedToken("AAAA".into()),
-            &k,
-            b"",
-        )
-        .expect_err("must reject");
-        assert!(matches!(err2, EnvelopeError::MissingAad | EnvelopeError::Base64(_)));
+        let err2 = decrypt_token(&EncryptedToken("AAAA".into()), &k, b"").expect_err("must reject");
+        assert!(matches!(
+            err2,
+            EnvelopeError::MissingAad | EnvelopeError::Base64(_)
+        ));
     }
 
     #[test]

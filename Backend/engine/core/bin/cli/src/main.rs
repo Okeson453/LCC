@@ -12,7 +12,11 @@ use serde_json::json;
 #[derive(Parser, Debug)]
 #[command(name = "lcc", about = "OKESON-LCC admin CLI", version)]
 struct Cli {
-    #[arg(long, env = "LCC_API_GATEWAY_URL", default_value = "http://localhost:8080")]
+    #[arg(
+        long,
+        env = "LCC_API_GATEWAY_URL",
+        default_value = "http://localhost:8080"
+    )]
     api_gateway_url: String,
 
     #[command(subcommand)]
@@ -65,19 +69,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cli.cmd {
         Cmd::Governor { cmd } => match cmd {
-            GovernorCmd::Evaluate { member_id, action_type, target_kind } => {
+            GovernorCmd::Evaluate {
+                member_id,
+                action_type,
+                target_kind,
+            } => {
                 let body = json!({
                     "member_id": member_id,
                     "action_type": action_type,
                     "target_kind": target_kind,
                 });
-                let resp = client.post(format!("{base}/v1/admin/governor/evaluate")).json(&body).send().await?;
+                let resp = client
+                    .post(format!("{base}/v1/admin/governor/evaluate"))
+                    .json(&body)
+                    .send()
+                    .await?;
                 println!("{}", resp.text().await?);
             }
         },
         Cmd::Config { cmd } => match cmd {
             ConfigCmd::Show => {
-                println!("{}", serde_json::to_string_pretty(&json!({ "api_gateway_url": base }))?);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&json!({ "api_gateway_url": base }))?
+                );
             }
         },
         Cmd::Audit { cmd } => match cmd {

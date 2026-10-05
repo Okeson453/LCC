@@ -7,16 +7,16 @@ use crate::service::Service;
 pub struct AppState(Arc<Inner>);
 
 struct Inner {
-    pub db: sqlx::PgPool,
-    pub redis: deadpool_redis::Pool,
     pub svc: Arc<Service>,
 }
 
 impl AppState {
     pub async fn new(db: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self {
-        let repo = PgRepository::new(db.clone());
-        let svc = Arc::new(Service::new(repo, redis.clone()));
-        Self(Arc::new(Inner { db, redis, svc }))
+        let repo = PgRepository::new(db);
+        let svc = Arc::new(Service::new(repo, redis));
+        // `Service` owns both pools already; the copies kept here were never
+        // read.
+        Self(Arc::new(Inner { svc }))
     }
     pub fn service(&self) -> &Service {
         &self.0.svc

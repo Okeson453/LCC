@@ -33,8 +33,8 @@ pub enum AuditOutcome {
 /// `proto/lcc/v1/events/events.proto::AuditEventPayload` (sans Any wrapper).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuditEvent {
-    pub actor: String,                // user_id or "system:<service>"
-    pub action: String,                // e.g., "content.publish"|"sequence.send"
+    pub actor: String,  // user_id or "system:<service>"
+    pub action: String, // e.g., "content.publish"|"sequence.send"
     pub resource_type: String,
     pub resource_id: Option<Uuid>,
     pub before_state: Option<serde_json::Value>,
@@ -125,7 +125,7 @@ pub enum AuditError {
 
 #[derive(Debug, Clone)]
 pub struct AuditClientConfig {
-    pub endpoint: String,            // e.g., "http://audit-svc.lcc-prod.svc.cluster.local:50051"
+    pub endpoint: String, // e.g., "http://audit-svc.lcc-prod.svc.cluster.local:50051"
     pub max_retries: u32,
     pub base_backoff_ms: u64,
     pub max_backoff_ms: u64,
@@ -225,8 +225,8 @@ impl AuditClient {
             match self.try_send_grpc(&event).await {
                 Ok(id) => return Ok(id),
                 Err(e) => {
-                    let backoff_ms = (self.config.base_backoff_ms << attempt)
-                        .min(self.config.max_backoff_ms);
+                    let backoff_ms =
+                        (self.config.base_backoff_ms << attempt).min(self.config.max_backoff_ms);
                     tracing::debug!(
                         attempt = attempt + 1,
                         max = self.config.max_retries,
@@ -261,7 +261,9 @@ impl AuditClient {
     /// retry path exercises; replace with `tonic::Channel` when the proto deps
     /// are enabled in this crate (avoiding a proto dependency in a leaf crate).
     async fn try_send_grpc(&self, _event: &AuditEvent) -> Result<i64, AuditError> {
-        Err(AuditError::Transport("gRPC client not wired in this leaf crate".into()))
+        Err(AuditError::Transport(
+            "gRPC client not wired in this leaf crate".into(),
+        ))
     }
 
     /// Quick record — fire-and-forget for low-stakes audit events.
@@ -280,6 +282,9 @@ fn synthetic_id() -> i64 {
     LOCAL_AUDIT_COUNTER.fetch_add(1, Ordering::SeqCst) as i64
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -308,9 +313,18 @@ mod tests {
 
     #[test]
     fn audit_outcome_strings() {
-        assert_eq!(serde_json::to_string(&AuditOutcome::Success).unwrap(), "\"success\"");
-        assert_eq!(serde_json::to_string(&AuditOutcome::Denied).unwrap(), "\"denied\"");
-        assert_eq!(serde_json::to_string(&AuditOutcome::Failed).unwrap(), "\"failed\"");
+        assert_eq!(
+            serde_json::to_string(&AuditOutcome::Success).unwrap(),
+            "\"success\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AuditOutcome::Denied).unwrap(),
+            "\"denied\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AuditOutcome::Failed).unwrap(),
+            "\"failed\""
+        );
     }
 
     #[tokio::test]

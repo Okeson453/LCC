@@ -79,6 +79,11 @@ fn is_dev_profile(environment: &str) -> bool {
     matches!(environment, "local" | "dev" | "test")
 }
 
+/// A service URL environment variable, paired with the config field it
+/// overrides. Spelled out rather than written inline: as a bare
+/// `[(&str, fn(&mut Self) -> &mut String); 13]` the list was unreadable.
+type ServiceUrlOverride = (&'static str, fn(&mut ApiGatewayConfig) -> &mut String);
+
 impl ApiGatewayConfig {
     /// Build the config from the environment.
     ///
@@ -99,7 +104,7 @@ impl ApiGatewayConfig {
         }
 
         // Service URLs.
-        let overrides: [(&str, fn(&mut Self) -> &mut String); 13] = [
+        let overrides: [ServiceUrlOverride; 13] = [
             ("LCC_AUDIT_SVC_URL", |c| &mut c.audit_svc_url),
             ("LCC_IDENTITY_SVC_URL", |c| &mut c.identity_svc_url),
             ("LCC_PROFILE_SVC_URL", |c| &mut c.profile_svc_url),
@@ -110,7 +115,9 @@ impl ApiGatewayConfig {
             ("LCC_OUTREACH_SVC_URL", |c| &mut c.outreach_svc_url),
             ("LCC_ANALYTICS_SVC_URL", |c| &mut c.analytics_svc_url),
             ("LCC_APPROVAL_SVC_URL", |c| &mut c.approval_svc_url),
-            ("LCC_COMPLIANCE_GOVERNOR_URL", |c| &mut c.compliance_governor_url),
+            ("LCC_COMPLIANCE_GOVERNOR_URL", |c| {
+                &mut c.compliance_governor_url
+            }),
             ("LCC_KB_SVC_URL", |c| &mut c.kb_svc_url),
             ("LCC_ORCHESTRATOR_URL", |c| &mut c.orchestrator_url),
         ];
@@ -160,6 +167,10 @@ impl ApiGatewayConfig {
     }
 }
 
+/// Alias so tooling and tests can refer to every service's config by the
+/// same name.
+pub type Config = ApiGatewayConfig;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -167,7 +178,10 @@ mod tests {
     #[test]
     fn dev_secret_is_flagged_as_dev_only() {
         // Guards against the sentinel being renamed without updating the check.
-        assert_eq!(ApiGatewayConfig::default().auth_jwt_secret, DEV_ONLY_JWT_SECRET);
+        assert_eq!(
+            ApiGatewayConfig::default().auth_jwt_secret,
+            DEV_ONLY_JWT_SECRET
+        );
     }
 
     #[test]
@@ -180,7 +194,3 @@ mod tests {
         assert!(!is_dev_profile("prod"));
     }
 }
-
-/// Alias so tooling and tests can refer to every service's config by the
-/// same name.
-pub type Config = ApiGatewayConfig;

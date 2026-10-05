@@ -38,7 +38,7 @@ pub async fn proxy_request(
     let registry = state.upstreams();
     let pool = registry
         .resolve(&full_path)
-        .map_err(|why| ApiGatewayError::NotFound(why))?;
+        .map_err(ApiGatewayError::NotFound)?;
 
     // Determine the upstream service name to decide whether the path needs
     // rewriting (legacy upstreams still expose `/v1/<svc>_svc/...`).
@@ -91,7 +91,12 @@ async fn proxy_with_method(
     // the original request so the method override is the only difference.
     let (mut parts, body) = request.into_parts();
     parts.method = method;
-    proxy_request(State(state), OriginalUri(original), Request::from_parts(parts, body)).await
+    proxy_request(
+        State(state),
+        OriginalUri(original),
+        Request::from_parts(parts, body),
+    )
+    .await
 }
 
 /// Gateway root — lists the domain prefixes actually bound to an upstream.

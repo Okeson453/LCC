@@ -131,6 +131,9 @@ pub struct Schedule {
     pub slots: Vec<String>,
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -163,7 +166,13 @@ mod tests {
 
     #[test]
     fn state_serializes_snake_case() {
-        assert_eq!(serde_json::to_string(&ContentState::InReview).unwrap(), "\"in_review\"");
-        assert_eq!(serde_json::to_string(&ContentState::PublishFailed).unwrap(), "\"publish_failed\"");
+        assert_eq!(
+            serde_json::to_string(&ContentState::InReview).unwrap(),
+            "\"in_review\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ContentState::PublishFailed).unwrap(),
+            "\"publish_failed\""
+        );
     }
 }

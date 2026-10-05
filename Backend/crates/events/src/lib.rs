@@ -11,10 +11,11 @@ pub mod topics;
 
 pub use consumer::{Consumer, ConsumerError, ConsumerHandler};
 pub use envelope::{
-    Envelope, EventHeader, EventPayload, MemberCreatedEvent, ContentItemApprovedEvent,
-    ContentItemStateChangedEvent, EngagementInboundReceivedEvent, OpportunityDiscoveredEvent,
-    SequenceReplyDetectedEvent, SequenceStepDueEvent, ComplianceConfigActivatedEvent,
-    ComplianceRestrictionDetectedEvent, AuditEvent, ApprovalDecidedEvent, KbRecordCreatedEvent,
+    ApprovalDecidedEvent, AuditEvent, ComplianceConfigActivatedEvent,
+    ComplianceRestrictionDetectedEvent, ContentItemApprovedEvent, ContentItemStateChangedEvent,
+    EngagementInboundReceivedEvent, Envelope, EventHeader, EventPayload, KbRecordCreatedEvent,
+    MemberCreatedEvent, OpportunityDiscoveredEvent, SequenceReplyDetectedEvent,
+    SequenceStepDueEvent,
 };
 pub use publisher::{Publisher, PublisherError};
 pub use topics::Topic;

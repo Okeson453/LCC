@@ -9,9 +9,8 @@ use std::time::Duration;
 /// otherwise spin up a testcontainer (not enabled by default — requires the
 /// `testcontainers` feature).
 pub async fn connect_test_postgres() -> Result<PgPool, sqlx::Error> {
-    let url = std::env::var("LCC_TEST_DATABASE_URL").unwrap_or_else(|_| {
-        "postgres://postgres:postgres@localhost:5432/lcc_test".to_string()
-    });
+    let url = std::env::var("LCC_TEST_DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:postgres@localhost:5432/lcc_test".to_string());
 
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(5)
@@ -24,7 +23,7 @@ pub async fn connect_test_postgres() -> Result<PgPool, sqlx::Error> {
 
 /// Apply all migrations from the given directory in order.
 pub async fn apply_migrations(pool: &PgPool, migrations_dir: &str) -> Result<(), YamlConfigError> {
-    let dir = std::fs::read_dir(migrations_dir).map_err(|e| YamlConfigError::Io(e))?;
+    let dir = std::fs::read_dir(migrations_dir).map_err(YamlConfigError::Io)?;
     let mut paths: Vec<_> = dir
         .filter_map(|entry| entry.ok().map(|e| e.path()))
         .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("sql"))
@@ -41,6 +40,9 @@ pub async fn apply_migrations(pool: &PgPool, migrations_dir: &str) -> Result<(),
     Ok(())
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

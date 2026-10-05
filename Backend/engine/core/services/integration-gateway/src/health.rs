@@ -26,10 +26,18 @@ pub async fn readyz(State(state): State<Arc<IntegrationGatewayState>>) -> impl I
         false
     };
     let report = ReadyzReport {
-        status: if db_ok && redis_ok { "ready" } else { "degraded" },
+        status: if db_ok && redis_ok {
+            "ready"
+        } else {
+            "degraded"
+        },
         db_ok,
         redis_ok,
     };
-    let status = if db_ok && redis_ok { StatusCode::OK } else { StatusCode::SERVICE_UNAVAILABLE };
+    let status = if db_ok && redis_ok {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
     (status, Json(report))
 }

@@ -6,10 +6,12 @@
 //! **F-AUDIT-07 (compile-blocking).** This file previously imported
 //! `lcc_auth::jwt::{decode_token, Claims}` and called `state.jwt_secret()`,
 //! `state.jwt_audience()` and `state.db()`, none of which exist:
+//!
 //! - the type is `JwtClaims`, not `Claims`;
 //! - verification is `JwtVerifier::verify`, not a free `decode_token`;
 //! - `AppState` has no `jwt_secret`/`jwt_audience`/`db` accessors, and no DB
 //!   pool at all.
+//!
 //! It also declared `State<Arc<AppState>>` while the router supplies
 //! `AppState`, and used `parking_lot`, which is not a dependency of this
 //! crate. The module therefore could not compile, which means the gateway
@@ -123,6 +125,9 @@ pub fn trace_propagation_header(trace_id: &str) -> HeaderValue {
     HeaderValue::from_str(trace_id).unwrap_or_else(|_| HeaderValue::from_static("invalid"))
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

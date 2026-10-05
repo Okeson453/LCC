@@ -118,7 +118,11 @@ pub async fn rate_limit(
             })),
         )
             .into_response();
-        set_i64(&mut response, header::RETRY_AFTER.as_str(), retry_after as i64);
+        set_i64(
+            &mut response,
+            header::RETRY_AFTER.as_str(),
+            retry_after as i64,
+        );
         set_i64(&mut response, "x-ratelimit-limit", max as i64);
         set_i64(&mut response, "x-ratelimit-remaining", 0);
         set_i64(&mut response, "x-ratelimit-reset", (reset_ms / 1000).max(0));

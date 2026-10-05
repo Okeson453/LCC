@@ -50,7 +50,6 @@ impl GovernorError {
 /// same shape as the rest of the platform.
 impl axum::response::IntoResponse for GovernorError {
     fn into_response(self) -> axum::response::Response {
-        use axum::response::IntoResponse as _;
         let status = axum::http::StatusCode::from_u16(self.status_code())
             .unwrap_or(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
         let code = match self {

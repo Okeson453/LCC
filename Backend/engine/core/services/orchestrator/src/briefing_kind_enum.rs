@@ -2,9 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum BriefingKind {
+    // The documented default, so it is marked rather than spelled out in a
+    // hand-written `impl Default`.
+    #[default]
     Morning,
     Midday,
     Evening,
@@ -19,11 +22,5 @@ impl BriefingKind {
             Self::Evening => "evening",
             Self::Custom => "custom",
         }
-    }
-}
-
-impl Default for BriefingKind {
-    fn default() -> Self {
-        Self::Morning
     }
 }

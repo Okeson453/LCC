@@ -16,9 +16,7 @@ use tracing::{debug, info, warn};
 
 use crate::state::GovernorDeps;
 use crate::AccountState;
-use lcc_proto::{
-    ComputeH_cRequest, ComputeH_cResponse, TraceContext,
-};
+use lcc_proto::{ComputeH_cRequest, ComputeH_cResponse, TraceContext};
 
 /// ScoringIntel service client. Holds a long-lived tonic channel +
 /// pre-built stub for hot-path RPCs.
@@ -69,11 +67,13 @@ impl ScoringClient {
             .keep_alive_while_idle(true);
 
         if self.use_tls {
-            let mut tls = ClientTlsConfig::new()
-                .domain_name("scoring-intel.lcc-engine.svc.cluster.local");
-            if let (Some(ca), Some(cert), Some(key)) =
-                (&self.ca_cert_path, &self.client_cert_path, &self.client_key_path)
-            {
+            let mut tls =
+                ClientTlsConfig::new().domain_name("scoring-intel.lcc-engine.svc.cluster.local");
+            if let (Some(ca), Some(cert), Some(key)) = (
+                &self.ca_cert_path,
+                &self.client_cert_path,
+                &self.client_key_path,
+            ) {
                 tls = tls
                     .ca_certificate(tonic::transport::Certificate::from_pem(
                         std::fs::read_to_string(ca).map_err(|e| format!("read CA: {e}"))?,
@@ -83,7 +83,9 @@ impl ScoringClient {
                         std::fs::read_to_string(key).map_err(|e| format!("read key: {e}"))?,
                     ));
             }
-            endpoint = endpoint.tls_config(tls).map_err(|e| format!("tls config: {e}"))?;
+            endpoint = endpoint
+                .tls_config(tls)
+                .map_err(|e| format!("tls config: {e}"))?;
         }
 
         endpoint
@@ -146,11 +148,7 @@ impl ScoringClient {
 /// proto-binary feature) and is wire-compatible with both the Python
 /// `grpcio` server (which exposes the same gRPC method paths) and any
 /// future tonic server.
-async fn http_post_json<TReq, TResp>(
-    url: &str,
-    body: &TReq,
-    use_tls: bool,
-) -> Result<TResp, String>
+async fn http_post_json<TReq, TResp>(url: &str, body: &TReq, use_tls: bool) -> Result<TResp, String>
 where
     TReq: serde::Serialize,
     TResp: serde::de::DeserializeOwned,
@@ -179,13 +177,17 @@ where
     if !resp.status().is_success() {
         return Err(format!("scoring-intel HTTP {}", resp.status()));
     }
-    resp.json::<TResp>().await.map_err(|e| format!("decode: {e}"))
+    resp.json::<TResp>()
+        .await
+        .map_err(|e| format!("decode: {e}"))
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
 
     #[test]
     fn placeholder_returns_cached_h_c() {

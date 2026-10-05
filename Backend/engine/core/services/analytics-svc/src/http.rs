@@ -55,15 +55,24 @@ async fn time_series(
         "month" => Granularity::Month,
         other => return Err(Error::Validation(format!("unknown granularity {other}"))),
     };
-    Ok(Json(state.service().time_series(m, &q.metric, granularity, q.start, q.end).await?))
+    Ok(Json(
+        state
+            .service()
+            .time_series(m, &q.metric, granularity, q.start, q.end)
+            .await?,
+    ))
 }
 
 fn auth(headers: &HeaderMap) -> Result<Uuid, Error> {
-    let token = headers.get(axum::http::header::AUTHORIZATION)
+    let token = headers
+        .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .ok_or(Error::Unauthorized)?;
-    let claims = lcc_auth::verify_token(token, &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?)
-        .map_err(|_| Error::Unauthorized)?;
+    let claims = lcc_auth::verify_token(
+        token,
+        &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?,
+    )
+    .map_err(|_| Error::Unauthorized)?;
     Uuid::parse_str(&claims.sub).map_err(|_| Error::Unauthorized)
 }

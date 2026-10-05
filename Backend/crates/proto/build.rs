@@ -39,9 +39,7 @@ fn main() {
             }
         }
     } else {
-        println!(
-            "cargo:warning=buf not found; using pre-generated stubs in src/gen/"
-        );
+        println!("cargo:warning=buf not found; using pre-generated stubs in src/gen/");
     }
 
     // 3. Set up prost-build fallback for `tonic::include_proto!`.

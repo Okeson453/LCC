@@ -41,7 +41,7 @@ pub async fn sse_handler(
 
     info!(%member_id, channel = ch.id(), "sse connection established");
 
-    let mut rx = state.broadcast(ch).subscribe();
+    let mut rx = state.broadcast(ch)?.subscribe();
 
     // The stream body needs its own handle; the outer scope still reads
     // config for the keep-alive interval after the stream is built.
@@ -88,7 +88,9 @@ pub async fn sse_handler(
         }
     };
 
-    Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(state.config().heartbeat_seconds))))
+    Ok(Sse::new(stream).keep_alive(
+        KeepAlive::new().interval(Duration::from_secs(state.config().heartbeat_seconds)),
+    ))
 }
 
 #[derive(Serialize)]

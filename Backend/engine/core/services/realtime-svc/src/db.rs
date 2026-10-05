@@ -16,12 +16,15 @@ struct Inner {
     pub member_conns: tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, usize>>,
     /// Per-channel broadcast fan-out: a single `tokio::sync::broadcast` per
     /// channel; subscribers create a fresh `Receiver` per connection.
-    pub broadcasts:
-        std::collections::HashMap<crate::domain::Channel, tokio::sync::broadcast::Sender<crate::domain::EventEnvelope>>,
+    pub broadcasts: std::collections::HashMap<
+        crate::domain::Channel,
+        tokio::sync::broadcast::Sender<crate::domain::EventEnvelope>,
+    >,
     /// In-process dedup cache for events (event_id -> seen timestamp).
     /// In production this lives in Redis; the in-process cache is the
     /// hot path for tests.
-    pub dedup: tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, chrono::DateTime<chrono::Utc>>>,
+    pub dedup:
+        tokio::sync::Mutex<std::collections::HashMap<uuid::Uuid, chrono::DateTime<chrono::Utc>>>,
 }
 
 impl AppState {
@@ -34,10 +37,9 @@ impl AppState {
 
         let redis = deadpool_redis::Config::from_url(&config.redis_url)
             .create_pool(Some(deadpool_redis::Runtime::Tokio1))
-            .map_err(|e| sqlx::Error::Configuration(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("redis: {e}"),
-            ))))?;
+            .map_err(|e| {
+                sqlx::Error::Configuration(Box::new(std::io::Error::other(format!("redis: {e}"))))
+            })?;
 
         let mut broadcasts = std::collections::HashMap::new();
         for ch in [
@@ -70,13 +72,32 @@ impl AppState {
     pub fn redis(&self) -> &deadpool_redis::Pool {
         &self.0.redis
     }
-    pub fn broadcast(&self, ch: crate::domain::Channel) -> &tokio::sync::broadcast::Sender<crate::domain::EventEnvelope> {
-        self.0.broadcasts.get(&ch).expect("channel sender")
+    /// The broadcast sender for a channel.
+    ///
+    /// Falls back to an error rather than panicking: the map is populated from
+    /// the same `Channel` enum, but a panic here would take down the whole
+    /// connection task, whereas a `NotFound` closes just that subscription.
+    pub fn broadcast(
+        &self,
+        ch: crate::domain::Channel,
+    ) -> Result<&tokio::sync::broadcast::Sender<crate::domain::EventEnvelope>, crate::error::Error>
+    {
+        self.0
+            .broadcasts
+            .get(&ch)
+            .ok_or_else(|| crate::error::Error::NotFound(format!("unknown channel: {}", ch.id())))
     }
-    pub async fn member_conns(&self) -> tokio::sync::MutexGuard<'_, std::collections::HashMap<uuid::Uuid, usize>> {
+    pub async fn member_conns(
+        &self,
+    ) -> tokio::sync::MutexGuard<'_, std::collections::HashMap<uuid::Uuid, usize>> {
         self.0.member_conns.lock().await
     }
-    pub async fn dedup(&self) -> tokio::sync::MutexGuard<'_, std::collections::HashMap<uuid::Uuid, chrono::DateTime<chrono::Utc>>> {
+    pub async fn dedup(
+        &self,
+    ) -> tokio::sync::MutexGuard<
+        '_,
+        std::collections::HashMap<uuid::Uuid, chrono::DateTime<chrono::Utc>>,
+    > {
         self.0.dedup.lock().await
     }
 }

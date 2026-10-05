@@ -60,10 +60,12 @@ pub struct EvaluateActionResponseDto {
 
 impl From<EvaluateActionRequestDto> for (CandidateAction, AccountState) {
     fn from(dto: EvaluateActionRequestDto) -> Self {
-        let action_type: ActionType = serde_json::from_str(&format!("\"{}\"", dto.candidate_action.action_type))
-            .unwrap_or(ActionType::Like);
-        let risk_tier: RiskTier = serde_json::from_str(&format!("\"{}\"", dto.candidate_action.risk_tier))
-            .unwrap_or(RiskTier::Tier1DraftOrEdit);
+        let action_type: ActionType =
+            serde_json::from_str(&format!("\"{}\"", dto.candidate_action.action_type))
+                .unwrap_or(ActionType::Like);
+        let risk_tier: RiskTier =
+            serde_json::from_str(&format!("\"{}\"", dto.candidate_action.risk_tier))
+                .unwrap_or(RiskTier::Tier1DraftOrEdit);
 
         let action = CandidateAction {
             id: dto.candidate_action.id,
@@ -130,7 +132,10 @@ pub async fn evaluate_action_http(
             permit_metadata: Some(p.clone()),
             guard_evaluation_duration_ms: result.guard_evaluation_duration_ms,
         },
-        GovernorDecision::Deny { failed_guard, reason } => EvaluateActionResponseDto {
+        GovernorDecision::Deny {
+            failed_guard,
+            reason,
+        } => EvaluateActionResponseDto {
             decision: "DENY".into(),
             failed_guard: Some(failed_guard.clone()),
             reason: Some(reason.clone()),
@@ -163,7 +168,11 @@ impl GrpcServer {
         Self
     }
 
-    pub async fn serve(self, _addr: std::net::SocketAddr, _deps: Arc<GovernorDeps>) -> Result<(), crate::error::GovernorError> {
+    pub async fn serve(
+        self,
+        _addr: std::net::SocketAddr,
+        _deps: Arc<GovernorDeps>,
+    ) -> Result<(), crate::error::GovernorError> {
         // Real implementation: tonic::transport::Server::builder()
         //     .add_service(GovernorServer::new(governor_grpc::GovernordImpl { deps }))
         //     .serve(addr)

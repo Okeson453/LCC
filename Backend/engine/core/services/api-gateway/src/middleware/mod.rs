@@ -2,5 +2,5 @@
 
 pub mod auth;
 pub mod rate_limit;
-pub mod trace_id;
 pub mod redact;
+pub mod trace_id;

@@ -12,7 +12,7 @@ pub mod rbac;
 
 pub use jwt::{JwtClaims, JwtError, JwtIssuer, JwtVerifier};
 pub use middleware::{AuthenticatedUser, AuthnLayer};
-pub use pkce::{PkcePair, generate_code_verifier, derive_code_challenge};
+pub use pkce::{derive_code_challenge, generate_code_verifier, PkcePair};
 pub use rbac::{has_permission, Permission, Role};
 
 pub use lcc_error::{LccError, LccResult};
@@ -30,10 +30,6 @@ pub const DEFAULT_JWT_AUDIENCE: &str = "lcc-api";
 /// for one-off callers (worker jobs, internal callbacks) that read the secret
 /// from env on every request.
 pub fn verify_token(token: &str, secret: &str) -> Result<JwtClaims, JwtError> {
-    let v = JwtVerifier::new(
-        secret.as_bytes(),
-        DEFAULT_JWT_ISSUER,
-        DEFAULT_JWT_AUDIENCE,
-    );
+    let v = JwtVerifier::new(secret.as_bytes(), DEFAULT_JWT_ISSUER, DEFAULT_JWT_AUDIENCE);
     v.verify(token)
 }

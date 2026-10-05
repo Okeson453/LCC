@@ -2,7 +2,7 @@
 //! validation, idempotency, circuit breaker, restriction detection.
 
 use crate::audit::{emit, IntegrationAuditEntry};
-use crate::backoff::{BackoffTier, delay_for};
+use crate::backoff::{delay_for, BackoffTier};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::error::IntegrationError;
 use crate::permit::{verifier::PermitError, ReplayGuard, ReplayGuardError};
@@ -12,9 +12,7 @@ use crate::state::IntegrationGatewayState;
 use chrono::Utc;
 use lcc_compliance::action::ActionType;
 use lcc_compliance::permit_token::PermitClaims;
-use lcc_integrations::track_a::{
-    jobs_client, oauth_client, profile_client, share_client,
-};
+use lcc_integrations::track_a::{jobs_client, oauth_client, profile_client, share_client};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -53,9 +51,12 @@ pub async fn execute(
     // 1. Verify permit_token. F-AUDIT-23: the requested action type is now
     //    bound into verification, so a permit minted for one action type
     //    cannot authorise a different one.
-    let claims: PermitClaims = state
-        .permit_verifier
-        .verify(&req.permit_token, &action_id, &req.member_id, &req.action_type)?;
+    let claims: PermitClaims = state.permit_verifier.verify(
+        &req.permit_token,
+        &action_id,
+        &req.member_id,
+        &req.action_type,
+    )?;
 
     // 1b. F-AUDIT-22: single-use enforcement. A permit is valid for exactly
     //     one execution; a second presentation of the same `jti` is a replay
@@ -63,25 +64,21 @@ pub async fn execute(
     //     Redis error, matching the governor's deny-on-guard-failure posture.
     {
         let mut conn = state.redis.get().await?;
-        ReplayGuard::claim(
-            &mut conn,
-            &claims.jti,
-            ReplayGuard::dedupe_ttl(claims.exp),
-        )
-        .await
-        .map_err(|e| {
-            // F-AUDIT-22: this is the first construction of
-            // `PermitError::Replay` in the repository — the variant existed
-            // and was documented, but was never raised.
-            match e {
-                ReplayGuardError::Replay(jti) => {
-                    IntegrationError::Permit(PermitError::Replay(jti))
+        ReplayGuard::claim(&mut conn, &claims.jti, ReplayGuard::dedupe_ttl(claims.exp))
+            .await
+            .map_err(|e| {
+                // F-AUDIT-22: this is the first construction of
+                // `PermitError::Replay` in the repository — the variant existed
+                // and was documented, but was never raised.
+                match e {
+                    ReplayGuardError::Replay(jti) => {
+                        IntegrationError::Permit(PermitError::Replay(jti))
+                    }
+                    ReplayGuardError::StoreUnavailable(msg) => IntegrationError::Permit(
+                        PermitError::InvalidSignature(format!("replay store unavailable: {msg}")),
+                    ),
                 }
-                ReplayGuardError::StoreUnavailable(msg) => IntegrationError::Permit(
-                    PermitError::InvalidSignature(format!("replay store unavailable: {msg}")),
-                ),
-            }
-        })?;
+            })?;
     }
 
     // 2. Check idempotency store first.
@@ -114,6 +111,16 @@ pub async fn execute(
         }
     }
 
+    // 3b. Per-endpoint budget. The governor caps what a member may do, but
+    // the gateway is what actually talks to LinkedIn: without this check the
+    // aggregate of many members' actions can still exceed the provider's
+    // limits, which is exactly how an account gets restricted.
+    let endpoint = action_endpoint(&req.action_type);
+    state
+        .rate_limiter
+        .check_and_increment(&endpoint)
+        .map_err(|reason| IntegrationError::RateLimitExceeded { endpoint, reason })?;
+
     // 4. Resolve track + member's access token from Vault.
     let action_type = parse_action_type(&req.action_type)?;
     let track = route_with_post_target(action_type, req.is_organization, &state.config);
@@ -122,7 +129,12 @@ pub async fn execute(
     let mut last_err: Option<String> = None;
     let mut last_signal = RestrictionSignal::None;
     let mut attempt = 1u32;
-    let max_retries = BackoffTier::Standard.max_retries();
+    // Source §39.2: publishing retries on the heavy tier (base 5s, cap 80s).
+    // Everything else uses the standard tier (base 2s, cap 60s). A publish is
+    // the most consequential action — retrying it gently matters more than
+    // retrying a like quickly.
+    let backoff_tier = backoff_tier_for(&req.action_type);
+    let max_retries = backoff_tier.max_retries();
 
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -144,15 +156,21 @@ pub async fn execute(
             Track::TrackB => {
                 // This branch shouldn't be reached from the Track A executor;
                 // Track B has its own executor. Return an error if reached.
-                return Err(IntegrationError::Config("track_a received track_b action".into()));
+                return Err(IntegrationError::Config(
+                    "track_a received track_b action".into(),
+                ));
             }
         };
 
         match exec_result {
             Ok(platform_resp_id) => {
                 // Success — record + cache.
-                let body = serde_json::json!({"id": platform_resp_id, "sent_at": Utc::now().to_rfc3339()});
-                state.idempotency.put(&req.idempotency_key, 200, &body).await?;
+                let body =
+                    serde_json::json!({"id": platform_resp_id, "sent_at": Utc::now().to_rfc3339()});
+                state
+                    .idempotency
+                    .put(&req.idempotency_key, 200, &body)
+                    .await?;
 
                 let dur_ms = (Utc::now() - start).num_milliseconds().max(0) as u64;
                 emit(
@@ -185,12 +203,12 @@ pub async fn execute(
                     error: None,
                 });
             }
-            Err(IntegrationError::LinkedIn { status, ref message }) => {
+            Err(e @ IntegrationError::LinkedIn { .. }) => {
                 // F-72: status is now carried on the error variant. Run the
                 // detector against the *real* status, falling back to body-only
                 // when status is unknown (e.g., transport-level error before
                 // we ever saw an HTTP response).
-                let (signal, _) = detect_status_and_body(status, message);
+                let (signal, _) = detect_status_and_body(e.http_status(), e.body_text());
                 if signal != RestrictionSignal::None {
                     // Hard pause; no retry (axiom 6).
                     last_signal = signal;
@@ -202,12 +220,12 @@ pub async fn execute(
                 let mut conn = state.redis.get().await?;
                 let _ = breaker.record_failure(&mut conn).await;
 
-                last_err = Some(message.clone());
+                last_err = Some(e.body_text().to_string());
                 attempt += 1;
                 if attempt > max_retries {
                     break;
                 }
-                tokio::time::sleep(delay_for(attempt - 1, BackoffTier::Standard)).await;
+                tokio::time::sleep(delay_for(attempt - 1, backoff_tier)).await;
             }
             Err(IntegrationError::LinkedInLegacy(msg)) => {
                 // Pre-F-72 callers — preserve fallback detection by body text.
@@ -222,7 +240,7 @@ pub async fn execute(
                 if attempt > max_retries {
                     break;
                 }
-                tokio::time::sleep(delay_for(attempt - 1, BackoffTier::Standard)).await;
+                tokio::time::sleep(delay_for(attempt - 1, backoff_tier)).await;
             }
             Err(e) => return Err(e),
         }
@@ -276,7 +294,9 @@ async fn execute_track_a(
     match action_type {
         ActionType::PostPublish => {
             let body: share_client::UgcPostRequest = serde_json::from_value(req.payload.clone())?;
-            let resp = share_client::publish_ugc_post(http, access_token, &body, &req.idempotency_key).await?;
+            let resp =
+                share_client::publish_ugc_post(http, access_token, &body, &req.idempotency_key)
+                    .await?;
             Ok(resp.id)
         }
         _ => Err(IntegrationError::linkedin_unknown(format!(
@@ -286,7 +306,16 @@ async fn execute_track_a(
 }
 
 fn parse_action_type(s: &str) -> Result<ActionType, IntegrationError> {
-    serde_json::from_str(&format!("\"{s}\"")).map_err(|e| IntegrationError::Config(format!("bad action_type: {e}")))
+    serde_json::from_str(&format!("\"{s}\""))
+        .map_err(|e| IntegrationError::Config(format!("bad action_type: {e}")))
+}
+
+/// Which backoff tier an action retries on (Source §39.2).
+fn backoff_tier_for(action_type: &str) -> BackoffTier {
+    match action_type {
+        "post_publish" | "ugc_post" | "organization_page_post_publish" => BackoffTier::Heavy,
+        _ => BackoffTier::Standard,
+    }
 }
 
 fn action_endpoint(action_type: &str) -> String {
@@ -303,6 +332,9 @@ fn action_endpoint(action_type: &str) -> String {
 #[allow(unused_imports)]
 use {jobs_client as _, oauth_client as _, profile_client as _};
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -316,6 +348,18 @@ mod tests {
     #[test]
     fn parse_unknown_returns_error() {
         assert!(parse_action_type("not_a_real_action").is_err());
+    }
+
+    #[test]
+    fn publish_uses_the_heavy_backoff_tier() {
+        assert_eq!(backoff_tier_for("post_publish"), BackoffTier::Heavy);
+        assert_eq!(
+            backoff_tier_for("organization_page_post_publish"),
+            BackoffTier::Heavy
+        );
+        // A heavy retry waits longer than a standard one for the same index.
+        assert!(backoff_tier_for("post_publish").base_ms() > backoff_tier_for("like").base_ms());
+        assert_eq!(backoff_tier_for("like"), BackoffTier::Standard);
     }
 
     #[test]

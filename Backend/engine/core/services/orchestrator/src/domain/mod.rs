@@ -10,7 +10,7 @@ pub mod lcc_engagement;
 pub mod lcc_opportunity;
 pub mod lcc_outreach;
 
-use chrono::{NaiveDate, DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

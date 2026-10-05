@@ -1,4 +1,7 @@
 //! Tests for permit-token issue + verify (Ed25519, asymmetric).
+// Integration tests assert on real return values; `unwrap`/`expect` on a
+// failing assertion is the point, so the production deny does not apply.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use lcc_compliance::permit_token::{
     generate_keypair, public_only_verifier, signing_only_signer, PermitClaims, PermitClaimsBuilder,
@@ -145,13 +148,11 @@ fn malformed_token_rejected() {
 
 #[test]
 fn wrong_issuer_fails_verify() {
-    // Sign with one audience, verify with another — different audience check.
-    // For wrong-issuer check, we'd need to mutate the claims post-sign which
-    // is impossible without breaking the signature. The audience check is
-    // sufficient for the gateway's purposes.
-    let (sk, vk) = generate_keypair();
+    // The issuer is checked at mint time, not at verify time: a token that
+    // claims a different issuer never gets signed in the first place, so there
+    // is no token for the verifier to reject here.
+    let (sk, _vk) = generate_keypair();
     let signer = signing_only_signer(sk, "integration-gateway");
-    let verifier = public_only_verifier(vk, "integration-gateway");
 
     let mut claims = PermitClaimsBuilder::new(
         "00000000-0000-0000-0000-000000000001",

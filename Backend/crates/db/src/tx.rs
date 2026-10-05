@@ -69,17 +69,19 @@ impl<'a> AuditTx<'a> {
     /// the schema but was never populated, so the worker would have flagged
     /// every row from the second onward as tampered.
     async fn prev_checksum(&mut self) -> Result<Option<String>, sqlx::Error> {
-        sqlx::query_scalar(
-            "SELECT checksum_sha256 FROM lcc_audit.events ORDER BY id DESC LIMIT 1",
-        )
-        .fetch_optional(&mut *self.tx)
-        .await
+        sqlx::query_scalar("SELECT checksum_sha256 FROM lcc_audit.events ORDER BY id DESC LIMIT 1")
+            .fetch_optional(&mut *self.tx)
+            .await
     }
 }
 
 impl<'a> AuditTx<'a> {
-    pub async fn begin(pool: &'a PgPool, actor: impl Into<String>, action: impl Into<String>) -> Result<Self, AuditTxError> {
-        Ok(Self::begin_for_member(pool, actor, action, None).await?)
+    pub async fn begin(
+        pool: &'a PgPool,
+        actor: impl Into<String>,
+        action: impl Into<String>,
+    ) -> Result<Self, AuditTxError> {
+        Self::begin_for_member(pool, actor, action, None).await
     }
 
     /// Begin an audit transaction attributed to a specific member.
@@ -114,11 +116,11 @@ impl<'a> AuditTx<'a> {
         reason: Option<&str>,
     ) -> Result<AuditTxResult, AuditTxError> {
         let before_json = before_state
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?
             .unwrap_or_else(|| "null".to_string());
         let after_json = after_state
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?
             .unwrap_or_else(|| "null".to_string());
 
@@ -193,7 +195,7 @@ impl<'a> AuditTx<'a> {
 ///
 /// Use when you don't need to interleave other writes — just record an audit
 /// row from an AuditClient outside a transaction.
-pub async fn audit_tx<F, Fut, T>(
+pub async fn audit_tx<F, T>(
     pool: &PgPool,
     actor: &str,
     action: &str,
@@ -202,7 +204,9 @@ pub async fn audit_tx<F, Fut, T>(
 where
     F: for<'b> FnOnce(
         &'b mut AuditTx<'_>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T, AuditTxError>> + Send + 'b>>,
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = Result<T, AuditTxError>> + Send + 'b>,
+    >,
 {
     let mut atx = AuditTx::begin(pool, actor, action).await?;
     let result = record(&mut atx).await?;

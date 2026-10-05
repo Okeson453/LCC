@@ -5,11 +5,13 @@
 //! serialisation is plain serde. The previous version passed a raw
 //! `serde_json::Value` plus a 5th positional member argument and called
 //! `to_json` / `from_json`, none of which exist.
+// Integration tests assert on real return values; `unwrap`/`expect` on a
+// failing assertion is the point, so the production deny does not apply.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use chrono::Utc;
 use lcc_events::envelope::{Envelope, EventPayload, MemberCreatedEvent};
 use lcc_events::topics::Topic;
-use uuid::Uuid;
 
 fn member_created_payload() -> EventPayload {
     EventPayload::MemberCreated(MemberCreatedEvent {
@@ -50,13 +52,11 @@ fn idempotency_key_is_namespaced_by_topic() {
         Topic::ContentItemApproved,
         "content-svc",
         "trace-1",
-        EventPayload::ContentItemApproved(
-            lcc_events::envelope::ContentItemApprovedEvent {
-                item_id: "i-1".into(),
-                member_id: "m-1".into(),
-                scheduled_at: None,
-            },
-        ),
+        EventPayload::ContentItemApproved(lcc_events::envelope::ContentItemApprovedEvent {
+            item_id: "i-1".into(),
+            member_id: "m-1".into(),
+            scheduled_at: None,
+        }),
     );
     let topic = env.header.topic.as_str();
     assert!(

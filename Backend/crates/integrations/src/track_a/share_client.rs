@@ -10,25 +10,25 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UgcPostRequest {
-    pub author_urn: String,           // "urn:li:person:{id}" or "urn:li:organization:{id}"
+    pub author_urn: String, // "urn:li:person:{id}" or "urn:li:organization:{id}"
     pub commentary: String,
-    pub visibility: String,            // "PUBLIC" | "CONNECTIONS"
+    pub visibility: String, // "PUBLIC" | "CONNECTIONS"
     pub distribution: Option<Distribution>,
     pub media: Option<Vec<Media>>,
-    pub lifecycle_state: String,        // "PUBLISHED"
+    pub lifecycle_state: String, // "PUBLISHED"
     pub is_api_call: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Distribution {
-    pub feed_distribution: String,      // "MAIN_FEED" | "NONE"
+    pub feed_distribution: String, // "MAIN_FEED" | "NONE"
     pub target_entities: Vec<String>,
     pub third_party_distribution_tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Media {
-    pub category: String,               // "IMAGE" | "VIDEO" | "ARTICLE"
+    pub category: String, // "IMAGE" | "VIDEO" | "ARTICLE"
     pub media_urn: String,
     pub alt_text: Option<String>,
     pub title: Option<String>,
@@ -37,7 +37,7 @@ pub struct Media {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UgcPostResponse {
-    pub id: String,                     // "urn:li:ugcPost:{id}"
+    pub id: String, // "urn:li:ugcPost:{id}"
     pub created_at: i64,
 }
 
@@ -88,6 +88,9 @@ pub async fn publish_ugc_post(
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

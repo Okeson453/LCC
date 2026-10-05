@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::config::ApiGatewayConfig;
 use crate::middleware::rate_limit::RateLimiter;
-use crate::proxy::{pool::UpstreamConfig, pool::build_pools, RouteBinding, UpstreamRegistry};
+use crate::proxy::{pool::build_pools, pool::UpstreamConfig, RouteBinding, UpstreamRegistry};
 
 #[derive(Clone)]
 pub struct AppState(Arc<Inner>);
@@ -94,10 +94,7 @@ pub fn build_upstream_registry(config: &ApiGatewayConfig) -> UpstreamRegistry {
         ),
         // KB records live on profile-svc OR a dedicated kb-svc (configurable);
         // here we forward to kb-svc.
-        (
-            "kb",
-            UpstreamConfig::new("kb-svc", &config.kb_svc_url),
-        ),
+        ("kb", UpstreamConfig::new("kb-svc", &config.kb_svc_url)),
         // Admin (compliance config + restriction state) lives on the
         // compliance-governor.
         (

@@ -39,19 +39,19 @@ impl Guard for DailyCapGuard {
             return GuardResult::pass();
         }
 
-        let cap = ab_d::ab_d(action.action_type, action_metadata_h_c(action), &self.deps.config);
+        let cap = ab_d::ab_d(
+            action.action_type,
+            action_metadata_h_c(action),
+            &self.deps.config,
+        );
         let date = Utc::now().format("%Y%m%d").to_string();
         let routine_key = format!(
             "quota:{}:{}:{}:routine",
-            action.member_id,
-            action.action_type,
-            date
+            action.member_id, action.action_type, date
         );
         let reserve_key = format!(
             "quota:{}:{}:{}:reserve",
-            action.member_id,
-            action.action_type,
-            date
+            action.member_id, action.action_type, date
         );
 
         let mut conn = match self.deps.redis.get().await {
@@ -109,9 +109,7 @@ mod tests {
     #[test]
     fn helper_extracts_h_c_from_metadata() {
         let mut action = crate::CandidateAction::dummy_for_tests();
-        action
-            .metadata
-            .insert("h_c".to_string(), "0.8".to_string());
+        action.metadata.insert("h_c".to_string(), "0.8".to_string());
         assert!((action_metadata_h_c(&action) - 0.8).abs() < 1e-9);
     }
 

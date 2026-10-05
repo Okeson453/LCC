@@ -34,6 +34,12 @@ impl GovernorDeps {
     }
 }
 
+// These build deliberately-fake pools for tests. `create_pool` only fails on
+// an unparseable URL, and both URLs here are constants, so a panic here means
+// the test harness itself is broken — worth failing loudly rather than handing
+// back a pool that misbehaves later. The crate-wide `expect_used` deny does
+// not fit a fixture.
+#[allow(clippy::expect_used)]
 fn make_placeholder_pool() -> deadpool_redis::Pool {
     let cfg = deadpool_redis::Config::from_url("redis://localhost:6379");
     cfg.create_pool(Some(deadpool_redis::Runtime::Tokio1))
@@ -45,6 +51,7 @@ fn make_placeholder_pool() -> deadpool_redis::Pool {
         })
 }
 
+#[allow(clippy::expect_used)]
 fn make_placeholder_pool_db() -> sqlx::PgPool {
     sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)

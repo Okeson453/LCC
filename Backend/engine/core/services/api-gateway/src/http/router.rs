@@ -30,23 +30,28 @@ use axum::{
 use crate::{
     handlers,
     http::handlers as proxy_h,
-    middleware::{
-        auth::require_auth,
-        rate_limit::rate_limit,
-        trace_id::propagate_trace_id,
-    },
+    middleware::{auth::require_auth, rate_limit::rate_limit, trace_id::propagate_trace_id},
     state::AppState,
 };
 
 pub fn build_router(state: AppState) -> Router {
     let auth_routes = Router::new()
-        .route("/api/v1/auth/linkedin/start", get(handlers::auth_start::auth_start))
+        .route(
+            "/api/v1/auth/linkedin/start",
+            get(handlers::auth_start::auth_start),
+        )
         .route(
             "/api/v1/auth/linkedin/callback",
             get(handlers::auth_callback::auth_callback),
         )
-        .route("/api/v1/auth/refresh", post(handlers::auth_refresh::auth_refresh))
-        .route("/api/v1/auth/logout", post(handlers::auth_logout::auth_logout));
+        .route(
+            "/api/v1/auth/refresh",
+            post(handlers::auth_refresh::auth_refresh),
+        )
+        .route(
+            "/api/v1/auth/logout",
+            post(handlers::auth_logout::auth_logout),
+        );
 
     // Protected domain routes. The proxy forwarder passes the canonical path
     // verbatim to the upstream — every upstream implements the canonical

@@ -25,8 +25,6 @@ use thiserror::Error;
 pub enum CircuitBreakerError {
     #[error("redis: {0}")]
     Redis(#[from] redis::RedisError),
-    #[error("circuit breaker open for {provider}:{endpoint}")]
-    Open { provider: String, endpoint: String },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -88,7 +86,9 @@ impl CircuitBreaker {
         redis: &mut deadpool_redis::Connection,
     ) -> Result<CircuitState, CircuitBreakerError> {
         let s: Option<String> = redis.get(self.state_key()).await?;
-        Ok(s.as_deref().map(CircuitState::parse).unwrap_or(CircuitState::Closed))
+        Ok(s.as_deref()
+            .map(CircuitState::parse)
+            .unwrap_or(CircuitState::Closed))
     }
 
     /// Returns true if the call should be allowed (closed or half-open probe).
@@ -128,9 +128,7 @@ impl CircuitBreaker {
 
         let failures: u32 = redis.incr(&fc_key, 1).await?;
         if failures == 1 {
-            let _: () = redis
-                .set_ex(&ts_key, Utc::now().timestamp(), 60)
-                .await?;
+            let _: () = redis.set_ex(&ts_key, Utc::now().timestamp(), 60).await?;
             let _: () = redis.expire(&fc_key, 60).await?;
         }
 
@@ -152,43 +150,16 @@ impl CircuitBreaker {
         if failures >= self.failure_threshold {
             // Transition to OPEN. Use string state at a *different* key.
             let _: () = redis
-                .set_ex(&state_key, CircuitState::Open.as_str(), self.cooldown_seconds as u64)
+                .set_ex(
+                    &state_key,
+                    CircuitState::Open.as_str(),
+                    self.cooldown_seconds as u64,
+                )
                 .await?;
             Ok(CircuitState::Open)
         } else {
             Ok(CircuitState::Closed)
         }
-    }
-
-    /// After the cooldown, transition to HALF_OPEN.
-    pub async fn try_half_open(
-        &self,
-        redis: &mut deadpool_redis::Connection,
-    ) -> Result<bool, CircuitBreakerError> {
-        let state_key = self.state_key();
-        // Reading the state as a string — fails loudly if WRONGTYPE.
-        let s: Option<String> = redis.get(&state_key).await?;
-        if s.as_deref() == Some(CircuitState::Open.as_str()) {
-            // Cooldown elapsed? Key would have been auto-expired by TTL.
-            let _: () = redis
-                .set_ex(
-                    &state_key,
-                    CircuitState::HalfOpen.as_str(),
-                    self.cooldown_seconds as u64,
-                )
-                .await?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Force-reset (admin only). Used by kill-switch during incident response.
-    pub async fn force_close(
-        &self,
-        redis: &mut deadpool_redis::Connection,
-    ) -> Result<(), CircuitBreakerError> {
-        self.record_success(redis).await
     }
 }
 

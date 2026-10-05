@@ -12,8 +12,12 @@ pub enum IntegrationError {
     Idempotency(#[from] crate::idempotency::IdempotencyError),
     #[error("circuit breaker open for {provider}:{endpoint}")]
     CircuitOpen { provider: String, endpoint: String },
-    #[error("circuit breaker error: {0}")]
-    CircuitBreaker(String),    #[error("vault error: {0}")]
+    /// The gateway's own per-endpoint budget for the upstream provider is
+    /// spent. Distinct from a 429 *received* from LinkedIn: this one is
+    /// decided locally, before the call is made.
+    #[error("rate limit exceeded for endpoint {endpoint}: {reason}")]
+    RateLimitExceeded { endpoint: String, reason: String },
+    #[error("vault error: {0}")]
     Vault(String),
     /// F-72: carries the original HTTP status so the caller can distinguish
     /// `429` (rate-limit) from `401/403` (auth revoked) and pull the matching
@@ -82,8 +86,19 @@ impl From<lcc_security::vault::VaultError> for IntegrationError {
 
 impl From<lcc_integrations::track_a::TrackAError> for IntegrationError {
     fn from(e: lcc_integrations::track_a::TrackAError) -> Self {
-        // TrackAError doesn't carry status; propagate as legacy variant.
-        IntegrationError::LinkedInLegacy(e.to_string())
+        match e {
+            // `Api` already carries the status, so keep it. Flattening this
+            // into the legacy string variant discarded it, which left
+            // `detect_status_and_body` running body-only — a 429 or a 403 with
+            // an unremarkable body produced no restriction signal, so the
+            // account was never paused (F-72).
+            lcc_integrations::track_a::TrackAError::Api { status, body } => {
+                IntegrationError::linkedin_status(status, body)
+            }
+            // These variants do not carry a status, so none is invented here;
+            // their text still reaches the body-based detector.
+            other => IntegrationError::LinkedInLegacy(other.to_string()),
+        }
     }
 }
 
@@ -101,7 +116,6 @@ impl From<crate::circuit_breaker::CircuitBreakerError> for IntegrationError {
             crate::circuit_breaker::CircuitBreakerError::Redis(inner) => {
                 IntegrationError::Redis(inner)
             }
-            other => IntegrationError::CircuitBreaker(other.to_string()),
         }
     }
 }

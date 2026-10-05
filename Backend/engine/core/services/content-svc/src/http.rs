@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use crate::domain::{ContentKind, ContentState, Schedule};
 use crate::error::Error;
+use crate::service::NewContentItem;
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
@@ -23,18 +24,12 @@ pub fn build_router(state: AppState) -> Router {
             "/api/v1/content/items/:id",
             axum::routing::patch(update_body).delete(delete_one),
         )
-        .route(
-            "/api/v1/content/items/:id/transition",
-            post(transition),
-        )
+        .route("/api/v1/content/items/:id/transition", post(transition))
         .route(
             "/api/v1/content/items/:id/quality-check",
             post(quality_check),
         )
-        .route(
-            "/api/v1/content/items/:id/schedule",
-            post(schedule),
-        )
+        .route("/api/v1/content/items/:id/schedule", post(schedule))
         .with_state(state)
 }
 
@@ -51,7 +46,9 @@ async fn list(
 ) -> Result<impl IntoResponse, Error> {
     let m = require_member(&headers)?;
     let st = parse_state(q.state.as_deref())?;
-    Ok(Json(json!({"items": state.service().list(m, st, q.limit.unwrap_or(50).min(200)).await?})))
+    Ok(Json(
+        json!({"items": state.service().list(m, st, q.limit.unwrap_or(50).min(200)).await?}),
+    ))
 }
 
 async fn get_one(
@@ -85,13 +82,15 @@ async fn create(
         .service()
         .create(
             m,
-            &req.title,
-            &req.body,
-            kind,
-            &req.topic,
-            req.voice_style_kb_id,
-            req.pinned_kb_ids.unwrap_or_default(),
-            req.idempotency_key,
+            NewContentItem {
+                title: &req.title,
+                body: &req.body,
+                kind,
+                topic: &req.topic,
+                voice_style_kb_id: req.voice_style_kb_id,
+                pinned_kb_ids: req.pinned_kb_ids.unwrap_or_default(),
+                idempotency_key: req.idempotency_key,
+            },
         )
         .await?;
     Ok((axum::http::StatusCode::CREATED, Json(item)))
@@ -164,10 +163,7 @@ async fn quality_check(
     Json(req): Json<QualityCheckRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = require_member(&headers)?;
-    let result = state
-        .service()
-        .run_quality_loop(m, id, req.version)
-        .await?;
+    let result = state.service().run_quality_loop(m, id, req.version).await?;
     Ok(Json(result))
 }
 
@@ -189,7 +185,12 @@ async fn schedule(
         scheduled_at: req.scheduled_at,
         slots: req.slots,
     };
-    Ok(Json(state.service().schedule(m, id, req.version, schedule).await?))
+    Ok(Json(
+        state
+            .service()
+            .schedule(m, id, req.version, schedule)
+            .await?,
+    ))
 }
 
 fn require_member(headers: &HeaderMap) -> Result<Uuid, Error> {

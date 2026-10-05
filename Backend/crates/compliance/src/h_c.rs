@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// Inputs to H_c computation. All values are bounded to [0,1] (clamped at the
 /// boundary before computation; see [`h_c`]).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct H_cInputs {
+pub struct HCInputs {
     /// A_r — connection-request acceptance rate, trailing 30d
     pub acceptance_rate: f64,
     /// R_r — outreach reply rate, trailing 30d
@@ -28,7 +28,7 @@ pub struct H_cInputs {
 
 /// Per-component breakdown (for observability + dashboarding).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct H_cComponents {
+pub struct HCComponents {
     pub acceptance_rate: f64,
     pub reply_rate: f64,
     pub quota_utilization: f64,
@@ -49,7 +49,7 @@ fn clamp01(x: f64) -> f64 {
 ///
 /// Returns 0.0 if any input is NaN (fail-safe). Inputs are clamped to [0,1].
 /// Weights are not validated here; the caller should validate at config load.
-pub fn h_c(inputs: &H_cInputs, weights: &[f64; 4]) -> f64 {
+pub fn h_c(inputs: &HCInputs, weights: &[f64; 4]) -> f64 {
     // Source §32: a NaN signal must produce the strictest caps, not a
     // middling score. Clamping NaN to 0 per-component and then continuing is
     // NOT fail-safe — it silently downgrades one broken signal to "0% on that
@@ -78,11 +78,11 @@ pub fn h_c(inputs: &H_cInputs, weights: &[f64; 4]) -> f64 {
 }
 
 /// Compute H_c and return the per-component breakdown.
-pub fn h_c_with_components(inputs: &H_cInputs, weights: &[f64; 4]) -> (f64, H_cComponents) {
+pub fn h_c_with_components(inputs: &HCInputs, weights: &[f64; 4]) -> (f64, HCComponents) {
     let score = h_c(inputs, weights);
     (
         score,
-        H_cComponents {
+        HCComponents {
             acceptance_rate: clamp01(inputs.acceptance_rate),
             reply_rate: clamp01(inputs.reply_rate),
             quota_utilization: clamp01(inputs.quota_utilization),
@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn perfect_health() {
         // A_r=1.0, R_r=1.0, Q_u=0.0 (no quota usage), T_a=1.0
-        let inputs = H_cInputs {
+        let inputs = HCInputs {
             acceptance_rate: 1.0,
             reply_rate: 1.0,
             quota_utilization: 0.0,
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn zero_health() {
-        let inputs = H_cInputs {
+        let inputs = HCInputs {
             acceptance_rate: 0.0,
             reply_rate: 0.0,
             quota_utilization: 1.0,
@@ -130,7 +130,7 @@ mod tests {
     #[test]
     fn warmup_account_below_threshold() {
         // New account: T_a is small, A_r/R_r may be 0
-        let inputs = H_cInputs {
+        let inputs = HCInputs {
             acceptance_rate: 0.5,
             reply_rate: 0.3,
             quota_utilization: 0.5,
@@ -138,12 +138,15 @@ mod tests {
         };
         let score = h_c(&inputs, &default_weights());
         // Should be in warm-up territory (≤ 0.4)
-        assert!(score < 0.4, "warmup account should score < 0.4: got {score}");
+        assert!(
+            score < 0.4,
+            "warmup account should score < 0.4: got {score}"
+        );
     }
 
     #[test]
     fn nan_inputs_failsafe_to_zero() {
-        let inputs = H_cInputs {
+        let inputs = HCInputs {
             acceptance_rate: f64::NAN,
             reply_rate: 0.5,
             quota_utilization: 0.5,
@@ -155,9 +158,9 @@ mod tests {
 
     #[test]
     fn out_of_range_clamped() {
-        let inputs = H_cInputs {
-            acceptance_rate: 2.0,    // out of range
-            reply_rate: -0.5,        // out of range
+        let inputs = HCInputs {
+            acceptance_rate: 2.0, // out of range
+            reply_rate: -0.5,     // out of range
             quota_utilization: 0.5,
             tenure_factor: 0.5,
         };
@@ -168,7 +171,7 @@ mod tests {
 
     #[test]
     fn components_breakdown_correct() {
-        let inputs = H_cInputs {
+        let inputs = HCInputs {
             acceptance_rate: 0.8,
             reply_rate: 0.6,
             quota_utilization: 0.2,

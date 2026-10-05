@@ -11,13 +11,20 @@ use crate::domain::{
 use crate::error::Error;
 
 #[derive(Clone)]
-pub struct PgRepository { pool: PgPool }
+pub struct PgRepository {
+    pool: PgPool,
+}
 
 impl PgRepository {
-    pub fn new(pool: PgPool) -> Self { Self { pool } }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
 
     pub async fn dashboard(
-        &self, member_id: Uuid, start: NaiveDate, end: NaiveDate,
+        &self,
+        member_id: Uuid,
+        start: NaiveDate,
+        end: NaiveDate,
     ) -> Result<DashboardSummary, Error> {
         let content = sqlx::query_as::<_, (i64, i64, i64, i64, Option<f64>)>(
             r#"SELECT
@@ -29,7 +36,11 @@ impl PgRepository {
               FROM lcc.content_items
               WHERE member_id = $1 AND created_at::DATE BETWEEN $2 AND $3"#,
         )
-        .bind(member_id).bind(start).bind(end).fetch_one(&self.pool).await?;
+        .bind(member_id)
+        .bind(start)
+        .bind(end)
+        .fetch_one(&self.pool)
+        .await?;
 
         let outreach = sqlx::query_as::<_, (i64, i64, i64)>(
             r#"SELECT
@@ -41,7 +52,11 @@ impl PgRepository {
               WHERE s.member_id = $1
                 AND s.created_at::DATE BETWEEN $2 AND $3"#,
         )
-        .bind(member_id).bind(start).bind(end).fetch_one(&self.pool).await?;
+        .bind(member_id)
+        .bind(start)
+        .bind(end)
+        .fetch_one(&self.pool)
+        .await?;
 
         let engagement = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT
@@ -53,7 +68,11 @@ impl PgRepository {
               FROM lcc.engagement_replies
               WHERE member_id = $1 AND created_at::DATE BETWEEN $2 AND $3"#,
         )
-        .bind(member_id).bind(start).bind(end).fetch_one(&self.pool).await?;
+        .bind(member_id)
+        .bind(start)
+        .bind(end)
+        .fetch_one(&self.pool)
+        .await?;
 
         let opportunity = sqlx::query_as::<_, (i64, i64, i64, i64, i64)>(
             r#"SELECT
@@ -66,7 +85,11 @@ impl PgRepository {
               WHERE member_id = $1
                 AND discovered_at::DATE BETWEEN $2 AND $3"#,
         )
-        .bind(member_id).bind(start).bind(end).fetch_one(&self.pool).await?;
+        .bind(member_id)
+        .bind(start)
+        .bind(end)
+        .fetch_one(&self.pool)
+        .await?;
 
         let outreach_sent: i64 = sqlx::query_scalar(
             r#"SELECT COUNT(*)::BIGINT
@@ -75,7 +98,11 @@ impl PgRepository {
                WHERE s.member_id = $1
                  AND ss.sent_at::DATE BETWEEN $2 AND $3"#,
         )
-        .bind(member_id).bind(start).bind(end).fetch_one(&self.pool).await
+        .bind(member_id)
+        .bind(start)
+        .bind(end)
+        .fetch_one(&self.pool)
+        .await
         .unwrap_or(0);
 
         let reply_rate = if outreach_sent > 0 {
@@ -90,8 +117,10 @@ impl PgRepository {
             window_start: start,
             window_end: end,
             content_metrics: ContentMetrics {
-                published: content.0, scheduled: content.1,
-                draft: content.2, in_review: content.3,
+                published: content.0,
+                scheduled: content.1,
+                draft: content.2,
+                in_review: content.3,
                 average_quality_loop_count: content.4,
             },
             outreach_metrics: OutreachMetrics {
@@ -107,8 +136,10 @@ impl PgRepository {
                 draft_ready_tasks: engagement.3,
             },
             opportunity_metrics: OpportunityMetrics {
-                discovered: opportunity.0, qualified: opportunity.1,
-                applied: opportunity.2, interviewing: opportunity.3,
+                discovered: opportunity.0,
+                qualified: opportunity.1,
+                applied: opportunity.2,
+                interviewing: opportunity.3,
                 offers: opportunity.4,
             },
         })
@@ -129,37 +160,56 @@ impl PgRepository {
         };
         // Whitelist of supported metrics (prevents SQL injection).
         let metric_sql = match metric {
-            "content.published" =>
-                ("SELECT date_trunc($3, published_at)::DATE AS d, COUNT(*)::BIGINT
+            "content.published" => (
+                "SELECT date_trunc($3, published_at)::DATE AS d, COUNT(*)::BIGINT
                   FROM lcc.content_items
                   WHERE member_id = $1 AND published_at::DATE BETWEEN $4 AND $5
-                  GROUP BY 1 ORDER BY 1", "content.published"),
-            "engagement.completed" =>
-                ("SELECT date_trunc($3, completed_at)::DATE AS d, COUNT(*)::BIGINT
+                  GROUP BY 1 ORDER BY 1",
+                "content.published",
+            ),
+            "engagement.completed" => (
+                "SELECT date_trunc($3, completed_at)::DATE AS d, COUNT(*)::BIGINT
                   FROM lcc.engagement_replies
                   WHERE member_id = $1 AND completed_at::DATE BETWEEN $4 AND $5
-                  GROUP BY 1 ORDER BY 1", "engagement.completed"),
-            "outreach.replies" =>
-                ("SELECT date_trunc($3, ss.response_received_at)::DATE AS d, COUNT(*)::BIGINT
+                  GROUP BY 1 ORDER BY 1",
+                "engagement.completed",
+            ),
+            "outreach.replies" => (
+                "SELECT date_trunc($3, ss.response_received_at)::DATE AS d, COUNT(*)::BIGINT
                   FROM lcc.sequence_steps ss
                   JOIN lcc.sequences s ON s.id = ss.sequence_id
                   WHERE s.member_id = $1
                     AND ss.response_received_at::DATE BETWEEN $4 AND $5
-                  GROUP BY 1 ORDER BY 1", "outreach.replies"),
+                  GROUP BY 1 ORDER BY 1",
+                "outreach.replies",
+            ),
             other => return Err(Error::Validation(format!("unknown metric {other}"))),
         };
 
         let rows: Vec<(NaiveDate, i64)> = sqlx::query_as(metric_sql.0)
-            .bind(member_id).bind(metric).bind(bucket).bind(start).bind(end)
-            .fetch_all(&self.pool).await?;
+            .bind(member_id)
+            .bind(metric)
+            .bind(bucket)
+            .bind(start)
+            .bind(end)
+            .fetch_all(&self.pool)
+            .await?;
 
         Ok(TimeSeries {
             metric: metric_sql.1.to_string(),
             granularity,
-            points: rows.into_iter().map(|(d, v)| TimeSeriesPoint { date: d, value: v as f64 }).collect(),
+            points: rows
+                .into_iter()
+                .map(|(d, v)| TimeSeriesPoint {
+                    date: d,
+                    value: v as f64,
+                })
+                .collect(),
         })
     }
 
     #[allow(dead_code)]
-    pub async fn _t(&self) -> DateTime<Utc> { Utc::now() }
+    pub async fn _t(&self) -> DateTime<Utc> {
+        Utc::now()
+    }
 }

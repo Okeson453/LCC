@@ -22,10 +22,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/kb/records/:id", axum::routing::patch(update))
         .route("/api/v1/kb/records/:id", axum::routing::delete(delete))
         .route("/api/v1/kb/records/:id/reembed", post(reembed))
-        .route(
-            "/api/v1/kb/records/:id/embedding-status",
-            post(set_status),
-        )
+        .route("/api/v1/kb/records/:id/embedding-status", post(set_status))
         .with_state(state)
 }
 

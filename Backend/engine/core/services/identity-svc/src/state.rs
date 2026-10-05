@@ -48,6 +48,10 @@ impl AppState {
     /// integration tests that need to exercise the router without a live
     /// database.
     pub fn for_test(service: Arc<Service>) -> Self {
+        // `connect_lazy` only fails on an unparseable URL. The URL came from
+        // the service config, and a test harness that cannot even build a
+        // lazy pool is broken, so failing loudly is the right outcome.
+        #[allow(clippy::expect_used)]
         let db_pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)
             .acquire_timeout(std::time::Duration::from_millis(50))

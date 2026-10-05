@@ -24,7 +24,10 @@ pub struct MtlsCert {
 
 impl MtlsCert {
     /// Load cert from disk. Verifies the files exist and are non-empty.
-    pub fn load(cert_path: impl AsRef<Path>, key_path: impl AsRef<Path>) -> Result<Self, MtlsError> {
+    pub fn load(
+        cert_path: impl AsRef<Path>,
+        key_path: impl AsRef<Path>,
+    ) -> Result<Self, MtlsError> {
         let cert_path = cert_path.as_ref().to_path_buf();
         let key_path = key_path.as_ref().to_path_buf();
 
@@ -72,6 +75,9 @@ pub fn load_mtls_cert(
     MtlsCert::load(cert_path, key_path)
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,10 +94,7 @@ mod tests {
     }
 
     fn tempdir() -> std::path::PathBuf {
-        let p = std::env::temp_dir().join(format!(
-            "lcc-mtls-test-{}",
-            uuid::Uuid::now_v7()
-        ));
+        let p = std::env::temp_dir().join(format!("lcc-mtls-test-{}", uuid::Uuid::now_v7()));
         std::fs::create_dir_all(&p).unwrap();
         p
     }

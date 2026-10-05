@@ -9,11 +9,14 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Goal mode for the account, per design §3.1.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum GoalMode {
     JobHunting,
     ClientAcquisition,
+    // The documented default, so it is marked rather than spelled out in a
+    // hand-written `impl Default`.
+    #[default]
     Hybrid,
 }
 
@@ -24,12 +27,6 @@ impl GoalMode {
             Self::ClientAcquisition => "client_acquisition",
             Self::Hybrid => "hybrid",
         }
-    }
-}
-
-impl Default for GoalMode {
-    fn default() -> Self {
-        Self::Hybrid
     }
 }
 
@@ -55,7 +52,11 @@ impl MemberRole {
     }
 
     /// Parse from the JWT `role` claim string.
-    pub fn from_str(s: &str) -> Self {
+    ///
+    /// Named `parse_role` rather than `from_str` so it does not read as an
+    /// implementation of `std::str::FromStr` — which it is not: it takes
+    /// `&str` and cannot fail, falling back to `Owner`.
+    pub fn parse_role(s: &str) -> Self {
         match s {
             "owner" => Self::Owner,
             "assistant" => Self::Assistant,
@@ -138,7 +139,7 @@ pub struct TokenPair {
     pub access_token: String,
     pub refresh_token: String,
     pub token_type: &'static str, // always "Bearer"
-    pub expires_in: i64,         // seconds
+    pub expires_in: i64,          // seconds
 }
 
 /// LinkedIn OAuth handshake — returned by /auth/linkedin/start.

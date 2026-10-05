@@ -25,7 +25,7 @@ pub enum VaultError {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SecretRef {
     pub path: String,
-    pub key: Option<String>,         // sub-key; None for whole blob
+    pub key: Option<String>, // sub-key; None for whole blob
     pub ttl_seconds: u64,
 }
 
@@ -161,6 +161,9 @@ impl VaultClient {
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,10 +181,7 @@ mod tests {
     #[tokio::test]
     async fn mock_read_subkey() {
         let mut map = std::collections::HashMap::new();
-        map.insert(
-            "secret/test:token".to_string(),
-            "xyz789".to_string(),
-        );
+        map.insert("secret/test:token".to_string(), "xyz789".to_string());
         let client = VaultClient::with_mock(map);
         let sec = SecretRef::new("secret/test").with_key("token");
         let val = client.read(&sec).await.unwrap();

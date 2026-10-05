@@ -5,6 +5,9 @@
 //! free `encode_token` / `decode_token` / `Claims` API and a `Role::Member` /
 //! `Role::ComplianceReviewer` that do not exist, so this test target never
 //! compiled.
+// Integration tests assert on real return values; `unwrap`/`expect` on a
+// failing assertion is the point, so the production deny does not apply.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use lcc_auth::jwt::{JwtIssuer, JwtVerifier};
 use lcc_auth::rbac::{has_permission, Permission, Role};
@@ -44,7 +47,10 @@ fn each_issue_gets_a_fresh_session() {
     let id = Uuid::now_v7();
     let (_, a) = issuer().issue(&id, "owner").expect("issue");
     let (_, b) = issuer().issue(&id, "owner").expect("issue");
-    assert_ne!(a.session_id, b.session_id, "re-login must mint a new session");
+    assert_ne!(
+        a.session_id, b.session_id,
+        "re-login must mint a new session"
+    );
     assert_ne!(a.jti, b.jti, "each token needs its own jti");
 }
 
@@ -74,7 +80,13 @@ fn malformed_token_fails() {
     assert!(verifier().verify("not-a-jwt").is_err());
     assert!(verifier().verify("").is_err());
     // A signature from a different key must not verify.
-    let other_issuer = JwtIssuer::new(b"a-completely-different-secret-value", "k1", ISSUER, AUDIENCE, 15);
+    let other_issuer = JwtIssuer::new(
+        b"a-completely-different-secret-value",
+        "k1",
+        ISSUER,
+        AUDIENCE,
+        15,
+    );
     let (token, _) = other_issuer.issue(&Uuid::now_v7(), "owner").expect("issue");
     assert!(verifier().verify(&token).is_err());
 }

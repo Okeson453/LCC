@@ -9,12 +9,12 @@ use super::topics::Topic;
 /// EventHeader — the standard envelope fields for every event.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventHeader {
-    pub event_id: Uuid,            // UUIDv7 — primary dedup key
+    pub event_id: Uuid, // UUIDv7 — primary dedup key
     pub topic: Topic,
     pub trace_id: String,
     pub producer_service: String,
     pub occurred_at: DateTime<Utc>,
-    pub member_id: Option<String>,  // RLS scope; None for system events
+    pub member_id: Option<String>, // RLS scope; None for system events
     pub idempotency_key: String,
     pub schema_version: u32,
 }
@@ -187,6 +187,9 @@ pub struct KbRecordCreatedEvent {
     pub category: String,
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -4,9 +4,7 @@ use chrono::Utc;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::domain::{
-    Sequence, SequenceStatus, SequenceStep, Template, TemplateStep,
-};
+use crate::domain::{Sequence, SequenceStatus, SequenceStep, Template, TemplateStep};
 use crate::error::Error;
 use crate::repository::PgRepository;
 
@@ -42,13 +40,16 @@ impl Service {
         let now = Utc::now();
         let s = Sequence {
             id: Uuid::new_v4(),
-            member_id, contact_id, template_id,
+            member_id,
+            contact_id,
+            template_id,
             status: SequenceStatus::Draft,
             current_step: 0,
             paused_reason: None,
             last_step_sent_at: None,
             version: 1,
-            created_at: now, updated_at: now,
+            created_at: now,
+            updated_at: now,
         };
         self.repo.insert_sequence(&s).await?;
         for (i, tstep) in steps.iter().enumerate() {
@@ -62,8 +63,9 @@ impl Service {
                 body: tstep.body.clone(),
                 rendered_body_hash: Some(rendered),
                 contact_id,
-                scheduled_at: Some(Utc::now().naive_utc()
-                    + chrono::Duration::hours(tstep.delay_hours as i64)),
+                scheduled_at: Some(
+                    Utc::now().naive_utc() + chrono::Duration::hours(tstep.delay_hours as i64),
+                ),
                 sent_at: None,
                 response_received_at: None,
                 updated_at: now,
@@ -80,49 +82,92 @@ impl Service {
                    rendered_body_hash, contact_id, scheduled_at, updated_at)
                VALUES ($1,$2,$3,$4::text,$5,$6,$7,$8,$9,$10)"#,
         )
-        .bind(step.id).bind(step.sequence_id).bind(step.step_index)
-        .bind(step.kind.as_str()).bind(&step.subject).bind(&step.body)
-        .bind(&step.rendered_body_hash).bind(step.contact_id)
-        .bind(step.scheduled_at).bind(step.updated_at)
-        .execute(&self.repo.pool).await?;
+        .bind(step.id)
+        .bind(step.sequence_id)
+        .bind(step.step_index)
+        .bind(step.kind.as_str())
+        .bind(&step.subject)
+        .bind(&step.body)
+        .bind(&step.rendered_body_hash)
+        .bind(step.contact_id)
+        .bind(step.scheduled_at)
+        .bind(step.updated_at)
+        .execute(&self.repo.pool)
+        .await?;
         Ok(())
     }
 
     pub async fn pause(&self, m: Uuid, id: Uuid, v: i32, reason: &str) -> Result<Sequence, Error> {
-        let new_v = self.repo.update_status(m, id, v, SequenceStatus::Paused, Some(reason)).await?;
-        self.publish("sequence.paused", m, &serde_json::json!({"sequence_id":id,"reason":reason})).await;
+        let new_v = self
+            .repo
+            .update_status(m, id, v, SequenceStatus::Paused, Some(reason))
+            .await?;
+        self.publish(
+            "sequence.paused",
+            m,
+            &serde_json::json!({"sequence_id":id,"reason":reason}),
+        )
+        .await;
         Ok(Sequence {
-            id, member_id: m,
-            contact_id: Uuid::nil(), template_id: None,
-            status: SequenceStatus::Paused, current_step: 0,
+            id,
+            member_id: m,
+            contact_id: Uuid::nil(),
+            template_id: None,
+            status: SequenceStatus::Paused,
+            current_step: 0,
             paused_reason: Some(reason.into()),
             last_step_sent_at: None,
-            version: new_v, created_at: Utc::now(), updated_at: Utc::now(),
+            version: new_v,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
         })
     }
 
     pub async fn resume(&self, m: Uuid, id: Uuid, v: i32) -> Result<Sequence, Error> {
-        let new_v = self.repo.update_status(m, id, v, SequenceStatus::Active, None).await?;
-        self.publish("sequence.resumed", m, &serde_json::json!({"sequence_id":id})).await;
+        let new_v = self
+            .repo
+            .update_status(m, id, v, SequenceStatus::Active, None)
+            .await?;
+        self.publish(
+            "sequence.resumed",
+            m,
+            &serde_json::json!({"sequence_id":id}),
+        )
+        .await;
         Ok(Sequence {
-            id, member_id: m,
-            contact_id: Uuid::nil(), template_id: None,
-            status: SequenceStatus::Active, current_step: 0,
+            id,
+            member_id: m,
+            contact_id: Uuid::nil(),
+            template_id: None,
+            status: SequenceStatus::Active,
+            current_step: 0,
             paused_reason: None,
             last_step_sent_at: None,
-            version: new_v, created_at: Utc::now(), updated_at: Utc::now(),
+            version: new_v,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
         })
     }
 
     pub async fn mark_step_sent(&self, step_id: Uuid, m: Uuid) -> Result<(), Error> {
         self.repo.mark_step_sent(step_id).await?;
-        self.publish("sequence.step.sent", m, &serde_json::json!({"step_id":step_id})).await;
+        self.publish(
+            "sequence.step.sent",
+            m,
+            &serde_json::json!({"step_id":step_id}),
+        )
+        .await;
         Ok(())
     }
 
     pub async fn mark_step_reply(&self, step_id: Uuid, m: Uuid) -> Result<(), Error> {
         self.repo.record_step_reply(step_id).await?;
-        self.publish("sequence.reply_detected", m, &serde_json::json!({"step_id":step_id})).await;
+        self.publish(
+            "sequence.reply_detected",
+            m,
+            &serde_json::json!({"step_id":step_id}),
+        )
+        .await;
         Ok(())
     }
 
@@ -178,13 +223,16 @@ impl Service {
                 .arg("*")
                 .arg("envelope")
                 .arg(env.to_string())
-                .query_async::<String>(&mut conn).await;
+                .query_async::<String>(&mut conn)
+                .await;
         }
     }
 }
 
 impl PgRepository {
-    pub fn pool(&self) -> &sqlx::PgPool { &self.pool }
+    pub fn pool(&self) -> &sqlx::PgPool {
+        &self.pool
+    }
 }
 
 fn hash(body: &str) -> String {

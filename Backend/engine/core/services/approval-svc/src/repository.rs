@@ -13,6 +13,30 @@ pub struct PgRepository {
     pool: PgPool,
 }
 
+/// A `lcc.approvals` row as it comes back from the queries below.
+///
+/// Fifteen positional columns, four of them `String`/`Option<String>` in a row
+/// (`rule_version`, `decision`, `requested_by`, `decided_reason`) — writing
+/// that inline made it impossible to see which string was which. Column order
+/// must match the SELECT.
+type ApprovalRow = (
+    Uuid,                  // id
+    Uuid,                  // member_id
+    String,                // resource_type
+    Uuid,                  // resource_id
+    JsonValue,             // requested_action
+    i16,                   // tier
+    Option<String>,        // rule_version
+    String,                // decision
+    Uuid,                  // requested_by
+    Option<String>,        // decided_reason
+    Vec<Uuid>,             // reviewer_ids
+    Option<DateTime<Utc>>, // expires_at
+    i32,                   // version
+    DateTime<Utc>,         // created_at
+    Option<DateTime<Utc>>, // decided_at
+);
+
 impl PgRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -24,11 +48,7 @@ impl PgRepository {
         status: Option<ApprovalStatus>,
         limit: i64,
     ) -> Result<Vec<Approval>, Error> {
-        let rows: Vec<(
-            Uuid, Uuid, String, Uuid, JsonValue, i16,
-            Option<String>, String, Uuid, Option<String>, Vec<Uuid>,
-            Option<DateTime<Utc>>, i32, DateTime<Utc>, Option<DateTime<Utc>>,
-        )> = if let Some(s) = status {
+        let rows: Vec<ApprovalRow> = if let Some(s) = status {
             sqlx::query_as(
                 r#"
                 SELECT id, member_id, resource_type, resource_id, requested_action,
@@ -68,11 +88,26 @@ impl PgRepository {
     }
 
     pub async fn get(&self, member_id: Uuid, id: Uuid) -> Result<Approval, Error> {
-        let row = sqlx::query_as::<_, (
-            Uuid, Uuid, String, Uuid, JsonValue, i16,
-            Option<String>, String, Uuid, Option<String>, Vec<Uuid>,
-            Option<DateTime<Utc>>, i32, DateTime<Utc>, Option<DateTime<Utc>>,
-        )>(
+        let row = sqlx::query_as::<
+            _,
+            (
+                Uuid,
+                Uuid,
+                String,
+                Uuid,
+                JsonValue,
+                i16,
+                Option<String>,
+                String,
+                Uuid,
+                Option<String>,
+                Vec<Uuid>,
+                Option<DateTime<Utc>>,
+                i32,
+                DateTime<Utc>,
+                Option<DateTime<Utc>>,
+            ),
+        >(
             r#"
             SELECT id, member_id, resource_type, resource_id, requested_action,
                    tier::INT, rule_version, decision::TEXT, requested_by,
@@ -198,7 +233,14 @@ impl PgRepository {
         let mut results = Vec::with_capacity(ids.len());
         for id in ids {
             match self
-                .decide(member_id, *id, expected_version, new_status, Some(reason), reviewer_id)
+                .decide(
+                    member_id,
+                    *id,
+                    expected_version,
+                    new_status,
+                    Some(reason),
+                    reviewer_id,
+                )
                 .await
             {
                 Ok(_) => results.push((*id, true)),
@@ -209,20 +251,24 @@ impl PgRepository {
     }
 }
 
-fn map_row(
-    row: (
-        Uuid, Uuid, String, Uuid, JsonValue, i16,
-        Option<String>, String, Uuid, Option<String>, Vec<Uuid>,
-        Option<DateTime<Utc>>, i32, DateTime<Utc>, Option<DateTime<Utc>>,
-    ),
-) -> Result<Approval, Error> {
+fn map_row(row: ApprovalRow) -> Result<Approval, Error> {
     let status = serde_json::from_value::<ApprovalStatus>(serde_json::Value::String(row.7.clone()))
         .map_err(|e| Error::Internal(format!("decision parse: {e}")))?;
     Ok(Approval {
-        id: row.0, member_id: row.1, resource_type: row.2, resource_id: row.3,
-        requested_action: row.4, tier: row.5, rule_version: row.6,
-        status, requested_by: row.8, decided_reason: row.9,
-        reviewer_ids: row.10, expires_at: row.11, version: row.12,
-        created_at: row.13, decided_at: row.14,
+        id: row.0,
+        member_id: row.1,
+        resource_type: row.2,
+        resource_id: row.3,
+        requested_action: row.4,
+        tier: row.5,
+        rule_version: row.6,
+        status,
+        requested_by: row.8,
+        decided_reason: row.9,
+        reviewer_ids: row.10,
+        expires_at: row.11,
+        version: row.12,
+        created_at: row.13,
+        decided_at: row.14,
     })
 }

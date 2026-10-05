@@ -11,4 +11,3 @@ pub mod replay;
 pub mod verifier;
 
 pub use replay::{ReplayGuard, ReplayGuardError};
-pub use verifier::{PermitError, PermitVerifier};

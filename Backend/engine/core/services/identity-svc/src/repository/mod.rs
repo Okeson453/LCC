@@ -69,7 +69,7 @@ impl PgRepository {
                 linkedin_id: r.try_get("linkedin_id")?,
                 email: r.try_get("email").ok(),
                 display_name: r.try_get("display_name")?,
-                role: MemberRole::from_str(&r.try_get::<String, _>("role")?),
+                role: MemberRole::parse_role(&r.try_get::<String, _>("role")?),
                 is_active: r.try_get("is_active")?,
                 timezone: r.try_get("timezone")?,
                 locale: r.try_get("locale")?,
@@ -90,7 +90,10 @@ impl PgRepository {
     }
 
     /// Read member by linkedin_id (used during OAuth callback).
-    pub async fn get_member_by_linkedin_id(&self, linkedin_id: &str) -> Result<Option<Member>, Error> {
+    pub async fn get_member_by_linkedin_id(
+        &self,
+        linkedin_id: &str,
+    ) -> Result<Option<Member>, Error> {
         let row = sqlx::query(
             r#"
             SELECT id, linkedin_id, email, display_name, role, is_active,
@@ -116,7 +119,7 @@ impl PgRepository {
             linkedin_id: r.try_get("linkedin_id")?,
             email: r.try_get("email").ok(),
             display_name: r.try_get("display_name")?,
-            role: MemberRole::from_str(&r.try_get::<String, _>("role")?),
+            role: MemberRole::parse_role(&r.try_get::<String, _>("role")?),
             is_active: r.try_get("is_active")?,
             timezone: r.try_get("timezone")?,
             locale: r.try_get("locale")?,
@@ -162,7 +165,7 @@ impl PgRepository {
             linkedin_id: row.try_get("linkedin_id")?,
             email: row.try_get("email").ok(),
             display_name: row.try_get("display_name")?,
-            role: MemberRole::from_str(&row.try_get::<String, _>("role")?),
+            role: MemberRole::parse_role(&row.try_get::<String, _>("role")?),
             is_active: row.try_get("is_active")?,
             timezone: row.try_get("timezone")?,
             locale: row.try_get("locale")?,

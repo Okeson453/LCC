@@ -100,7 +100,7 @@ async fn run_socket(
 ) -> Result<(), Error> {
     info!(%member_id, channel = channel.id(), "ws connection established");
 
-    let mut rx = state.broadcast(channel).subscribe();
+    let mut rx = state.broadcast(channel)?.subscribe();
 
     // Split the socket.
     let (mut sink, mut stream) = socket.split();
@@ -115,7 +115,7 @@ async fn run_socket(
         "heartbeat_seconds": state.config().heartbeat_seconds,
         "idle_timeout_seconds": state.config().idle_timeout_seconds,
     });
-    sink.send(Message::Text(hello.to_string().into()))
+    sink.send(Message::Text(hello.to_string()))
         .await
         .map_err(|e| Error::Internal(format!("ws send: {e}")))?;
 
@@ -141,7 +141,7 @@ async fn run_socket(
                             continue;
                         }
                         let frame = serde_json::to_string(&env).unwrap_or_default();
-                        sink.send(Message::Text(frame.into()))
+                        sink.send(Message::Text(frame))
                             .await
                             .map_err(|e| Error::Internal(format!("ws send: {e}")))?;
                         last_activity = Instant::now();
@@ -166,7 +166,7 @@ async fn run_socket(
                             match frame.frame_type.as_str() {
                                 "ping" => {
                                     let pong = serde_json::json!({"type":"pong"});
-                                    sink.send(Message::Text(pong.to_string().into())).await.ok();
+                                    sink.send(Message::Text(pong.to_string())).await.ok();
                                 }
                                 "pong" => {
                                     // Client replied to our ping.
@@ -204,7 +204,7 @@ async fn run_socket(
             _ = tokio::time::sleep(heartbeat_interval) => {
                 if last_activity.elapsed() >= heartbeat_interval {
                     let ping = serde_json::json!({"type":"ping","ts": chrono::Utc::now().to_rfc3339()});
-                    if let Err(e) = sink.send(Message::Text(ping.to_string().into())).await {
+                    if let Err(e) = sink.send(Message::Text(ping.to_string())).await {
                         return Err(Error::Internal(format!("ws ping send: {e}")));
                     }
                 }

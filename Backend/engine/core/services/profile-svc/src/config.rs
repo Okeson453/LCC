@@ -30,7 +30,6 @@ impl Default for Config {
     }
 }
 
-
 impl Config {
     pub fn from_env() -> Result<Self, String> {
         Ok(Self {
@@ -50,4 +49,3 @@ impl Config {
         })
     }
 }
-

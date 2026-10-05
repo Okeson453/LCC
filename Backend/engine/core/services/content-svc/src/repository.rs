@@ -177,9 +177,9 @@ impl PgRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => Error::Conflict(format!(
-                "content {id} v{expected_version} not found"
-            )),
+            sqlx::Error::RowNotFound => {
+                Error::Conflict(format!("content {id} v{expected_version} not found"))
+            }
             other => Error::Internal(format!("update body: {other}")),
         })?;
         Ok(row.0)
@@ -213,9 +213,9 @@ impl PgRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => Error::Conflict(format!(
-                "content {id} v{expected_version} not found"
-            )),
+            sqlx::Error::RowNotFound => {
+                Error::Conflict(format!("content {id} v{expected_version} not found"))
+            }
             other => Error::Internal(format!("transition: {other}")),
         })?;
         Ok(row.0)

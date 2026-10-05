@@ -71,7 +71,10 @@ pub enum TransitionTrigger {
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum CaseTransitionError {
     #[error("trigger {trigger:?} is not legal from state {state:?}")]
-    Illegal { state: CaseState, trigger: TransitionTrigger },
+    Illegal {
+        state: CaseState,
+        trigger: TransitionTrigger,
+    },
     #[error("case is {state:?}, which is terminal")]
     Terminal { state: CaseState },
 }
@@ -91,10 +94,7 @@ impl Case {
     }
 
     /// The single source of truth for legal transitions.
-    fn next_state(
-        state: CaseState,
-        trigger: TransitionTrigger,
-    ) -> Option<CaseState> {
+    fn next_state(state: CaseState, trigger: TransitionTrigger) -> Option<CaseState> {
         use CaseState::*;
         use TransitionTrigger::*;
         match (state, trigger) {
@@ -117,7 +117,10 @@ impl Case {
     }
 
     /// Apply `trigger`, or leave the case untouched and explain why not.
-    pub fn try_transition(&mut self, trigger: TransitionTrigger) -> Result<(), CaseTransitionError> {
+    pub fn try_transition(
+        &mut self,
+        trigger: TransitionTrigger,
+    ) -> Result<(), CaseTransitionError> {
         if self.state.is_terminal() {
             return Err(CaseTransitionError::Terminal { state: self.state });
         }

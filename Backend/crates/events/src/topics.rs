@@ -89,17 +89,21 @@ impl Topic {
     /// Owner service — who emits this topic. Used for routing/audit.
     pub fn owner(self) -> &'static str {
         match self {
-            Topic::MemberCreated | Topic::MemberDeactivated | Topic::OAuthTokenRefreshFailed => "identity-svc",
+            Topic::MemberCreated | Topic::MemberDeactivated | Topic::OAuthTokenRefreshFailed => {
+                "identity-svc"
+            }
             Topic::ProfileSnapshotCreated | Topic::ProfileAuditCompleted => "profile-svc",
             Topic::KbRecordCreated | Topic::KbRecordUpdated | Topic::KbRecordDeleted => "kb-svc",
             Topic::VoiceSampleAdded => "voice-intel",
             Topic::ContentItemStateChanged | Topic::ContentItemApproved => "content-svc",
-            Topic::EngagementInboundReceived | Topic::EngagementReplyDrafted
-            | Topic::SequenceReplyDetected | Topic::SequenceStepDue
-            | Topic::SequenceStateChanged | Topic::SequenceStepSent => {
-                "engagement-svc|outreach-svc"
-            }
-            Topic::OpportunityDiscovered | Topic::OpportunityQualified
+            Topic::EngagementInboundReceived
+            | Topic::EngagementReplyDrafted
+            | Topic::SequenceReplyDetected
+            | Topic::SequenceStepDue
+            | Topic::SequenceStateChanged
+            | Topic::SequenceStepSent => "engagement-svc|outreach-svc",
+            Topic::OpportunityDiscovered
+            | Topic::OpportunityQualified
             | Topic::OpportunityFunnelChanged => "opportunity-svc",
             Topic::ApprovalDecided | Topic::ApprovalExpired => "approval-svc",
             Topic::ComplianceConfigActivated

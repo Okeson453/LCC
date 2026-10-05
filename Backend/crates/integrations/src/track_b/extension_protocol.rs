@@ -49,13 +49,9 @@ pub enum ExtensionMessageKind {
         platform_response_id: Option<String>,
     },
     /// Extension → server: human cancelled
-    ActionCancelled {
-        reason: String,
-    },
+    ActionCancelled { reason: String },
     /// Extension → server: human is editing the payload
-    ActionEdited {
-        edited_fields: serde_json::Value,
-    },
+    ActionEdited { edited_fields: serde_json::Value },
     /// Server → extension: heartbeat / keepalive
     Ping,
     /// Extension → server: heartbeat ack
@@ -78,7 +74,7 @@ pub enum FillTarget {
 pub struct BrowserExtensionMessage {
     pub correlation_id: Uuid,
     pub member_id: String,
-    pub action_id: String,                 // permits ↔ action binding
+    pub action_id: String, // permits ↔ action binding
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub message: ExtensionMessageKind,
 }
@@ -130,6 +126,9 @@ impl BrowserExtensionMessage {
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

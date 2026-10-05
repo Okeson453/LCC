@@ -1,7 +1,6 @@
 //! Smoke tests for analytics-svc.
 
 use lcc_analytics_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

@@ -22,19 +22,30 @@ pub fn build_router(state: AppState) -> Router {
             axum::routing::patch(apply),
         )
         .route("/api/v1/opportunities/applications", get(list_applications))
-        .route("/api/v1/opportunities/proposals", get(list_proposals).post(propose))
+        .route(
+            "/api/v1/opportunities/proposals",
+            get(list_proposals).post(propose),
+        )
         .with_state(state)
 }
 
 #[derive(Deserialize)]
-struct ListQuery { status: Option<String>, limit: Option<i64> }
+struct ListQuery {
+    status: Option<String>,
+    limit: Option<i64>,
+}
 
 async fn list(
-    State(state): State<AppState>, headers: HeaderMap, Query(q): Query<ListQuery>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
     let st = q.status.as_deref().map(parse_status).transpose()?.flatten();
-    let v = state.service().list(m, st, q.limit.unwrap_or(50).min(200)).await?;
+    let v = state
+        .service()
+        .list(m, st, q.limit.unwrap_or(50).min(200))
+        .await?;
     Ok(Json(json!({"opportunities":v})))
 }
 
@@ -47,11 +58,22 @@ struct DiscoverRequest {
 }
 
 async fn discover(
-    State(state): State<AppState>, headers: HeaderMap, Json(req): Json<DiscoverRequest>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<DiscoverRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
     let src = parse_source(&req.source)?;
-    let o = state.service().discover(m, &req.title, src, req.company_id, req.metadata.unwrap_or(Value::Null)).await?;
+    let o = state
+        .service()
+        .discover(
+            m,
+            &req.title,
+            src,
+            req.company_id,
+            req.metadata.unwrap_or(Value::Null),
+        )
+        .await?;
     Ok((axum::http::StatusCode::CREATED, Json(o)))
 }
 
@@ -63,12 +85,20 @@ struct QualifyRequest {
 }
 
 async fn qualify(
-    State(state): State<AppState>, Path(id): Path<Uuid>, headers: HeaderMap, Json(req): Json<QualifyRequest>,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(req): Json<QualifyRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
     let ns = parse_status(&req.next_state)?
         .ok_or_else(|| Error::Validation("next_state required".into()))?;
-    Ok(Json(state.service().qualify(m, id, req.version, req.fit_score, ns).await?))
+    Ok(Json(
+        state
+            .service()
+            .qualify(m, id, req.version, req.fit_score, ns)
+            .await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -78,18 +108,29 @@ struct ApplyRequest {
 }
 
 async fn apply(
-    State(state): State<AppState>, Path(id): Path<Uuid>, headers: HeaderMap, Json(req): Json<ApplyRequest>,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
+    Json(req): Json<ApplyRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    let a = state.service().apply(m, id, req.cover_letter, req.resume_doc_id).await?;
+    let a = state
+        .service()
+        .apply(m, id, req.cover_letter, req.resume_doc_id)
+        .await?;
     Ok((axum::http::StatusCode::CREATED, Json(a)))
 }
 
 async fn list_applications(
-    State(state): State<AppState>, headers: HeaderMap, Query(q): Query<ListQuery>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    let v = state.service().list_applications(m, q.limit.unwrap_or(50).min(200)).await?;
+    let v = state
+        .service()
+        .list_applications(m, q.limit.unwrap_or(50).min(200))
+        .await?;
     Ok(Json(json!({"applications":v})))
 }
 
@@ -104,29 +145,50 @@ struct ProposeRequest {
 }
 
 async fn propose(
-    State(state): State<AppState>, headers: HeaderMap, Json(req): Json<ProposeRequest>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ProposeRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    let p = state.service().propose(m, req.opportunity_id, &req.title, &req.body,
-        req.price_cents, req.currency, req.kb_ref_ids).await?;
+    let p = state
+        .service()
+        .propose(
+            m,
+            req.opportunity_id,
+            &req.title,
+            &req.body,
+            req.price_cents,
+            req.currency,
+            req.kb_ref_ids,
+        )
+        .await?;
     Ok((axum::http::StatusCode::CREATED, Json(p)))
 }
 
 async fn list_proposals(
-    State(state): State<AppState>, headers: HeaderMap, Query(q): Query<ListQuery>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    let v = state.service().list_proposals(m, q.limit.unwrap_or(50).min(200)).await?;
+    let v = state
+        .service()
+        .list_proposals(m, q.limit.unwrap_or(50).min(200))
+        .await?;
     Ok(Json(json!({"proposals":v})))
 }
 
 fn auth(headers: &HeaderMap) -> Result<Uuid, Error> {
-    let token = headers.get(axum::http::header::AUTHORIZATION)
+    let token = headers
+        .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .ok_or(Error::Unauthorized)?;
-    let claims = lcc_auth::verify_token(token, &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?)
-        .map_err(|_| Error::Unauthorized)?;
+    let claims = lcc_auth::verify_token(
+        token,
+        &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?,
+    )
+    .map_err(|_| Error::Unauthorized)?;
     Uuid::parse_str(&claims.sub).map_err(|_| Error::Unauthorized)
 }
 
@@ -163,4 +225,5 @@ fn parse_source(s: &str) -> Result<Source, Error> {
     })
 }
 
-#[allow(dead_code)] fn _t(_: Value) {}
+#[allow(dead_code)]
+fn _t(_: Value) {}

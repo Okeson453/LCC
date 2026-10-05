@@ -1,6 +1,11 @@
 //! Health endpoints for the Compliance Governor.
 
-use axum::{extract::{Extension, State}, http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    extract::{Extension, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 use lcc_observability::metrics::Metrics;
 use serde::Serialize;
 use std::sync::Arc;
@@ -32,7 +37,11 @@ pub async fn readyz(State(deps): State<Arc<GovernorDeps>>) -> impl IntoResponse 
     };
 
     let report = ReadyzReport {
-        status: if db_ok && redis_ok { "ready" } else { "degraded" },
+        status: if db_ok && redis_ok {
+            "ready"
+        } else {
+            "degraded"
+        },
         db_ok,
         redis_ok,
         active_compliance_config_version: deps.config.version.clone(),
@@ -53,7 +62,11 @@ pub async fn readyz(State(deps): State<Arc<GovernorDeps>>) -> impl IntoResponse 
 /// state without a second, conflicting router state type.
 pub async fn metrics_handler(Extension(metrics): Extension<Arc<Metrics>>) -> impl IntoResponse {
     match metrics.render() {
-        Ok(text) => (StatusCode::OK, [("content-type", "text/plain; version=0.0.4")], text)
+        Ok(text) => (
+            StatusCode::OK,
+            [("content-type", "text/plain; version=0.0.4")],
+            text,
+        )
             .into_response(),
         Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "metrics render failed").into_response(),
     }

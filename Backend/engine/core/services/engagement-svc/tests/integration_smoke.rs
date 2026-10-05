@@ -1,7 +1,6 @@
 //! Smoke tests for engagement-svc.
 
 use lcc_engagement_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
-    pub sub: String,                 // LinkedIn member ID
+    pub sub: String, // LinkedIn member ID
     pub name: Option<String>,
     pub given_name: Option<String>,
     pub family_name: Option<String>,
@@ -51,6 +51,9 @@ pub async fn fetch_userinfo(
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

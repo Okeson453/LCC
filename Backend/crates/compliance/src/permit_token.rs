@@ -85,11 +85,21 @@ pub struct PermitClaims {
 }
 
 impl PermitClaims {
-    pub fn member_id(&self) -> &str { &self.sub }
-    pub fn action_id(&self) -> &str { &self.act }
-    pub fn action_type(&self) -> &str { &self.typ }
-    pub fn risk_tier(&self) -> &str { &self.risk }
-    pub fn config_version(&self) -> &str { &self.cv }
+    pub fn member_id(&self) -> &str {
+        &self.sub
+    }
+    pub fn action_id(&self) -> &str {
+        &self.act
+    }
+    pub fn action_type(&self) -> &str {
+        &self.typ
+    }
+    pub fn risk_tier(&self) -> &str {
+        &self.risk
+    }
+    pub fn config_version(&self) -> &str {
+        &self.cv
+    }
 }
 
 pub struct PermitClaimsBuilder {
@@ -132,7 +142,10 @@ impl PermitClaimsBuilder {
         }
     }
 
-    pub fn approval_id(mut self, id: Option<String>) -> Self { self.appr = id; self }
+    pub fn approval_id(mut self, id: Option<String>) -> Self {
+        self.appr = id;
+        self
+    }
 
     /// Set the permit lifetime, clamped to `0..=MAX_PERMIT_TTL_SECONDS`.
     ///
@@ -145,8 +158,14 @@ impl PermitClaimsBuilder {
         self
     }
 
-    pub fn audience(mut self, aud: impl Into<String>) -> Self { self.aud = aud.into(); self }
-    pub fn issuer(mut self, iss: impl Into<String>) -> Self { self.iss = iss.into(); self }
+    pub fn audience(mut self, aud: impl Into<String>) -> Self {
+        self.aud = aud.into();
+        self
+    }
+    pub fn issuer(mut self, iss: impl Into<String>) -> Self {
+        self.iss = iss.into();
+        self
+    }
 
     pub fn build(self) -> PermitClaims {
         PermitClaims {
@@ -303,13 +322,19 @@ impl std::fmt::Debug for PermitVerifier {
 
 impl PermitVerifier {
     pub fn new(keys: Arc<dyn KeyStore>, expected_audience: impl Into<String>) -> Self {
-        Self { keys, expected_audience: expected_audience.into() }
+        Self {
+            keys,
+            expected_audience: expected_audience.into(),
+        }
     }
 
     pub fn verify(&self, token: &str) -> Result<PermitClaims, PermitError> {
         let parts: Vec<&str> = token.split('.').collect();
         if parts.len() != 3 {
-            return Err(PermitError::Malformed(format!("expected 3 parts, got {}", parts.len())));
+            return Err(PermitError::Malformed(format!(
+                "expected 3 parts, got {}",
+                parts.len()
+            )));
         }
         let header_b64 = parts[0];
         let claims_b64 = parts[1];
@@ -384,14 +409,25 @@ pub fn generate_keypair() -> (SigningKey, VerifyingKey) {
 
 /// Public-key-only verifier. Used by the Integration Gateway, which never
 /// has the signing key.
-pub fn public_only_verifier(public_key: VerifyingKey, audience: impl Into<String>) -> PermitVerifier {
+pub fn public_only_verifier(
+    public_key: VerifyingKey,
+    audience: impl Into<String>,
+) -> PermitVerifier {
     struct OnlyOne(VerifyingKey);
     impl KeyStore for OnlyOne {
-        fn sign_with(&self, _: &str) -> Result<SigningKey, PermitError> { Err(PermitError::NoKey) }
-        fn verify_with(&self, kid: &str) -> Result<VerifyingKey, PermitError> {
-            if kid == "k1" { Ok(self.0) } else { Err(PermitError::UnknownKey(kid.into())) }
+        fn sign_with(&self, _: &str) -> Result<SigningKey, PermitError> {
+            Err(PermitError::NoKey)
         }
-        fn active_kid(&self) -> String { "k1".into() }
+        fn verify_with(&self, kid: &str) -> Result<VerifyingKey, PermitError> {
+            if kid == "k1" {
+                Ok(self.0)
+            } else {
+                Err(PermitError::UnknownKey(kid.into()))
+            }
+        }
+        fn active_kid(&self) -> String {
+            "k1".into()
+        }
     }
     let keys: Arc<dyn KeyStore> = Arc::new(OnlyOne(public_key));
     PermitVerifier::new(keys, audience)

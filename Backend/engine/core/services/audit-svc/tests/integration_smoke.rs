@@ -1,7 +1,6 @@
 //! Smoke tests for audit-svc.
 
 use lcc_audit_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

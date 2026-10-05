@@ -13,7 +13,14 @@ pub struct RedactedField {
 
 /// The set of field name patterns that must be redacted.
 pub fn redact_patterns() -> Vec<&'static str> {
-    vec!["token", "password", "secret", "linkedin_url", "api_key", "private_key"]
+    vec![
+        "token",
+        "password",
+        "secret",
+        "linkedin_url",
+        "api_key",
+        "private_key",
+    ]
 }
 
 /// Walk a JSON object and redact matching field names (case-insensitive substring).
@@ -39,9 +46,11 @@ fn redact_recursive(v: &Value, patterns: &[String], found: &mut Vec<RedactedFiel
             }
             Value::Object(out)
         }
-        Value::Array(arr) => {
-            Value::Array(arr.iter().map(|v| redact_recursive(v, patterns, found)).collect())
-        }
+        Value::Array(arr) => Value::Array(
+            arr.iter()
+                .map(|v| redact_recursive(v, patterns, found))
+                .collect(),
+        ),
         other => other.clone(),
     }
 }

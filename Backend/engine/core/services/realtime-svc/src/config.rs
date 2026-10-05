@@ -52,15 +52,13 @@ impl Config {
             http_port: parse_port("LCC_HTTP_PORT").unwrap_or(8093),
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "postgres://lcc_app:dev_lcc_app@postgres:5432/lcc".into()),
-            redis_url: std::env::var("REDIS_URL")
-                .unwrap_or_else(|_| "redis://redis:6379".into()),
+            redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://redis:6379".into()),
             auth_jwt_secret,
             jwt_issuer: std::env::var("LCC_JWT_ISSUER").unwrap_or_else(|_| "lcc-auth".into()),
             jwt_audience: std::env::var("LCC_JWT_AUDIENCE").unwrap_or_else(|_| "lcc-api".into()),
             channels,
-            subscriber_id: std::env::var("HOSTNAME").unwrap_or_else(|_| {
-                format!("realtime-{}", uuid::Uuid::new_v4())
-            }),
+            subscriber_id: std::env::var("HOSTNAME")
+                .unwrap_or_else(|_| format!("realtime-{}", uuid::Uuid::new_v4())),
             per_member_conn_limit: 5,
             heartbeat_seconds: 30,
             idle_timeout_seconds: 120,

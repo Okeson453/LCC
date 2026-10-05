@@ -44,7 +44,6 @@ use tracing::{debug, error, warn};
 /// Guard denials before a step is moved to `blocked` rather than retried.
 const MAX_GOVERNOR_DENIALS: i32 = 3;
 
-
 /// Schedule + submit due sequence steps. Returns the count of steps processed.
 pub async fn schedule_due_steps(pool: &PgPool) -> Result<usize, sqlx::Error> {
     // Find steps whose scheduled time has arrived and that have not yet been
@@ -75,7 +74,10 @@ pub async fn schedule_due_steps(pool: &PgPool) -> Result<usize, sqlx::Error> {
         return Ok(0);
     }
 
-    debug!(count = due.len(), "due steps claimed for governor evaluation");
+    debug!(
+        count = due.len(),
+        "due steps claimed for governor evaluation"
+    );
 
     let governor_url = governor_url();
     let mut permitted = 0usize;
@@ -207,7 +209,12 @@ async fn evaluate_with_governor(
     });
 
     let url = format!("{base_url}/v1/governor/evaluate");
-    match reqwest::Client::new().post(&url).json(&payload).send().await {
+    match reqwest::Client::new()
+        .post(&url)
+        .json(&payload)
+        .send()
+        .await
+    {
         Ok(resp) => {
             let status = resp.status();
             let body_text = resp.text().await.unwrap_or_default();
@@ -221,7 +228,9 @@ async fn evaluate_with_governor(
                         .and_then(|t| t.as_str())
                         .unwrap_or_default()
                         .to_string();
-                    GovernorOutcome::Permit { permit_token: token }
+                    GovernorOutcome::Permit {
+                        permit_token: token,
+                    }
                 }
                 Some(_) => GovernorOutcome::Deny {
                     guard: value
@@ -235,12 +244,10 @@ async fn evaluate_with_governor(
                         .unwrap_or("denied")
                         .to_string(),
                 },
-                None if !status.is_success() => {
-                    GovernorOutcome::Deny {
-                        guard: "transport".into(),
-                        reason: format!("governor returned {status}"),
-                    }
-                }
+                None if !status.is_success() => GovernorOutcome::Deny {
+                    guard: "transport".into(),
+                    reason: format!("governor returned {status}"),
+                },
                 None => GovernorOutcome::Unavailable(format!("unparseable response: {body_text}")),
             }
         }

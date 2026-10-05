@@ -14,9 +14,7 @@ use std::fmt;
 /// Mirrors `proto/lcc/v1/compliance/governor.proto::ActionType` and is the
 /// single source of truth used by the Rust Core Engine (Python Intelligence
 /// Engine has a `packages/compliance-types` mirror).
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionType {
     // Tier 1 — drafting / editing (auto-execute)
@@ -192,9 +190,7 @@ impl ActionType {
 }
 
 /// RiskTier (1..5) — required minimum H_c to permit the action.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum RiskTier {
     Tier1DraftOrEdit = 1,
@@ -239,8 +235,14 @@ mod tests {
 
     #[test]
     fn action_to_tier_mapping() {
-        assert_eq!(ActionType::ConnectionRequest.risk_tier(), RiskTier::Tier3NetworkGrowth);
-        assert_eq!(ActionType::PostPublish.risk_tier(), RiskTier::Tier2LightEngagement);
+        assert_eq!(
+            ActionType::ConnectionRequest.risk_tier(),
+            RiskTier::Tier3NetworkGrowth
+        );
+        assert_eq!(
+            ActionType::PostPublish.risk_tier(),
+            RiskTier::Tier2LightEngagement
+        );
         assert_eq!(
             ActionType::JobApplicationSubmit.risk_tier(),
             RiskTier::Tier5HighStakes

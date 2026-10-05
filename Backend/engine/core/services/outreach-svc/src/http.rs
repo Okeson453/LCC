@@ -17,23 +17,14 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/api/v1/sequences", get(list).post(create))
         .route("/api/v1/sequences/:id/steps", get(steps))
+        .route("/api/v1/sequences/:id/pause", axum::routing::patch(pause))
+        .route("/api/v1/sequences/:id/resume", post(resume))
+        .route("/api/v1/sequences/steps/:step_id/sent", post(mark_sent))
+        .route("/api/v1/sequences/steps/:step_id/reply", post(mark_reply))
         .route(
-            "/api/v1/sequences/:id/pause",
-            axum::routing::patch(pause),
+            "/api/v1/outreach/templates",
+            get(list_templates).post(create_template),
         )
-        .route(
-            "/api/v1/sequences/:id/resume",
-            post(resume),
-        )
-        .route(
-            "/api/v1/sequences/steps/:step_id/sent",
-            post(mark_sent),
-        )
-        .route(
-            "/api/v1/sequences/steps/:step_id/reply",
-            post(mark_reply),
-        )
-        .route("/api/v1/outreach/templates", get(list_templates).post(create_template))
         .with_state(state)
 }
 
@@ -99,7 +90,12 @@ async fn pause(
     Json(req): Json<PauseRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    Ok(Json(state.service().pause(m, id, req.version, &req.reason).await?))
+    Ok(Json(
+        state
+            .service()
+            .pause(m, id, req.version, &req.reason)
+            .await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -142,7 +138,9 @@ async fn list_templates(
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    Ok(Json(json!({"templates": state.service().list_templates(m).await?})))
+    Ok(Json(
+        json!({"templates": state.service().list_templates(m).await?}),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -166,12 +164,16 @@ async fn create_template(
 }
 
 fn auth(headers: &HeaderMap) -> Result<Uuid, Error> {
-    let token = headers.get(axum::http::header::AUTHORIZATION)
+    let token = headers
+        .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .ok_or(Error::Unauthorized)?;
-    let claims = lcc_auth::verify_token(token, &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?)
-        .map_err(|_| Error::Unauthorized)?;
+    let claims = lcc_auth::verify_token(
+        token,
+        &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?,
+    )
+    .map_err(|_| Error::Unauthorized)?;
     Uuid::parse_str(&claims.sub).map_err(|_| Error::Unauthorized)
 }
 
@@ -187,5 +189,7 @@ fn parse_status(s: &str) -> Result<SequenceStatus, Error> {
     })
 }
 
-#[allow(dead_code)] fn _t(_: Value) {}
-#[allow(dead_code)] fn _k(_: StepKind) {}
+#[allow(dead_code)]
+fn _t(_: Value) {}
+#[allow(dead_code)]
+fn _k(_: StepKind) {}

@@ -73,18 +73,26 @@ fn env_u32_or(key: &str, default: u32) -> u32 {
         .unwrap_or(default)
 }
 
+/// Accepts the spellings operators actually use for booleans. Note envy still
+/// parses a *present* `ENABLE_MTLS` strictly as "true"/"false"; this tolerant
+/// parse is what the default path uses when the variable is unset.
 fn env_bool_or(key: &str, default: bool) -> bool {
     env::var(key)
         .ok()
-        .map(|s| matches!(s.to_lowercase().as_str(), "true" | "1" | "yes"))
+        .map(|s| {
+            matches!(
+                s.trim().to_lowercase().as_str(),
+                "true" | "1" | "yes" | "on"
+            )
+        })
         .unwrap_or(default)
 }
 
 /// Load typed EnvConfig from the process environment. Fails if any required
 /// field cannot be parsed.
 pub fn load_env_config() -> Result<EnvConfig, envy::Error> {
-    let env_obj = envy::from_env::<RawEnv>()
-        .map_err(|e| envy::Error::Custom(format!("env parse: {e}")))?;
+    let env_obj =
+        envy::from_env::<RawEnv>().map_err(|e| envy::Error::Custom(format!("env parse: {e}")))?;
     Ok(env_obj.into())
 }
 
@@ -136,8 +144,12 @@ struct RawEnv {
     vault_token: String,
     #[serde(default)]
     otlp_endpoint: Option<String>,
-    #[serde(default)]
+    #[serde(default = "default_enable_mtls")]
     enable_mtls: bool,
+}
+
+fn default_enable_mtls() -> bool {
+    env_bool_or("ENABLE_MTLS", false)
 }
 
 fn default_service_name() -> String {
@@ -199,9 +211,18 @@ mod tests {
 
     #[test]
     fn environment_parsing() {
-        assert_eq!(Environment::from_str_or_default("PRODUCTION"), Environment::Production);
-        assert_eq!(Environment::from_str_or_default("staging"), Environment::Staging);
+        assert_eq!(
+            Environment::from_str_or_default("PRODUCTION"),
+            Environment::Production
+        );
+        assert_eq!(
+            Environment::from_str_or_default("staging"),
+            Environment::Staging
+        );
         assert_eq!(Environment::from_str_or_default("dev"), Environment::Dev);
-        assert_eq!(Environment::from_str_or_default("anything-else"), Environment::Local);
+        assert_eq!(
+            Environment::from_str_or_default("anything-else"),
+            Environment::Local
+        );
     }
 }

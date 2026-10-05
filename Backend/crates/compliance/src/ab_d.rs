@@ -18,7 +18,11 @@ use crate::config::ComplianceConfig;
 /// between `ab_d_multiplier_floor` (H_c=0) and 1.0 (H_c=1) — never zero so a
 /// brand-new account still gets a minimal, safe action allowance.
 pub fn ab_d(action: ActionType, h_c: f64, config: &ComplianceConfig) -> u32 {
-    let h_c_clamped = if h_c.is_nan() { 0.0 } else { h_c.clamp(0.0, 1.0) };
+    let h_c_clamped = if h_c.is_nan() {
+        0.0
+    } else {
+        h_c.clamp(0.0, 1.0)
+    };
 
     // cap_base for this action at standard (H_c ≥ standard_threshold) is the
     // value in `config.caps`. For warm-up (H_c < warmup_threshold) we use the
@@ -27,7 +31,8 @@ pub fn ab_d(action: ActionType, h_c: f64, config: &ComplianceConfig) -> u32 {
     let cap_warmup = config.warm_up_cap_for(action);
     let (cap_at_hc, _) = interpolate_caps(h_c_clamped, cap_warmup, cap_standard, config);
 
-    let multiplier = config.ab_d_multiplier_floor + (1.0 - config.ab_d_multiplier_floor) * h_c_clamped;
+    let multiplier =
+        config.ab_d_multiplier_floor + (1.0 - config.ab_d_multiplier_floor) * h_c_clamped;
     let multiplier_clamped = multiplier.clamp(config.ab_d_multiplier_floor, 1.0);
 
     (cap_at_hc as f64 * multiplier_clamped).floor() as u32
@@ -37,7 +42,12 @@ pub fn ab_d(action: ActionType, h_c: f64, config: &ComplianceConfig) -> u32 {
 /// thresholds (`h_c_warmup_threshold` and `h_c_standard_threshold`).
 ///
 /// Returns the cap and the cap-equivalent daily budget after applying AB_d.
-fn interpolate_caps(h_c: f64, cap_warmup: u32, cap_standard: u32, config: &ComplianceConfig) -> (u32, f64) {
+fn interpolate_caps(
+    h_c: f64,
+    cap_warmup: u32,
+    cap_standard: u32,
+    config: &ComplianceConfig,
+) -> (u32, f64) {
     if cap_standard == 0 {
         return (0, 0.0);
     }

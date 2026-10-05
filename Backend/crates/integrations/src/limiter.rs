@@ -39,7 +39,10 @@ fn lock_counters(
 impl RateLimiter {
     pub fn new(limits: Vec<EndpointLimit>) -> Self {
         Self {
-            limits: limits.into_iter().map(|l| (l.endpoint.clone(), l)).collect(),
+            limits: limits
+                .into_iter()
+                .map(|l| (l.endpoint.clone(), l))
+                .collect(),
             counters: Mutex::new(HashMap::new()),
         }
     }
@@ -105,6 +108,10 @@ impl RateLimiter {
     }
 }
 
+// `poisoned_counters_fail_closed` panics on purpose, inside a spawned thread,
+// to leave the counter mutex poisoned. The production `panic` deny does not
+// apply to a test that is deliberately causing a panic.
+#[allow(clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

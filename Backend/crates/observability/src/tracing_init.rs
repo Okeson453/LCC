@@ -2,9 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TracingConfig {
@@ -89,13 +87,17 @@ pub fn init_tracing(config: impl Into<TracingConfig>) -> Result<(), TracingError
                 .with_target(true)
                 .with_file(false)
                 .with_line_number(false);
-            registry.with(fmt_layer).try_init().map_err(|e| TracingError::Init(e.to_string()))?;
+            registry
+                .with(fmt_layer)
+                .try_init()
+                .map_err(|e| TracingError::Init(e.to_string()))?;
         }
         LogFormat::Pretty => {
-            let fmt_layer = fmt::layer()
-                .pretty()
-                .with_target(true);
-            registry.with(fmt_layer).try_init().map_err(|e| TracingError::Init(e.to_string()))?;
+            let fmt_layer = fmt::layer().pretty().with_target(true);
+            registry
+                .with(fmt_layer)
+                .try_init()
+                .map_err(|e| TracingError::Init(e.to_string()))?;
         }
     }
 

@@ -17,19 +17,22 @@ use axum::{
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::api::admin::ActivateConfigVersionRequest;
+use crate::api::admin::ActivateConfigVersionResponse;
 use crate::api::{
     activate_config, evaluate_action_http, list_config_versions, propose_config, review_config,
     ProposeConfigVersionRequest, ProposeConfigVersionResponse, ReviewConfigVersionRequest,
     ReviewConfigVersionResponse,
 };
-use crate::api::admin::ActivateConfigVersionRequest;
-use crate::api::admin::ActivateConfigVersionResponse;
 use crate::error::GovernorError;
 use crate::state::GovernorDeps;
 
 pub mod admin_rest;
 
-pub fn build_router(deps: Arc<GovernorDeps>, metrics: Arc<lcc_observability::metrics::Metrics>) -> Router {
+pub fn build_router(
+    deps: Arc<GovernorDeps>,
+    metrics: Arc<lcc_observability::metrics::Metrics>,
+) -> Router {
     Router::new()
         .route("/healthz", get(crate::health::healthz))
         .route("/readyz", get(crate::health::readyz))
@@ -133,10 +136,7 @@ async fn activate_config_handler(
 async fn evaluate_action_http_handler(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<crate::api::evaluate::EvaluateActionRequestDto>,
-) -> Result<
-    Json<crate::api::evaluate::EvaluateActionResponseDto>,
-    crate::error::GovernorError,
-> {
+) -> Result<Json<crate::api::evaluate::EvaluateActionResponseDto>, crate::error::GovernorError> {
     let (_status, resp) = evaluate_action_http(State(deps), Json(req)).await?;
     Ok(resp)
 }

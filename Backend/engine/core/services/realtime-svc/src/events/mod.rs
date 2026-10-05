@@ -11,7 +11,10 @@
 //!
 //! At-least-once delivery: dedup is the consumer's responsibility.
 
-use redis::{AsyncCommands, streams::{StreamReadOptions, StreamReadReply}};
+use redis::{
+    streams::{StreamReadOptions, StreamReadReply},
+    AsyncCommands,
+};
 use std::collections::HashMap;
 use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
@@ -23,7 +26,10 @@ pub const STREAM_KEY: &str = "lcc:realtime:events";
 pub const GROUP: &str = "lcc-realtime";
 
 pub async fn ensure_consumer_group(state: &AppState) -> Result<(), redis::RedisError> {
-    let mut conn = state.redis().get().await.map_err(|e| redis::RedisError::from((redis::ErrorKind::IoError, "pool", e.to_string())))?;
+    let mut conn =
+        state.redis().get().await.map_err(|e| {
+            redis::RedisError::from((redis::ErrorKind::IoError, "pool", e.to_string()))
+        })?;
     // MKSTREAM creates the stream if it doesn't exist. Idempotent.
     let r: redis::RedisResult<String> = redis::cmd("XGROUP")
         .arg("CREATE")
@@ -58,16 +64,17 @@ pub async fn run_consumer(state: AppState) {
 }
 
 async fn poll_once(state: &AppState) -> Result<(), redis::RedisError> {
-    let mut conn = state.redis().get().await.map_err(|e| redis::RedisError::from((redis::ErrorKind::IoError, "pool", e.to_string())))?;
+    let mut conn =
+        state.redis().get().await.map_err(|e| {
+            redis::RedisError::from((redis::ErrorKind::IoError, "pool", e.to_string()))
+        })?;
 
     let opts = StreamReadOptions::default()
         .group(GROUP, &state.config().subscriber_id)
         .count(100)
         .block(50);
 
-    let reply: StreamReadReply = conn
-        .xread_options(&[STREAM_KEY], &[">"], &opts)
-        .await?;
+    let reply: StreamReadReply = conn.xread_options(&[STREAM_KEY], &[">"], &opts).await?;
 
     for stream_key in reply.keys {
         for entry in stream_key.ids {
@@ -139,8 +146,17 @@ async fn poll_once(state: &AppState) -> Result<(), redis::RedisError> {
                 }
             }
 
-            // Fan out.
-            let sender = state.broadcast(target);
+            // Fan out. A channel with no sender is a configuration problem,
+            // not a reason to stall the stream: ack and drop, like the unknown
+            // event and failed-validation cases above.
+            let sender = match state.broadcast(target) {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!(error = %e, id = %stream_id, "no broadcast channel for event");
+                    ack(&mut conn, &stream_id).await?;
+                    continue;
+                }
+            };
             // `send` returns Err only if there are no receivers. That's
             // fine — just skip.
             let _ = sender.send(envelope);
@@ -168,7 +184,9 @@ async fn ack(
 pub fn route_event(event_name: &str) -> Option<Channel> {
     match event_name {
         "briefing.refresh" | "briefing.section.updated" => Some(Channel::Briefing),
-        "approval.created" | "approval.expired" | "approval.bulk_decided" => Some(Channel::Approvals),
+        "approval.created" | "approval.expired" | "approval.bulk_decided" => {
+            Some(Channel::Approvals)
+        }
         "engagement.inbound.received"
         | "engagement.task.created"
         | "engagement.draft_ready"
@@ -197,7 +215,9 @@ pub async fn publish_test_event(state: &AppState, env: EventEnvelope) {
     if env.validate_for(ch).is_err() {
         return;
     }
-    let _ = state.broadcast(ch).send(env);
+    if let Ok(sender) = state.broadcast(ch) {
+        let _ = sender.send(env);
+    }
 }
 
 /// Build a publish helper for upstream services (compile-time module that
@@ -259,14 +279,25 @@ mod tests {
     #[test]
     fn route_table_covers_all_contract_events() {
         let expected = [
-            "briefing.refresh", "briefing.section.updated",
-            "approval.created", "approval.expired", "approval.bulk_decided",
-            "engagement.inbound.received", "engagement.task.created",
-            "engagement.draft_ready", "engagement.task.expired",
-            "compliance.restriction_detected", "compliance.restriction_cleared",
-            "compliance.config_activated", "compliance.circuit_breaker_state_changed",
-            "sequence.reply_detected", "sequence.paused", "sequence.resumed",
-            "sequence.completed", "sequence.step.sent", "sequence.step.failed",
+            "briefing.refresh",
+            "briefing.section.updated",
+            "approval.created",
+            "approval.expired",
+            "approval.bulk_decided",
+            "engagement.inbound.received",
+            "engagement.task.created",
+            "engagement.draft_ready",
+            "engagement.task.expired",
+            "compliance.restriction_detected",
+            "compliance.restriction_cleared",
+            "compliance.config_activated",
+            "compliance.circuit_breaker_state_changed",
+            "sequence.reply_detected",
+            "sequence.paused",
+            "sequence.resumed",
+            "sequence.completed",
+            "sequence.step.sent",
+            "sequence.step.failed",
         ];
         for e in expected {
             assert!(route_event(e).is_some(), "missing route for {e}");

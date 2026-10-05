@@ -47,16 +47,17 @@ impl Default for IntegrationGatewayConfig {
     }
 }
 
-
 impl IntegrationGatewayConfig {
     pub fn from_env() -> Self {
         Self {
             service_name: "integration-gateway".into(),
             audit_svc_url: std::env::var("LCC_AUDIT_SVC_URL")
-                .ok().filter(|s| !s.is_empty())
+                .ok()
+                .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "http://audit-svc:8091".into()),
             compliance_governor_url: std::env::var("LCC_COMPLIANCE_GOVERNOR_URL")
-                .ok().filter(|s| !s.is_empty())
+                .ok()
+                .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "http://compliance-governor:8080".into()),
             http_port: std::env::var("HTTP_PORT")
                 .ok()
@@ -118,8 +119,3 @@ mod tests {
         std::env::remove_var("VAULT_ADDR");
     }
 }
-
-/// Alias so tooling and tests can refer to every service's config by the
-/// same name.
-pub type Config = IntegrationGatewayConfig;
-

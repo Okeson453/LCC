@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use crate::domain::{InteractionDirection, InteractionKind};
 use crate::error::Error;
+use crate::service::{NewCompany, NewContact};
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
@@ -29,7 +30,10 @@ pub fn build_router(state: AppState) -> Router {
             "/api/v1/contacts/:id/company",
             axum::routing::patch(link_company),
         )
-        .route("/api/v1/companies", get(list_companies).post(create_company))
+        .route(
+            "/api/v1/companies",
+            get(list_companies).post(create_company),
+        )
         .route("/api/v1/companies/staleness", get(staleness))
         .with_state(state)
 }
@@ -84,14 +88,16 @@ async fn create_contact(
         .service()
         .create_contact(
             m,
-            &req.full_name,
-            req.title.as_deref(),
-            req.headline.as_deref(),
-            req.linkedin_url.as_deref(),
-            req.email.as_deref(),
-            req.company_id,
-            req.tags.unwrap_or_default(),
-            req.notes.as_deref(),
+            NewContact {
+                full_name: &req.full_name,
+                title: req.title.as_deref(),
+                headline: req.headline.as_deref(),
+                linkedin_url: req.linkedin_url.as_deref(),
+                email: req.email.as_deref(),
+                company_id: req.company_id,
+                tags: req.tags.unwrap_or_default(),
+                notes: req.notes.as_deref(),
+            },
         )
         .await?;
     Ok((axum::http::StatusCode::CREATED, Json(c)))
@@ -234,15 +240,17 @@ async fn create_company(
         .service()
         .create_company(
             m,
-            &req.name,
-            req.domain.as_deref(),
-            req.industry.as_deref(),
-            req.size_band.as_deref(),
-            req.funding_stage.as_deref(),
-            req.tech_stack.unwrap_or_default(),
-            req.trigger_events.unwrap_or_default(),
-            req.public_signals.unwrap_or_default(),
-            req.ttl_at,
+            NewCompany {
+                name: &req.name,
+                domain: req.domain.as_deref(),
+                industry: req.industry.as_deref(),
+                size_band: req.size_band.as_deref(),
+                funding_stage: req.funding_stage.as_deref(),
+                tech_stack: req.tech_stack.unwrap_or_default(),
+                trigger_events: req.trigger_events.unwrap_or_default(),
+                public_signals: req.public_signals.unwrap_or_default(),
+                ttl_at: req.ttl_at,
+            },
         )
         .await?;
     Ok((axum::http::StatusCode::CREATED, Json(c)))
@@ -259,10 +267,7 @@ async fn staleness(
     Query(q): Query<StalenessQuery>,
 ) -> Result<impl IntoResponse, Error> {
     let m = require_member(&headers)?;
-    let r = state
-        .service()
-        .staleness(m, q.days.unwrap_or(60))
-        .await?;
+    let r = state.service().staleness(m, q.days.unwrap_or(60)).await?;
     Ok(Json(r))
 }
 

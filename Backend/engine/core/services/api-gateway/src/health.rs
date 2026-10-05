@@ -43,7 +43,7 @@ async fn readyz(State(state): State<AppState>) -> (axum::http::StatusCode, Json<
     for prefix in state.upstreams().bound_prefixes() {
         match state.upstreams().pool_for(prefix) {
             Some(pool) => {
-                let ok = probe(&pool).await;
+                let ok = probe(pool).await;
                 all_ok &= ok;
                 checks.push(json!({ "domain": prefix, "ok": ok }));
             }

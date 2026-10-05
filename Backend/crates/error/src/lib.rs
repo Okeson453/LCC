@@ -17,7 +17,10 @@ pub enum LccError {
     Validation(String),
 
     #[error("not found: {resource_type} {resource_id}")]
-    NotFound { resource_type: String, resource_id: String },
+    NotFound {
+        resource_type: String,
+        resource_id: String,
+    },
 
     #[error("conflict: {0}")]
     Conflict(String),
@@ -47,7 +50,10 @@ pub enum LccError {
     RlsContextMissing,
 
     #[error("tenant mismatch: token claims {token_member} but DB session is {session_member}")]
-    TenantMismatch { token_member: String, session_member: String },
+    TenantMismatch {
+        token_member: String,
+        session_member: String,
+    },
 
     #[error("database error: {0}")]
     Database(#[from] sqlx::Error),
@@ -58,8 +64,12 @@ pub enum LccError {
     #[error("gRPC transport: {0}")]
     GrpcTransport(#[from] tonic::transport::Error),
 
+    /// Boxed because `tonic::Status` is 176 bytes on its own, which made the
+    /// whole enum 176 bytes: every `Result<_, LccError>` in the workspace
+    /// carried a 176-byte error on the stack. Boxing one variant brings the
+    /// enum to 64 bytes. The `From` impl below keeps `?` working unchanged.
     #[error("gRPC status: {0}")]
-    GrpcStatus(#[from] tonic::Status),
+    GrpcStatus(Box<tonic::Status>),
 
     #[error("HTTP client error: {0}")]
     HttpClient(#[from] reqwest::Error),
@@ -147,7 +157,9 @@ impl LccError {
             LccError::AccountRestricted { .. } | LccError::RestrictionSignal { .. } => {
                 StatusCode::FORBIDDEN
             }
-            LccError::RlsContextMissing | LccError::TenantMismatch { .. } => StatusCode::UNAUTHORIZED,
+            LccError::RlsContextMissing | LccError::TenantMismatch { .. } => {
+                StatusCode::UNAUTHORIZED
+            }
             LccError::CircuitOpen { .. } => StatusCode::SERVICE_UNAVAILABLE,
             LccError::Timeout(_) => StatusCode::GATEWAY_TIMEOUT,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -255,6 +267,12 @@ impl ErrorEnvelope {
 
 /// Every service can render the same envelope, so the shape is defined once
 /// here rather than re-implemented (and drifting) per service.
+impl From<tonic::Status> for LccError {
+    fn from(status: tonic::Status) -> Self {
+        LccError::GrpcStatus(Box::new(status))
+    }
+}
+
 impl From<&LccError> for ErrorEnvelope {
     fn from(e: &LccError) -> Self {
         e.to_envelope()
@@ -267,6 +285,9 @@ impl From<LccError> for ErrorEnvelope {
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,7 +307,10 @@ mod tests {
             http::StatusCode::NOT_FOUND
         );
         assert_eq!(
-            LccError::RateLimited { retry_after_ms: 100 }.http_status(),
+            LccError::RateLimited {
+                retry_after_ms: 100
+            }
+            .http_status(),
             http::StatusCode::TOO_MANY_REQUESTS
         );
         assert_eq!(
@@ -303,10 +327,7 @@ mod tests {
     fn terminal_classification() {
         assert!(LccError::Forbidden("x".into()).is_terminal());
         assert!(LccError::OptimisticConflict.is_terminal());
-        assert!(LccError::AccountRestricted {
-            reason: "x".into()
-        }
-        .is_terminal());
+        assert!(LccError::AccountRestricted { reason: "x".into() }.is_terminal());
         assert!(!LccError::Timeout("x".into()).is_terminal());
     }
 

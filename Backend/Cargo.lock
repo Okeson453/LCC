@@ -1980,6 +1980,7 @@ name = "lcc-kb-svc"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "chrono",
  "deadpool-redis",
  "lcc-audit-client",

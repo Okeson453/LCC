@@ -21,22 +21,13 @@ pub fn build_router(state: AppState) -> Router {
             axum::routing::post(mark_read),
         )
         .route("/api/v1/engagement/queue", get(queue))
-        .route(
-            "/api/v1/engagement/tasks",
-            get(queue).post(create_task),
-        )
+        .route("/api/v1/engagement/tasks", get(queue).post(create_task))
         .route(
             "/api/v1/engagement/tasks/:id/draft",
             axum::routing::patch(update_draft),
         )
-        .route(
-            "/api/v1/engagement/tasks/:id/complete",
-            post(complete),
-        )
-        .route(
-            "/api/v1/engagement/tasks/:id/dismiss",
-            post(dismiss),
-        )
+        .route("/api/v1/engagement/tasks/:id/complete", post(complete))
+        .route("/api/v1/engagement/tasks/:id/dismiss", post(dismiss))
         .with_state(state)
 }
 
@@ -60,7 +51,11 @@ async fn inbox(
     let m = auth(&headers)?;
     let v = state
         .service()
-        .inbox(m, q.limit.unwrap_or(50).min(200), q.unread_only.unwrap_or(false))
+        .inbox(
+            m,
+            q.limit.unwrap_or(50).min(200),
+            q.unread_only.unwrap_or(false),
+        )
         .await?;
     Ok(Json(json!({"messages":v})))
 }
@@ -107,7 +102,14 @@ async fn create_task(
     let a = parse_action(&req.action_type)?;
     let t = state
         .service()
-        .create_task(m, a, req.contact_id, req.target_post_id, req.priority_score, req.due_at)
+        .create_task(
+            m,
+            a,
+            req.contact_id,
+            req.target_post_id,
+            req.priority_score,
+            req.due_at,
+        )
         .await?;
     Ok((axum::http::StatusCode::CREATED, Json(t)))
 }
@@ -126,7 +128,12 @@ async fn update_draft(
     Json(req): Json<DraftRequest>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    Ok(Json(state.service().update_draft(m, id, req.version, &req.draft, &req.draft_pins).await?))
+    Ok(Json(
+        state
+            .service()
+            .update_draft(m, id, req.version, &req.draft, &req.draft_pins)
+            .await?,
+    ))
 }
 
 #[derive(Deserialize)]
@@ -155,12 +162,16 @@ async fn dismiss(
 }
 
 fn auth(headers: &HeaderMap) -> Result<Uuid, Error> {
-    let token = headers.get(axum::http::header::AUTHORIZATION)
+    let token = headers
+        .get(axum::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .ok_or(Error::Unauthorized)?;
-    let claims = lcc_auth::verify_token(token, &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?)
-        .map_err(|_| Error::Unauthorized)?;
+    let claims = lcc_auth::verify_token(
+        token,
+        &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?,
+    )
+    .map_err(|_| Error::Unauthorized)?;
     Uuid::parse_str(&claims.sub).map_err(|_| Error::Unauthorized)
 }
 
@@ -190,4 +201,5 @@ fn parse_status(s: &str) -> Result<TaskStatus, Error> {
     })
 }
 
-#[allow(dead_code)] fn _t(_: Value) {}
+#[allow(dead_code)]
+fn _t(_: Value) {}

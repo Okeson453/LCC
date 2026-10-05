@@ -9,5 +9,9 @@ pub fn router() -> Router<crate::state::AppState> {
         .route("/readyz", get(readyz))
 }
 
-async fn healthz() -> Json<Value> { Json(json!({ "status": "ok" })) }
-async fn readyz() -> Json<Value> { Json(json!({ "status": "ready" })) }
+async fn healthz() -> Json<Value> {
+    Json(json!({ "status": "ok" }))
+}
+async fn readyz() -> Json<Value> {
+    Json(json!({ "status": "ready" }))
+}

@@ -53,5 +53,7 @@ impl axum::response::IntoResponse for Error {
 }
 
 impl From<sqlx::Error> for Error {
-    fn from(e: sqlx::Error) -> Self { Self::Internal(format!("db: {e}")) }
+    fn from(e: sqlx::Error) -> Self {
+        Self::Internal(format!("db: {e}"))
+    }
 }

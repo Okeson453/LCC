@@ -28,7 +28,6 @@ impl Default for Config {
     }
 }
 
-
 impl Config {
     pub fn from_env() -> Result<Self, String> {
         Ok(Self {
@@ -37,10 +36,14 @@ impl Config {
                 .unwrap_or_else(|_| "http://audit-svc:8091".to_string()),
             compliance_governor_url: std::env::var("LCC_COMPLIANCE_GOVERNOR_URL")
                 .unwrap_or_else(|_| "http://compliance-governor:8080".to_string()),
-            database_url: std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL not set".to_string())?,
-            redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string()),
-            http_port: std::env::var("LCC_HTTP_PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(8086),
+            database_url: std::env::var("DATABASE_URL")
+                .map_err(|_| "DATABASE_URL not set".to_string())?,
+            redis_url: std::env::var("REDIS_URL")
+                .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string()),
+            http_port: std::env::var("LCC_HTTP_PORT")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(8086),
         })
     }
 }
-

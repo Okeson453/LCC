@@ -39,7 +39,7 @@ pub fn route(action_type: ActionType, config: &ComplianceConfig) -> Track {
         action_type,
         // Track A actions
         PostPublish  // organization-page only — at integration time, check author kind
-        | KbRecordCreate  // NOT actually LinkedIn API — but RAG retrieval; this maps to None
+        | KbRecordCreate // NOT actually LinkedIn API — but RAG retrieval; this maps to None
     );
 
     // Action types that always go to Track B (human-assist).
@@ -56,9 +56,12 @@ pub fn route(action_type: ActionType, config: &ComplianceConfig) -> Track {
 
     if track_b_explicit {
         Track::TrackB
-    } else if in_api_set && config.api_supported_set().map(|set| {
-        set.iter().any(|s| s == "organization_page_post_publish")
-    }).unwrap_or(false) {
+    } else if in_api_set
+        && config
+            .api_supported_set()
+            .map(|set| set.iter().any(|s| s == "organization_page_post_publish"))
+            .unwrap_or(false)
+    {
         Track::TrackA
     } else {
         Track::TrackB
@@ -69,7 +72,11 @@ pub fn route(action_type: ActionType, config: &ComplianceConfig) -> Track {
 /// the API_SUPPORTED_SET, personal-profile posting is not supported by the
 /// official API. The caller must check `is_organization_page` and downgrade
 /// to Track B for personal profiles.
-pub fn route_with_post_target(action_type: ActionType, is_organization: bool, config: &ComplianceConfig) -> Track {
+pub fn route_with_post_target(
+    action_type: ActionType,
+    is_organization: bool,
+    config: &ComplianceConfig,
+) -> Track {
     if action_type == ActionType::PostPublish && !is_organization {
         return Track::TrackB;
     }

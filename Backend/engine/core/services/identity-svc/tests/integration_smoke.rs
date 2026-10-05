@@ -1,7 +1,6 @@
 //! Smoke tests for identity-svc.
 
 use lcc_identity_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

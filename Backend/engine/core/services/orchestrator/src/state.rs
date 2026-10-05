@@ -15,10 +15,7 @@ struct Inner {
 }
 
 impl AppState {
-    pub async fn new(
-        db_pool: sqlx::PgPool,
-        redis: deadpool_redis::Pool,
-    ) -> Self {
+    pub async fn new(db_pool: sqlx::PgPool, redis: deadpool_redis::Pool) -> Self {
         let repo = PgRepository::new(db_pool.clone());
         let service = Arc::new(Service::new(repo, redis.clone()));
         Self(Arc::new(Inner {

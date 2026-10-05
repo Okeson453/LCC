@@ -100,7 +100,11 @@ pub fn restriction_denial_reason(restricted_reason: &str) -> String {
 }
 
 /// Helper: build a reason for cooldown failure.
-pub fn cooldown_denial_reason(action_type: ActionType, last_action_ms: i64, min_spacing_ms: i64) -> String {
+pub fn cooldown_denial_reason(
+    action_type: ActionType,
+    last_action_ms: i64,
+    min_spacing_ms: i64,
+) -> String {
     format!(
         "cooldown_violated: {action_type:?} last_action_ms_ago={last_action_ms} min_spacing_ms={min_spacing_ms}"
     )

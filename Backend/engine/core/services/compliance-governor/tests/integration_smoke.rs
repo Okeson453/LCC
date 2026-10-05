@@ -1,7 +1,6 @@
 //! Smoke tests for compliance-governor.
 
 use compliance_governor::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

@@ -110,14 +110,13 @@ impl UpstreamRegistry {
         // contract. If we see a 5th segment == "briefing", route to the
         // orchestrator's pool regardless of the parent domain being
         // `members`.
-        let effective_domain = if parts.len() >= 5
-            && parts[..4] == ["api", "v1", "members"]
-            && parts[4] == "briefing"
-        {
-            "briefing"
-        } else {
-            domain
-        };
+        let effective_domain =
+            if parts.len() >= 5 && parts[..4] == ["api", "v1", "members"] && parts[4] == "briefing"
+            {
+                "briefing"
+            } else {
+                domain
+            };
 
         self.bindings
             .iter()
@@ -163,7 +162,6 @@ impl UpstreamRegistry {
             full_path.to_string()
         }
     }
-
 
     /// Prefixes that are currently bound. Surfaced on the gateway root route so
     /// a running deployment can be inspected for missing bindings.
@@ -225,9 +223,11 @@ type Bytes = axum::body::Bytes;
 
 /// Copy an upstream response back to the client, preserving status and
 /// end-to-end headers.
-async fn translate_response(upstream: ReqwestResponse) -> Result<(StatusCode, HeaderMap, Body), ApiGatewayError> {
-    let status = StatusCode::from_u16(upstream.status().as_u16())
-        .unwrap_or(StatusCode::BAD_GATEWAY);
+async fn translate_response(
+    upstream: ReqwestResponse,
+) -> Result<(StatusCode, HeaderMap, Body), ApiGatewayError> {
+    let status =
+        StatusCode::from_u16(upstream.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let headers = upstream.headers().clone();
     let bytes = upstream
         .bytes()
@@ -262,7 +262,11 @@ pub async fn read_body(body: Body) -> Result<Bytes, ApiGatewayError> {
 }
 
 /// Build the upstream URL for a path, honouring the client's original query.
-pub fn upstream_uri(base_url: &str, full_path: &str, query: Option<&str>) -> Result<Uri, ApiGatewayError> {
+pub fn upstream_uri(
+    base_url: &str,
+    full_path: &str,
+    query: Option<&str>,
+) -> Result<Uri, ApiGatewayError> {
     let joined = format!("{base_url}{full_path}");
     let with_query = match query {
         Some(q) if !q.is_empty() => format!("{joined}?{q}"),

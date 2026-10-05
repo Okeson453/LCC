@@ -135,7 +135,9 @@ impl Consumer {
                 Some(d) => d,
                 None => {
                     // Ack and skip — malformed entry.
-                    let _: i64 = conn.xack(&stream_key, &self.consumer_group, &[&stream_id]).await?;
+                    let _: i64 = conn
+                        .xack(&stream_key, &self.consumer_group, &[&stream_id])
+                        .await?;
                     continue;
                 }
             };
@@ -153,7 +155,9 @@ impl Consumer {
                     .await;
                 if matches!(set, Ok(false)) {
                     // Already processed — ack and skip.
-                    let _: i64 = conn.xack(&stream_key, &self.consumer_group, &[&stream_id]).await?;
+                    let _: i64 = conn
+                        .xack(&stream_key, &self.consumer_group, &[&stream_id])
+                        .await?;
                     continue;
                 }
             }
@@ -163,14 +167,18 @@ impl Consumer {
                 Ok(e) => e,
                 Err(err) => {
                     tracing::warn!(error = %err, stream_id = %stream_id, "failed to parse envelope; acking");
-                    let _: i64 = conn.xack(&stream_key, &self.consumer_group, &[&stream_id]).await?;
+                    let _: i64 = conn
+                        .xack(&stream_key, &self.consumer_group, &[&stream_id])
+                        .await?;
                     continue;
                 }
             };
 
             match handler.handle(envelope).await {
                 Ok(()) => {
-                    let _: i64 = conn.xack(&stream_key, &self.consumer_group, &[&stream_id]).await?;
+                    let _: i64 = conn
+                        .xack(&stream_key, &self.consumer_group, &[&stream_id])
+                        .await?;
                     processed += 1;
                 }
                 Err(e) => {
@@ -194,6 +202,9 @@ impl Consumer {
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

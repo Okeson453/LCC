@@ -10,7 +10,9 @@ use serde_json::Value as JsonValue;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{ConsentKind, ConsentRecord, EditDraftStatus, ProfileEditDraft, ProfileSnapshot};
+use crate::domain::{
+    ConsentKind, ConsentRecord, EditDraftStatus, ProfileEditDraft, ProfileSnapshot,
+};
 use crate::error::Error;
 
 #[derive(Clone)]
@@ -18,24 +20,27 @@ pub struct PgRepository {
     pool: PgPool,
 }
 
+/// A `lcc.profile_snapshots` row. Column order must match the SELECT below.
+type ProfileSnapshotRow = (
+    Uuid,          // id
+    Uuid,          // member_id
+    i32,           // version
+    String,        // headline
+    String,        // summary
+    Vec<String>,   // skills
+    JsonValue,     // experiences
+    JsonValue,     // education
+    Vec<Uuid>,     // kb_ref_ids
+    DateTime<Utc>, // created_at
+);
+
 impl PgRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
     pub async fn get_current(&self, member_id: Uuid) -> Result<ProfileSnapshot, Error> {
-        let row: (
-            Uuid,
-            Uuid,
-            i32,
-            String,
-            String,
-            Vec<String>,
-            JsonValue,
-            JsonValue,
-            Vec<Uuid>,
-            DateTime<Utc>,
-        ) = sqlx::query_as(
+        let row: ProfileSnapshotRow = sqlx::query_as(
             r#"
             SELECT id, member_id, version, headline, summary, skills,
                    experiences, education, kb_ref_ids, created_at
@@ -48,7 +53,9 @@ impl PgRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| match e {
-            sqlx::Error::RowNotFound => Error::NotFound(format!("no profile for member {member_id}")),
+            sqlx::Error::RowNotFound => {
+                Error::NotFound(format!("no profile for member {member_id}"))
+            }
             other => Error::Internal(format!("get profile: {other}")),
         })?;
 
@@ -163,7 +170,15 @@ impl PgRepository {
         member_id: Uuid,
         kind: ConsentKind,
     ) -> Result<ConsentRecord, Error> {
-        let row: (Uuid, Uuid, String, bool, DateTime<Utc>, Option<DateTime<Utc>>, i32) = sqlx::query_as(
+        let row: (
+            Uuid,
+            Uuid,
+            String,
+            bool,
+            DateTime<Utc>,
+            Option<DateTime<Utc>>,
+            i32,
+        ) = sqlx::query_as(
             r#"
             SELECT id, member_id, consent_kind::TEXT, granted,
                    granted_at, expires_at, version

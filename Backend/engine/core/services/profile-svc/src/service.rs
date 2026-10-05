@@ -44,7 +44,9 @@ impl Service {
         snapshot.id = Uuid::new_v4();
         snapshot.created_at = Utc::now();
 
-        self.repo.insert_snapshot(&snapshot, expected_version).await?;
+        self.repo
+            .insert_snapshot(&snapshot, expected_version)
+            .await?;
 
         // Emit audit event — best-effort, never blocks the snapshot.
         let audit_event = serde_json::json!({

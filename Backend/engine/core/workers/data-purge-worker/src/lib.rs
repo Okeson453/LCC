@@ -33,7 +33,9 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn from_env() -> Self { Self::default() }
+    pub fn from_env() -> Self {
+        Self::default()
+    }
 }
 
 pub async fn run(cfg: Config) -> Result<(), Box<dyn std::error::Error>> {

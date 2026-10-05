@@ -27,6 +27,14 @@
 //! }
 //! ```
 
+// The message names below mirror `proto/lcc/v1/intelligence/scoring.proto`
+// verbatim. prost derives Rust type names from the proto message names, so
+// `buf generate` would produce `ComputeH_cRequest`/`ComputeH_cResponse` with
+// exactly these spellings. Renaming the hand-written copies to satisfy
+// `non_camel_case_types` would leave the two definitions disagreeing the next
+// time someone regenerates, so the lint is suppressed here instead.
+#![allow(non_camel_case_types)]
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -45,7 +53,7 @@ pub struct ComputeH_cRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct H_cComponents {
+pub struct HCComponents {
     pub acceptance_rate: f64,
     pub reply_rate: f64,
     pub quota_utilization: f64,
@@ -56,7 +64,7 @@ pub struct H_cComponents {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct H_cResult {
     pub h_c: f64,
-    pub components: Option<H_cComponents>,
+    pub components: Option<HCComponents>,
     pub computed_at_unix_ms: i64,
     pub h_c_undefined: bool,
     pub reason: String,
@@ -137,6 +145,9 @@ pub struct CalibrationStatusResponse {
     pub last_rho_fit_at_unix_ms: i64,
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,7 +156,7 @@ mod tests {
     fn h_c_result_serializes() {
         let r = H_cResult {
             h_c: 0.65,
-            components: Some(H_cComponents {
+            components: Some(HCComponents {
                 acceptance_rate: 0.7,
                 reply_rate: 0.5,
                 quota_utilization: 0.4,

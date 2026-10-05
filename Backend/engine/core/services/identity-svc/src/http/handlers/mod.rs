@@ -144,7 +144,8 @@ pub async fn members_get(
     Path(member_id): Path<Uuid>,
 ) -> Result<Json<Member>, Error> {
     let claims = require_member(&state, &headers)?;
-    if claims.sub_as_uuid()? != member_id && !claims.role_is("admin") && !claims.role_is("auditor") {
+    if claims.sub_as_uuid()? != member_id && !claims.role_is("admin") && !claims.role_is("auditor")
+    {
         return Err(Error::Forbidden(
             "non-self reads require role=admin or auditor".into(),
         ));

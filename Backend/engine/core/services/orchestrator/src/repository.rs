@@ -9,19 +9,56 @@ use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{
-    Briefing, BriefingSections, BriefingKind,
-};
 use crate::domain::lcc_approval::ApprovalSummary;
 use crate::domain::lcc_engagement::TaskSummary;
 use crate::domain::lcc_opportunity::OpportunitySummary;
 use crate::domain::lcc_outreach::SequenceSummary;
+use crate::domain::{Briefing, BriefingKind, BriefingSections};
 use crate::error::Error;
 
 #[derive(Clone)]
 pub struct PgRepository {
     pool: PgPool,
 }
+
+/// An active sequence with a step due now. Column order must match the SELECT
+/// below.
+type ActiveSequenceRow = (
+    Uuid,                  // sequence_id
+    Uuid,                  // contact_id
+    i32,                   // current_step
+    Option<DateTime<Utc>>, // last_step_sent_at
+    String,                // status
+);
+
+/// A pending approval as the briefing query returns it. Column order must match
+/// the SELECT below.
+type PendingApprovalRow = (
+    Uuid,                  // id
+    String,                // resource_type
+    String,                // requested_action
+    i16,                   // tier
+    DateTime<Utc>,         // created_at
+    Option<DateTime<Utc>>, // expires_at
+);
+
+/// A hot opportunity, with the company name joined in (nullable).
+type HotOpportunityRow = (
+    Uuid,           // opportunity_id
+    Option<String>, // company name
+    Option<String>, // position
+    Option<f64>,    // fit_score
+    String,         // status
+    DateTime<Utc>,  // discovered_at
+);
+
+/// A queued or drafted reply awaiting action.
+type QueuedReplyRow = (
+    Uuid,                  // id
+    String,                // action_type
+    Option<f64>,           // priority_score
+    Option<DateTime<Utc>>, // due_at
+);
 
 impl PgRepository {
     pub fn new(pool: PgPool) -> Self {
@@ -39,9 +76,8 @@ impl PgRepository {
         member_id: Uuid,
         limit: i64,
     ) -> Result<Vec<ApprovalSummary>, Error> {
-        let rows: Vec<(Uuid, String, String, i16, DateTime<Utc>, Option<DateTime<Utc>>)> =
-            sqlx::query_as(
-                r#"
+        let rows: Vec<PendingApprovalRow> = sqlx::query_as(
+            r#"
                 SELECT id, resource_type, requested_action->>'action_type',
                        tier::INT, created_at, expires_at
                 FROM lcc.approvals
@@ -49,25 +85,25 @@ impl PgRepository {
                 ORDER BY created_at ASC
                 LIMIT $2
                 "#,
-            )
-            .bind(member_id)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| Error::Internal(format!("approvals query: {e}")))?;
+        )
+        .bind(member_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::Internal(format!("approvals query: {e}")))?;
 
         Ok(rows
             .into_iter()
-            .map(|(id, resource_type, action_type, tier, created_at, expires_at)| {
-                ApprovalSummary {
+            .map(
+                |(id, resource_type, action_type, tier, created_at, expires_at)| ApprovalSummary {
                     id,
                     resource_type,
                     action_type,
                     tier,
                     created_at,
                     expires_at,
-                }
-            })
+                },
+            )
             .collect())
     }
 
@@ -77,9 +113,8 @@ impl PgRepository {
         member_id: Uuid,
         limit: i64,
     ) -> Result<Vec<OpportunitySummary>, Error> {
-        let rows: Vec<(Uuid, Option<String>, Option<String>, Option<f64>, String, DateTime<Utc>)> =
-            sqlx::query_as(
-                r#"
+        let rows: Vec<HotOpportunityRow> = sqlx::query_as(
+            r#"
                 SELECT o.id, c.name, o.position::TEXT AS position,
                        o.fit_score, o.status::TEXT AS status, o.discovered_at
                 FROM lcc.opportunities o
@@ -90,25 +125,27 @@ impl PgRepository {
                 ORDER BY o.fit_score DESC NULLS LAST, o.discovered_at DESC
                 LIMIT $2
                 "#,
-            )
-            .bind(member_id)
-            .bind(limit)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(|e| Error::Internal(format!("opportunities query: {e}")))?;
+        )
+        .bind(member_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::Internal(format!("opportunities query: {e}")))?;
 
         Ok(rows
             .into_iter()
-            .map(|(id, company_name, position, fit_score, status, discovered_at)| {
-                OpportunitySummary {
-                    id,
-                    company_name,
-                    position,
-                    fit_score,
-                    status,
-                    discovered_at,
-                }
-            })
+            .map(
+                |(id, company_name, position, fit_score, status, discovered_at)| {
+                    OpportunitySummary {
+                        id,
+                        company_name,
+                        position,
+                        fit_score,
+                        status,
+                        discovered_at,
+                    }
+                },
+            )
             .collect())
     }
 
@@ -118,7 +155,7 @@ impl PgRepository {
         member_id: Uuid,
         limit: i64,
     ) -> Result<Vec<TaskSummary>, Error> {
-        let rows: Vec<(Uuid, String, Option<f64>, Option<DateTime<Utc>>)> = sqlx::query_as(
+        let rows: Vec<QueuedReplyRow> = sqlx::query_as(
             r#"
             SELECT id, action_type, priority_score, due_at
             FROM lcc.engagement_replies
@@ -152,7 +189,7 @@ impl PgRepository {
         member_id: Uuid,
         limit: i64,
     ) -> Result<Vec<SequenceSummary>, Error> {
-        let rows: Vec<(Uuid, Uuid, i32, Option<DateTime<Utc>>, String)> = sqlx::query_as(
+        let rows: Vec<ActiveSequenceRow> = sqlx::query_as(
             r#"
             SELECT s.id, s.contact_id, s.current_step,
                    s.last_step_sent_at, s.status::TEXT AS status
@@ -177,15 +214,15 @@ impl PgRepository {
 
         Ok(rows
             .into_iter()
-            .map(|(id, contact_id, current_step, last_step_sent_at, status)| {
-                SequenceSummary {
+            .map(
+                |(id, contact_id, current_step, last_step_sent_at, status)| SequenceSummary {
                     id,
                     contact_id,
                     current_step,
                     last_step_sent_at,
                     status,
-                }
-            })
+                },
+            )
             .collect())
     }
 

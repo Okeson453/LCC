@@ -12,11 +12,69 @@ pub struct PgRepository {
     pool: PgPool,
 }
 
+/// A `lcc.kb_records` row. Column order must match the SELECT below.
+type KbRecordRow = (
+    Uuid,           // id
+    Uuid,           // member_id
+    String,         // kind
+    String,         // title
+    String,         // body
+    Option<String>, // source
+    Vec<String>,    // tags
+    Option<String>, // embedding_id
+    String,         // embedding_status
+    i32,            // version
+    DateTime<Utc>,  // created_at
+    DateTime<Utc>,  // updated_at
+);
+
+/// The last row of a page, from which the next page's cursor is built.
+type CursorKey = (DateTime<Utc>, Uuid);
+
+/// Encode a `(created_at, id)` keyset position as an opaque cursor.
+pub fn encode_cursor(created_at: DateTime<Utc>, id: Uuid) -> String {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+    URL_SAFE_NO_PAD.encode(format!("{}|{id}", created_at.to_rfc3339()))
+}
+
+/// Decode a cursor produced by [`encode_cursor`].
+///
+/// A malformed cursor is an error rather than a silent "start from the
+/// beginning": returning page one again would look like a working empty page
+/// and hide the bug from whoever called it.
+fn decode_cursor(cursor: &str) -> Result<CursorKey, Error> {
+    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+    let raw = URL_SAFE_NO_PAD
+        .decode(cursor)
+        .map_err(|e| Error::Validation(format!("malformed cursor: {e}")))?;
+    let raw =
+        String::from_utf8(raw).map_err(|e| Error::Validation(format!("malformed cursor: {e}")))?;
+    let (ts, id) = raw
+        .split_once('|')
+        .ok_or_else(|| Error::Validation("malformed cursor".into()))?;
+    let created_at = DateTime::parse_from_rfc3339(ts)
+        .map_err(|e| Error::Validation(format!("malformed cursor timestamp: {e}")))?
+        .with_timezone(&Utc);
+    let id = id
+        .parse::<Uuid>()
+        .map_err(|e| Error::Validation(format!("malformed cursor id: {e}")))?;
+    Ok((created_at, id))
+}
+
 impl PgRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// List a member's KB records, newest first.
+    ///
+    /// `cursor` is the opaque token from a previous page: it encodes the
+    /// `(created_at, id)` of the last row seen and the query resumes strictly
+    /// after it. Previously the parameter was accepted and dropped, so every
+    /// page came back identical and a client scrolling the list would loop on
+    /// the same records forever. `id` is part of the key because `created_at`
+    /// alone is not unique, and without a tiebreaker the keyset comparison
+    /// can skip or repeat rows that share a timestamp.
     pub async fn list(
         &self,
         member_id: Uuid,
@@ -24,20 +82,9 @@ impl PgRepository {
         limit: i64,
         cursor: Option<String>,
     ) -> Result<Vec<KbRecord>, Error> {
-        let rows: Vec<(
-            Uuid,
-            Uuid,
-            String,
-            String,
-            String,
-            Option<String>,
-            Vec<String>,
-            Option<String>,
-            String,
-            i32,
-            DateTime<Utc>,
-            DateTime<Utc>,
-        )> = if let Some(kind) = kind {
+        let keyset = cursor.as_deref().map(decode_cursor).transpose()?;
+
+        let rows: Vec<KbRecordRow> = if let Some(kind) = kind {
             sqlx::query_as(
                 r#"
                 SELECT id, member_id, kind::TEXT, title, body, source, tags,
@@ -45,12 +92,15 @@ impl PgRepository {
                        created_at, updated_at
                 FROM lcc.kb_records
                 WHERE member_id = $1 AND kind = $2::text
-                ORDER BY created_at DESC
-                LIMIT $3
+                  AND ($3::timestamptz IS NULL OR (created_at, id) < ($3::timestamptz, $4::uuid))
+                ORDER BY created_at DESC, id DESC
+                LIMIT $5
                 "#,
             )
             .bind(member_id)
             .bind(kind.as_str())
+            .bind(keyset.as_ref().map(|(ts, _)| *ts))
+            .bind(keyset.as_ref().map(|(_, id)| *id))
             .bind(limit)
             .fetch_all(&self.pool)
             .await?
@@ -62,40 +112,24 @@ impl PgRepository {
                        created_at, updated_at
                 FROM lcc.kb_records
                 WHERE member_id = $1
-                ORDER BY created_at DESC
-                LIMIT $2
+                  AND ($2::timestamptz IS NULL OR (created_at, id) < ($2::timestamptz, $3::uuid))
+                ORDER BY created_at DESC, id DESC
+                LIMIT $4
                 "#,
             )
             .bind(member_id)
+            .bind(keyset.as_ref().map(|(ts, _)| *ts))
+            .bind(keyset.as_ref().map(|(_, id)| *id))
             .bind(limit)
             .fetch_all(&self.pool)
             .await?
         };
 
-        rows.into_iter()
-            .map(map_row)
-            .collect::<Result<Vec<_>, _>>()
-            .map(|v: Vec<KbRecord>| {
-                let _ = cursor;
-                v
-            })
+        rows.into_iter().map(map_row).collect()
     }
 
     pub async fn get(&self, member_id: Uuid, id: Uuid) -> Result<KbRecord, Error> {
-        let row: (
-            Uuid,
-            Uuid,
-            String,
-            String,
-            String,
-            Option<String>,
-            Vec<String>,
-            Option<String>,
-            String,
-            i32,
-            DateTime<Utc>,
-            DateTime<Utc>,
-        ) = sqlx::query_as(
+        let row: KbRecordRow = sqlx::query_as(
             r#"
             SELECT id, member_id, kind::TEXT, title, body, source, tags,
                    embedding_id, embedding_status::TEXT, version,
@@ -112,7 +146,7 @@ impl PgRepository {
             sqlx::Error::RowNotFound => Error::NotFound(format!("kb record {id}")),
             other => Error::Internal(format!("get kb: {other}")),
         })?;
-        Ok(map_row(row)?)
+        map_row(row)
     }
 
     pub async fn insert(&self, r: &KbRecord) -> Result<(), Error> {
@@ -237,28 +271,12 @@ impl PgRepository {
     }
 }
 
-fn map_row(
-    row: (
-        Uuid,
-        Uuid,
-        String,
-        String,
-        String,
-        Option<String>,
-        Vec<String>,
-        Option<String>,
-        String,
-        i32,
-        DateTime<Utc>,
-        DateTime<Utc>,
-    ),
-) -> Result<KbRecord, Error> {
+fn map_row(row: KbRecordRow) -> Result<KbRecord, Error> {
     use serde_json::Value;
     let kind = serde_json::from_value::<KbKind>(Value::String(row.2.clone()))
         .map_err(|e| Error::Internal(format!("kind parse: {e}")))?;
-    let embedding_status =
-        serde_json::from_value::<EmbeddingStatus>(Value::String(row.8.clone()))
-            .map_err(|e| Error::Internal(format!("status parse: {e}")))?;
+    let embedding_status = serde_json::from_value::<EmbeddingStatus>(Value::String(row.8.clone()))
+        .map_err(|e| Error::Internal(format!("status parse: {e}")))?;
     Ok(KbRecord {
         id: row.0,
         member_id: row.1,

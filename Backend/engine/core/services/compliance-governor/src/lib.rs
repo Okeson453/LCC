@@ -43,8 +43,14 @@ pub struct GovernorDeps {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GovernorDecision {
     Permit(PermitMetadata),
-    Deny { failed_guard: String, reason: String },
-    Defer { reason: String, retry_after_ms: u64 },
+    Deny {
+        failed_guard: String,
+        reason: String,
+    },
+    Defer {
+        reason: String,
+        retry_after_ms: u64,
+    },
 }
 
 /// PermitMetadata — what the Governor returns on PERMIT.
@@ -132,9 +138,9 @@ pub async fn evaluate_action(
         if !result.passed {
             let failed_guard = guard.name().to_string();
             let reason = result.reason;
-            deps.audit
-                .record_quick(lcc_audit_client::AuditEvent::new(
-                    format!("system:compliance-governor"),
+            deps.audit.record_quick(
+                lcc_audit_client::AuditEvent::new(
+                    "system:compliance-governor",
                     "guard.deny",
                     "candidate_action",
                 )
@@ -142,10 +148,14 @@ pub async fn evaluate_action(
                 .member_id(action.member_id)
                 .outcome(AuditOutcome::Denied)
                 .reason(format!("{failed_guard}: {reason}"))
-                .idempotency_key(action.idempotency_key.clone()));
+                .idempotency_key(action.idempotency_key.clone()),
+            );
 
             return EvaluateResult {
-                decision: GovernorDecision::Deny { failed_guard, reason },
+                decision: GovernorDecision::Deny {
+                    failed_guard,
+                    reason,
+                },
                 guard_evaluation_duration_ms: start.elapsed().as_millis() as u64,
             };
         }
@@ -186,12 +196,12 @@ pub async fn evaluate_action(
         delay_ms: 0,
         reserve_consumed: false,
         active_compliance_config_version: account.active_compliance_config_version.clone(),
-        issued_at: chrono::DateTime::from_timestamp(claims.iat, 0).unwrap_or_else(|| Utc::now()),
-        expires_at: chrono::DateTime::from_timestamp(claims.exp, 0).unwrap_or_else(|| Utc::now()),
+        issued_at: chrono::DateTime::from_timestamp(claims.iat, 0).unwrap_or_else(Utc::now),
+        expires_at: chrono::DateTime::from_timestamp(claims.exp, 0).unwrap_or_else(Utc::now),
     };
 
-    deps.audit
-        .record_quick(lcc_audit_client::AuditEvent::new(
+    deps.audit.record_quick(
+        lcc_audit_client::AuditEvent::new(
             "system:compliance-governor",
             "guard.permit",
             "candidate_action",
@@ -199,7 +209,8 @@ pub async fn evaluate_action(
         .resource_id(action.id)
         .member_id(action.member_id)
         .outcome(AuditOutcome::Success)
-        .idempotency_key(action.idempotency_key.clone()));
+        .idempotency_key(action.idempotency_key.clone()),
+    );
 
     EvaluateResult {
         decision: GovernorDecision::Permit(permit),
@@ -207,6 +218,9 @@ pub async fn evaluate_action(
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

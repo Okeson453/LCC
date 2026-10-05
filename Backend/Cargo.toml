@@ -100,11 +100,14 @@ mockall = "0.13"
 parking_lot = "0.12"
 
 [workspace.lints.clippy]
+# Groups are set to priority -1 so the individual lints below, which stay at the
+# default priority 0, reliably override their groups. With everything at 0,
+# `clippy::lint_groups_priority` rejects the file and the override is undefined.
 all = { level = "warn", priority = -1 }
-correctness = { level = "deny" }
-suspicious = { level = "warn" }
-complexity = { level = "warn" }
-perf = { level = "warn" }
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"

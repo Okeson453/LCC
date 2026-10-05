@@ -26,6 +26,6 @@ pub mod error;
 pub mod events;
 pub mod health;
 pub mod http;
+pub mod sse;
 pub mod state;
 pub mod ws;
-pub mod sse;

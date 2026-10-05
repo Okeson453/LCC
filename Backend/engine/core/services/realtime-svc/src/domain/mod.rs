@@ -41,10 +41,7 @@ impl Channel {
 
     pub fn allowed_events(&self) -> &'static [&'static str] {
         match self {
-            Self::Briefing => &[
-                "briefing.refresh",
-                "briefing.section.updated",
-            ],
+            Self::Briefing => &["briefing.refresh", "briefing.section.updated"],
             Self::Approvals => &[
                 "approval.created",
                 "approval.expired",

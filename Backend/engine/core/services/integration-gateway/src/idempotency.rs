@@ -9,7 +9,15 @@ use chrono::{DateTime, Duration, Utc};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use uuid::Uuid;
+
+/// A stored idempotency record: the cached response to replay for a key.
+type IdempotencyRow = (
+    String,            // key
+    i32,               // response_status
+    serde_json::Value, // response_body
+    DateTime<Utc>,     // created_at
+    DateTime<Utc>,     // expires_at
+);
 
 #[derive(Debug, Error)]
 pub enum IdempotencyError {
@@ -21,8 +29,6 @@ pub enum IdempotencyError {
     RedisPool(#[from] deadpool_redis::PoolError),
     #[error("postgres: {0}")]
     Postgres(#[from] sqlx::Error),
-    #[error("not found")]
-    NotFound,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,17 +63,16 @@ impl IdempotencyStore {
         }
 
         // Fall back to Postgres (durable mirror).
-        let row: Option<(String, i32, serde_json::Value, DateTime<Utc>, DateTime<Utc>)> =
-            sqlx::query_as(
-                r#"
+        let row: Option<IdempotencyRow> = sqlx::query_as(
+            r#"
                 SELECT key, response_status, response_body, created_at, expires_at
                 FROM idempotency_key
                 WHERE key = $1 AND expires_at > now()
                 "#,
-            )
-            .bind(key)
-            .fetch_optional(&self.postgres)
-            .await?;
+        )
+        .bind(key)
+        .fetch_optional(&self.postgres)
+        .await?;
         if let Some((k, status, body, stored_at, expires_at)) = row {
             Ok(Some(IdempotentResult {
                 key: k,
@@ -131,11 +136,6 @@ impl IdempotencyStore {
 
         Ok(())
     }
-
-    /// Generate the canonical idempotency key for an action.
-    pub fn key_for(action_type: &str, resource_id: &Uuid, version: u32) -> String {
-        format!("{}:{}:{}", action_type, resource_id, version)
-    }
 }
 
 fn hash_key(s: &str) -> String {
@@ -148,13 +148,6 @@ fn hash_key(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn key_format() {
-        let id = Uuid::nil();
-        let k = IdempotencyStore::key_for("post_publish", &id, 1);
-        assert_eq!(k, "post_publish:00000000-0000-0000-0000-000000000000:1");
-    }
 
     #[test]
     fn hash_is_deterministic() {

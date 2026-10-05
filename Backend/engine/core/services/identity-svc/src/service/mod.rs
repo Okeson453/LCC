@@ -11,9 +11,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::domain::{
-    LinkedInStart, Member, MemberSettings, MemberSettingsUpdate, TokenPair,
-};
+use crate::domain::{LinkedInStart, Member, MemberSettings, MemberSettingsUpdate, TokenPair};
 use crate::error::Error;
 use crate::repository::PgRepository;
 
@@ -61,8 +59,7 @@ impl Service {
         let code_verifier = generate_pkce_verifier();
         let code_challenge = pkce_challenge_s256(&code_verifier);
 
-        let redirect = redirect_uri
-            .unwrap_or_else(|| self.cfg.public_oauth_redirect_uri.clone());
+        let redirect = redirect_uri.unwrap_or_else(|| self.cfg.public_oauth_redirect_uri.clone());
 
         if self.cfg.linkedin_client_id.is_empty() {
             return Err(Error::Internal(
@@ -115,9 +112,7 @@ impl Service {
         // from a Redis store; here we use the (state) value as the PKCE nonce
         // and rely on a short-lived LRU ring buffer.
         if !self.consume_oauth_state(state) {
-            return Err(Error::BadRequest(
-                "OAuth state mismatch or expired".into(),
-            ));
+            return Err(Error::BadRequest("OAuth state mismatch or expired".into()));
         }
 
         // Exchange the code for LinkedIn tokens.
@@ -171,8 +166,8 @@ impl Service {
             .map(|s| encrypt(s.as_bytes(), self.cfg.token_encryption_key.as_bytes()))
             .transpose()?;
 
-        let expires_at = Utc::now()
-            + Duration::seconds(token_resp.expires_in.unwrap_or(3600) as i64);
+        let expires_at =
+            Utc::now() + Duration::seconds(token_resp.expires_in.unwrap_or(3600) as i64);
 
         self.repo
             .upsert_oauth_token(
@@ -200,9 +195,7 @@ impl Service {
 
         // Idempotency: if the jti has already been used (rotated), fail.
         if !self.mark_jti_unused(presented_refresh_jti) {
-            return Err(Error::Unauthorized(
-                "refresh token already used".into(),
-            ));
+            return Err(Error::Unauthorized("refresh token already used".into()));
         }
 
         let member = self.repo.get_member(member_id).await?;
@@ -338,11 +331,14 @@ impl Service {
     /// Insert the jti into the unused-jti set if absent. Returns true if
     /// the jti was not already present (i.e. it was unused).
     fn mark_jti_unused(&self, jti: &str) -> bool {
-        self.cfg
-            .unused_jti
-            .lock()
-            .expect("unused_jti mutex poisoned")
-            .insert(jti.to_string())
+        // A poisoned lock means some other thread panicked while holding it.
+        // The map is a set of strings with no invariant to break, so recovering
+        // is safe; refusing the jti here would reject every subsequent request
+        // in the process.
+        match self.cfg.unused_jti.lock() {
+            Ok(mut set) => set.insert(jti.to_string()),
+            Err(poisoned) => poisoned.into_inner().insert(jti.to_string()),
+        }
     }
 }
 
@@ -392,7 +388,9 @@ fn encrypt(plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>, Error> {
     // encryption at rest, which is satisfied by column-level envelope
     // encryption in production via Vault.
     if key.is_empty() {
-        return Err(Error::Internal("token_encryption_key not configured".into()));
+        return Err(Error::Internal(
+            "token_encryption_key not configured".into(),
+        ));
     }
     let mut out = plaintext.to_vec();
     for (i, b) in out.iter_mut().enumerate() {

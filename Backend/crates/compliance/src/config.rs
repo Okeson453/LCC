@@ -223,11 +223,11 @@ pub enum ComplianceConfigError {
     #[error("invalid: weight[{0}] = {1} not in (0,1]")]
     InvalidWeightComponent(usize, f64),
     #[error("invalid: H_c warmup_threshold ({0}) must be < standard_threshold ({1})")]
-    InvalidH_cThresholds(f64, f64),
+    InvalidHCThresholds(f64, f64),
     #[error("invalid: reserve_fraction ({0}) not in [0, 0.30]")]
     InvalidReserveFraction(f64),
     #[error("invalid: ab_d_multiplier_floor ({0}) not in [0, 1]")]
-    InvalidAb_dMultiplierFloor(f64),
+    InvalidAbDMultiplierFloor(f64),
 }
 
 impl ComplianceConfig {
@@ -267,7 +267,7 @@ impl ComplianceConfig {
 
         // H_c warmup_threshold < standard_threshold.
         if self.h_c_warmup_threshold >= self.h_c_standard_threshold {
-            return Err(ComplianceConfigError::InvalidH_cThresholds(
+            return Err(ComplianceConfigError::InvalidHCThresholds(
                 self.h_c_warmup_threshold,
                 self.h_c_standard_threshold,
             ));
@@ -275,19 +275,23 @@ impl ComplianceConfig {
 
         // Reserve fraction in [0, 0.30].
         if !(0.0..=0.30).contains(&self.reserve_fraction) {
-            return Err(ComplianceConfigError::InvalidReserveFraction(self.reserve_fraction));
+            return Err(ComplianceConfigError::InvalidReserveFraction(
+                self.reserve_fraction,
+            ));
         }
 
         // ab_d_multiplier_floor in [0, 1].
         if !(0.0..=1.0).contains(&self.ab_d_multiplier_floor) {
-            return Err(ComplianceConfigError::InvalidAb_dMultiplierFloor(
+            return Err(ComplianceConfigError::InvalidAbDMultiplierFloor(
                 self.ab_d_multiplier_floor,
             ));
         }
 
         // phi_qualification_threshold in (0, 1].
         if !(0.0..=1.0).contains(&self.phi_qualification_threshold) {
-            return Err(ComplianceConfigError::InvalidWeights(self.phi_qualification_threshold));
+            return Err(ComplianceConfigError::InvalidWeights(
+                self.phi_qualification_threshold,
+            ));
         }
 
         Ok(())
@@ -339,6 +343,14 @@ impl ComplianceConfig {
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::field_reassign_with_default
+)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,7 +429,7 @@ mod tests {
         cfg.h_c_standard_threshold = 0.7;
         assert!(matches!(
             cfg.validate(),
-            Err(ComplianceConfigError::InvalidH_cThresholds(_, _))
+            Err(ComplianceConfigError::InvalidHCThresholds(_, _))
         ));
     }
 
@@ -434,12 +446,15 @@ mod tests {
     #[test]
     fn cap_lookup_by_action_type() {
         let cfg = ComplianceConfig::default();
-        assert_eq!(cfg.cap_base_for(crate::action::ActionType::ConnectionRequest), 18);
-        assert_eq!(cfg.warm_up_cap_for(crate::action::ActionType::DirectMessage), 6);
         assert_eq!(
-            cfg.min_spacing_for(crate::action::ActionType::Comment),
-            45
+            cfg.cap_base_for(crate::action::ActionType::ConnectionRequest),
+            18
         );
+        assert_eq!(
+            cfg.warm_up_cap_for(crate::action::ActionType::DirectMessage),
+            6
+        );
+        assert_eq!(cfg.min_spacing_for(crate::action::ActionType::Comment), 45);
     }
 
     #[test]

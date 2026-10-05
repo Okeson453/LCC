@@ -1,7 +1,6 @@
 //! Smoke tests for network-crm-svc.
 
 use lcc_network_crm_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

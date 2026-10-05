@@ -96,7 +96,11 @@ impl Service {
     pub async fn reembed(&self, member_id: Uuid, id: Uuid) -> Result<i32, Error> {
         let new_version = self.repo.mark_reembed(member_id, id).await?;
         // Publish a realtime event for the dashboard's KB panel.
-        let mut conn = self.redis.get().await.map_err(|e| Error::Upstream(e.to_string()))?;
+        let mut conn = self
+            .redis
+            .get()
+            .await
+            .map_err(|e| Error::Upstream(e.to_string()))?;
         let envelope = serde_json::json!({
             "event_id": Uuid::new_v4(),
             "event_name": "kb.reembed.queued",

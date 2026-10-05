@@ -91,7 +91,10 @@ mod tests {
     #[test]
     fn owner_can_do_everything() {
         assert!(has_permission(Role::Owner, Permission::ApproveSend));
-        assert!(has_permission(Role::Owner, Permission::ManageComplianceConfig));
+        assert!(has_permission(
+            Role::Owner,
+            Permission::ManageComplianceConfig
+        ));
         assert!(has_permission(Role::Owner, Permission::ViewAuditLog));
     }
 
@@ -103,7 +106,10 @@ mod tests {
 
     #[test]
     fn reviewer_can_approve_queue() {
-        assert!(has_permission(Role::Reviewer, Permission::ReviewApprovalQueue));
+        assert!(has_permission(
+            Role::Reviewer,
+            Permission::ReviewApprovalQueue
+        ));
         assert!(!has_permission(Role::Reviewer, Permission::DraftContent));
     }
 
@@ -115,13 +121,22 @@ mod tests {
 
     #[test]
     fn admin_can_manage_compliance_config() {
-        assert!(has_permission(Role::Admin, Permission::ManageComplianceConfig));
+        assert!(has_permission(
+            Role::Admin,
+            Permission::ManageComplianceConfig
+        ));
         assert!(has_permission(Role::Admin, Permission::ViewAnalytics));
     }
 
     #[test]
     fn everyone_can_manage_own_settings() {
-        for r in [Role::Owner, Role::Assistant, Role::Reviewer, Role::Admin, Role::Auditor] {
+        for r in [
+            Role::Owner,
+            Role::Assistant,
+            Role::Reviewer,
+            Role::Admin,
+            Role::Auditor,
+        ] {
             assert!(has_permission(r, Permission::ManageOwnSettings), "{:?}", r);
         }
     }

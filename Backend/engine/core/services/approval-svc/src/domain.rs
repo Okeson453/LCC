@@ -70,6 +70,9 @@ pub struct BulkDecideResult {
     pub conflicts: Vec<Uuid>,
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -77,7 +80,13 @@ mod tests {
 
     #[test]
     fn status_serializes_snake_case() {
-        assert_eq!(serde_json::to_string(&ApprovalStatus::Pending).unwrap(), "\"pending\"");
-        assert_eq!(serde_json::to_string(&ApprovalStatus::Expired).unwrap(), "\"expired\"");
+        assert_eq!(
+            serde_json::to_string(&ApprovalStatus::Pending).unwrap(),
+            "\"pending\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ApprovalStatus::Expired).unwrap(),
+            "\"expired\""
+        );
     }
 }

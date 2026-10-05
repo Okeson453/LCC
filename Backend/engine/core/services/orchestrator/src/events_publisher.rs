@@ -158,6 +158,9 @@ fn _type_check() {
     let _: BTreeMap<String, String> = BTreeMap::new();
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,14 +168,25 @@ mod tests {
     #[test]
     fn route_table_covers_all_contract_events() {
         let expected = [
-            "briefing.refresh", "briefing.section.updated",
-            "approval.created", "approval.expired", "approval.bulk_decided",
-            "engagement.inbound.received", "engagement.task.created",
-            "engagement.draft_ready", "engagement.task.expired",
-            "compliance.restriction_detected", "compliance.restriction_cleared",
-            "compliance.config_activated", "compliance.circuit_breaker_state_changed",
-            "sequence.reply_detected", "sequence.paused", "sequence.resumed",
-            "sequence.completed", "sequence.step.sent", "sequence.step.failed",
+            "briefing.refresh",
+            "briefing.section.updated",
+            "approval.created",
+            "approval.expired",
+            "approval.bulk_decided",
+            "engagement.inbound.received",
+            "engagement.task.created",
+            "engagement.draft_ready",
+            "engagement.task.expired",
+            "compliance.restriction_detected",
+            "compliance.restriction_cleared",
+            "compliance.config_activated",
+            "compliance.circuit_breaker_state_changed",
+            "sequence.reply_detected",
+            "sequence.paused",
+            "sequence.resumed",
+            "sequence.completed",
+            "sequence.step.sent",
+            "sequence.step.failed",
         ];
         for e in expected {
             assert!(route_event(e).is_some(), "missing route for {e}");

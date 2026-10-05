@@ -5,6 +5,9 @@
 //! `h_c.weights.{...}` shape the loader cannot read, so every case here
 //! "passed" by failing to deserialise rather than by hitting the invariant it
 //! claimed to test.
+// Integration tests assert on real return values; `unwrap`/`expect` on a
+// failing assertion is the point, so the production deny does not apply.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use lcc_compliance::config::ComplianceConfig;
 
@@ -45,7 +48,10 @@ fn weights_summing_to_one_are_accepted() {
 
 #[test]
 fn weights_not_summing_to_one_are_rejected() {
-    let yaml = config_with("h_c_weights: [0.35, 0.25, 0.20, 0.20]", "h_c_weights: [0.35, 0.25, 0.20, 0.10]");
+    let yaml = config_with(
+        "h_c_weights: [0.35, 0.25, 0.20, 0.20]",
+        "h_c_weights: [0.35, 0.25, 0.20, 0.10]",
+    );
     let result = ComplianceConfig::from_yaml_str(&yaml);
     assert!(result.is_err(), "weights summing to 0.90 must be rejected");
 }
@@ -82,8 +88,7 @@ fn ab_d_multiplier_floor_out_of_range() {
 /// start against any of them and nothing asserted that the files were loadable.
 #[test]
 fn every_shipped_config_loads() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../config/compliance");
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config/compliance");
     let mut checked = 0;
     for entry in std::fs::read_dir(&dir).expect("config/compliance is readable") {
         let path = entry.expect("dir entry").path();
@@ -91,11 +96,16 @@ fn every_shipped_config_loads() {
             continue;
         }
         let yaml = std::fs::read_to_string(&path).expect("read config");
-        let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let cfg = ComplianceConfig::from_yaml_str(&yaml)
             .unwrap_or_else(|e| panic!("{name} failed to load: {e}"));
         assert_eq!(cfg.version, name.trim_end_matches(".yaml"));
-        cfg.validate().unwrap_or_else(|e| panic!("{name} is invalid: {e}"));
+        cfg.validate()
+            .unwrap_or_else(|e| panic!("{name} is invalid: {e}"));
         checked += 1;
     }
     assert!(checked > 0, "no compliance configs found in {dir:?}");
@@ -105,8 +115,7 @@ fn every_shipped_config_loads() {
 /// is lost, a "tighter" release could ship looser caps than its parent.
 #[test]
 fn configs_get_stricter_across_releases() {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../config/compliance");
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../config/compliance");
     let load = |name: &str| -> ComplianceConfig {
         let yaml = std::fs::read_to_string(dir.join(name)).expect("read config");
         ComplianceConfig::from_yaml_str(&yaml).unwrap_or_else(|e| panic!("{name}: {e}"))

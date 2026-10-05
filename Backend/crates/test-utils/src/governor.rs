@@ -3,7 +3,7 @@
 //! Each helper constructs a CandidateAction + AccountState for a given scenario.
 
 use lcc_compliance::config::ComplianceConfig;
-use lcc_compliance::h_c::{h_c, H_cInputs};
+use lcc_compliance::h_c::{h_c, HCInputs};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,7 +22,7 @@ pub struct TestCandidateAction {
 
 pub struct TestScenario {
     pub action: TestCandidateAction,
-    pub h_c_inputs: H_cInputs,
+    pub h_c_inputs: HCInputs,
     pub weights: [f64; 4],
 }
 
@@ -41,7 +41,7 @@ impl TestScenario {
             auto_execute: true,
             target_contact_id: None,
         };
-        let h_c_inputs = H_cInputs {
+        let h_c_inputs = HCInputs {
             acceptance_rate: 0.6,
             reply_rate: 0.4,
             quota_utilization: 0.3,
@@ -67,7 +67,7 @@ impl TestScenario {
     /// tier 3+ actions.
     pub fn low_h_c(member_id: Uuid) -> Self {
         let mut s = Self::happy_path(member_id);
-        s.h_c_inputs = H_cInputs {
+        s.h_c_inputs = HCInputs {
             acceptance_rate: 0.05,
             reply_rate: 0.05,
             quota_utilization: 0.05,

@@ -13,14 +13,14 @@ use uuid::Uuid;
 /// `member_id` for RLS scoping, the role for RBAC, and standard JWT fields.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JwtClaims {
-    pub iss: String,                  // "lcc.api-gateway"
-    pub aud: String,                  // "lcc-api"
-    pub sub: String,                  // member_id (UUIDv7 string)
-    pub role: String,                 // "owner"|"assistant"|"reviewer"|"admin"|"auditor"
+    pub iss: String,  // "lcc.api-gateway"
+    pub aud: String,  // "lcc-api"
+    pub sub: String,  // member_id (UUIDv7 string)
+    pub role: String, // "owner"|"assistant"|"reviewer"|"admin"|"auditor"
     pub iat: i64,
     pub exp: i64,
-    pub jti: String,                  // UUIDv7
-    pub session_id: String,           // UUIDv7 — one per login
+    pub jti: String,        // UUIDv7
+    pub session_id: String, // UUIDv7 — one per login
 }
 
 #[derive(Debug, Error)]
@@ -69,11 +69,7 @@ impl JwtIssuer {
         }
     }
 
-    pub fn issue(
-        &self,
-        member_id: &Uuid,
-        role: &str,
-    ) -> Result<(String, JwtClaims), JwtError> {
+    pub fn issue(&self, member_id: &Uuid, role: &str) -> Result<(String, JwtClaims), JwtError> {
         let now = Utc::now();
         let exp = now + Duration::minutes(self.ttl_minutes);
         let jti = Uuid::now_v7();
@@ -119,8 +115,8 @@ impl JwtVerifier {
 
     pub fn verify(&self, token: &str) -> Result<JwtClaims, JwtError> {
         let mut validation = Validation::new(Algorithm::HS256);
-        validation.set_issuer(&[self.expected_issuer.clone()]);
-        validation.set_audience(&[self.expected_audience.clone()]);
+        validation.set_issuer(std::slice::from_ref(&self.expected_issuer));
+        validation.set_audience(std::slice::from_ref(&self.expected_audience));
         validation.set_required_spec_claims(&["exp", "iss", "aud", "sub"]);
         // Pin the clock-skew allowance explicitly. `jsonwebtoken` defaults to
         // 60s; leaving it implicit means a token's real lifetime is 60s longer
@@ -133,6 +129,9 @@ impl JwtVerifier {
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

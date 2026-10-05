@@ -19,7 +19,7 @@ pub struct ReplyProbabilityFeatures {
     pub mutual_count: u32,
     pub personalization_score: f64,
     pub prior_interaction_flag: bool,
-    pub contact_tier: String,           // "VIP"|"standard"|"peer"
+    pub contact_tier: String, // "VIP"|"standard"|"peer"
     pub last_interaction_age_days: u32,
     pub tag_match_flags: Vec<String>,
 }
@@ -34,7 +34,7 @@ pub enum RhoMode {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RhoResult {
-    pub rho: f64,                          // [0,1]
+    pub rho: f64, // [0,1]
     pub mode: RhoMode,
     pub labeled_send_count: u32,
     pub model_version: Option<String>,
@@ -63,7 +63,11 @@ pub fn logistic(x: f64) -> f64 {
 /// ρ = σ(β_0 + β_1·mutual_count + β_2·personalization_score + β_3·prior_interaction_flag)
 /// ```
 pub fn rho(features: &ReplyProbabilityFeatures, betas: &[f64; 4]) -> f64 {
-    let prior = if features.prior_interaction_flag { 1.0 } else { 0.0 };
+    let prior = if features.prior_interaction_flag {
+        1.0
+    } else {
+        0.0
+    };
     let x = betas[0]
         + betas[1] * features.mutual_count as f64
         + betas[2] * features.personalization_score
@@ -75,34 +79,44 @@ pub fn rho(features: &ReplyProbabilityFeatures, betas: &[f64; 4]) -> f64 {
 ///
 /// If `labeled_send_count < 200`, returns the rule-based priority score (VIP >
 /// recency > mutual count) instead of the model — Source §5 / §29.
+///
+/// A sufficient label count is necessary but not sufficient to use the model:
+/// the coefficients also have to be calibrated. If they are missing, ρ falls
+/// back to the rule-based score and says so in `reason`, rather than
+/// panicking a worker mid-tick over a missing calibration artifact.
 pub fn rho_with_mode(
     features: &ReplyProbabilityFeatures,
     betas: Option<&[f64; 4]>,
     labeled_send_count: u32,
     model_version: Option<String>,
 ) -> RhoResult {
-    if labeled_send_count < 200 {
-        let rule_score = rule_based_score(features);
-        RhoResult {
-            rho: rule_score,
-            mode: RhoMode::RuleBasedFallback,
-            labeled_send_count,
+    let fallback = |reason: String, model_version: Option<String>| RhoResult {
+        rho: rule_based_score(features),
+        mode: RhoMode::RuleBasedFallback,
+        labeled_send_count,
+        model_version,
+        reason,
+    };
+
+    match (labeled_send_count < 200, betas) {
+        (true, _) => fallback(
+            format!("labeled_send_count={labeled_send_count} < 200; rule-based fallback in effect"),
             model_version,
-            reason: format!(
-                "labeled_send_count={} < 200; rule-based fallback in effect",
-                labeled_send_count
-            ),
-        }
-    } else {
-        let betas = betas.expect("calibrated model required when labeled_send_count ≥ 200");
-        let score = rho(features, betas);
-        RhoResult {
-            rho: score,
+        ),
+        (false, Some(betas)) => RhoResult {
+            rho: rho(features, betas),
             mode: RhoMode::ModelInference,
             labeled_send_count,
             model_version,
             reason: "calibrated model inference".to_string(),
-        }
+        },
+        (false, None) => fallback(
+            format!(
+                "labeled_send_count={labeled_send_count} >= 200 but no calibrated coefficients \
+                 available; rule-based fallback in effect"
+            ),
+            model_version,
+        ),
     }
 }
 
@@ -190,7 +204,12 @@ mod tests {
     fn at_threshold_uses_model() {
         let features = vip();
         let betas = [-2.0, 0.05, 1.5, 0.8];
-        let result = rho_with_mode(&features, Some(&betas), 200, Some("rho-2026-04-12-r1".into()));
+        let result = rho_with_mode(
+            &features,
+            Some(&betas),
+            200,
+            Some("rho-2026-04-12-r1".into()),
+        );
         assert!(matches!(result.mode, RhoMode::ModelInference));
         assert_eq!(result.model_version, Some("rho-2026-04-12-r1".into()));
     }

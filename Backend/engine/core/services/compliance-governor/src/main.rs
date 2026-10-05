@@ -1,6 +1,6 @@
 //! Compliance Governor service entrypoint.
 
-use lcc_compliance::permit_token::{generate_keypair, signing_only_signer, PermitSigner};
+use lcc_compliance::permit_token::{signing_only_signer, PermitSigner};
 use lcc_observability::metrics::Metrics;
 use lcc_observability::tracing_init::{init_tracing, TracingConfig};
 use std::sync::Arc;
@@ -10,12 +10,8 @@ use std::sync::Arc;
 // had none of the items `lib.rs` defines (`GovernorDeps`, `AccountState`, …)
 // and which had no `http` module at all.
 use compliance_governor::{
-    config::GovernorServiceConfig,
-    error::GovernorError,
-    health::started_at,
-    http,
-    scoring::ScoringClient,
-    GovernorDeps,
+    config::GovernorServiceConfig, error::GovernorError, health::started_at, http,
+    scoring::ScoringClient, GovernorDeps,
 };
 
 #[tokio::main]
@@ -58,47 +54,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //    dev we derive it from the configured seed so the Gateway and Governor
     //    can be regenerated together. The asymmetric Ed25519 split means the
     //    Gateway can verify without ever being able to sign (see ADR-0003).
-    let permit_issuer: Arc<PermitSigner> = if let Some(seed) = service_config.permit_signing_seed.as_ref() {
-        // Deterministic dev/test path: derive a key from a 32-byte seed.
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(b"lcc-compliance-governor-signing-v1:");
-        hasher.update(seed.as_bytes());
-        let digest = hasher.finalize();
-        let mut key_bytes = [0u8; 32];
-        key_bytes.copy_from_slice(&digest[..32]);
-        let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
-        Arc::new(signing_only_signer(signing_key, "integration-gateway"))
-    } else {
-        // Production path: pull the signing key from Vault via the ExternalSecret.
-        // We refuse to start without a seed in dev mode either — see F-14.
-        if let Ok(secret_b64) = std::env::var("PERMIT_SIGNING_KEY_B64") {
-            use base64::{engine::general_purpose::STANDARD, Engine as _};
-            let bytes = STANDARD.decode(secret_b64.trim()).map_err(|e| {
-                GovernorError::Config(format!("permit signing key decode: {e}"))
-            })?;
+    let permit_issuer: Arc<PermitSigner> =
+        if let Some(seed) = service_config.permit_signing_seed.as_ref() {
+            // Deterministic dev/test path: derive a key from a 32-byte seed.
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(b"lcc-compliance-governor-signing-v1:");
+            hasher.update(seed.as_bytes());
+            let digest = hasher.finalize();
             let mut key_bytes = [0u8; 32];
-            if bytes.len() != 32 {
-                return Err(Box::new(GovernorError::Config(
-                    "PERMIT_SIGNING_KEY_B64 must decode to 32 bytes".into(),
-                )) as Box<dyn std::error::Error>);
-            }
-            key_bytes.copy_from_slice(&bytes);
+            key_bytes.copy_from_slice(&digest[..32]);
             let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
             Arc::new(signing_only_signer(signing_key, "integration-gateway"))
         } else {
-            // No key configured — fail closed (axiom 4 / F-14).
-            return Err(Box::new(GovernorError::Config(
-                "PERMIT_SIGNING_KEY_B64 (or PERMIT_SIGNING_SEED for dev) is required".into(),
-            )) as Box<dyn std::error::Error>);
-        }
-    };
+            // Production path: pull the signing key from Vault via the ExternalSecret.
+            // We refuse to start without a seed in dev mode either — see F-14.
+            if let Ok(secret_b64) = std::env::var("PERMIT_SIGNING_KEY_B64") {
+                use base64::{engine::general_purpose::STANDARD, Engine as _};
+                let bytes = STANDARD.decode(secret_b64.trim()).map_err(|e| {
+                    GovernorError::Config(format!("permit signing key decode: {e}"))
+                })?;
+                let mut key_bytes = [0u8; 32];
+                if bytes.len() != 32 {
+                    return Err(Box::new(GovernorError::Config(
+                        "PERMIT_SIGNING_KEY_B64 must decode to 32 bytes".into(),
+                    )) as Box<dyn std::error::Error>);
+                }
+                key_bytes.copy_from_slice(&bytes);
+                let signing_key = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
+                Arc::new(signing_only_signer(signing_key, "integration-gateway"))
+            } else {
+                // No key configured — fail closed (axiom 4 / F-14).
+                return Err(Box::new(GovernorError::Config(
+                    "PERMIT_SIGNING_KEY_B64 (or PERMIT_SIGNING_SEED for dev) is required".into(),
+                )) as Box<dyn std::error::Error>);
+            }
+        };
 
     // 6. Audit client.
-    let audit = lcc_audit_client::AuditClient::connect(lcc_audit_client::AuditClientConfig::default());
+    let audit =
+        lcc_audit_client::AuditClient::connect(lcc_audit_client::AuditClientConfig::default());
 
     // 7. Scoring client.
-    let scoring_client = Arc::new(ScoringClient::new(service_config.scoring_intel_endpoint.clone()));
+    let scoring_client = Arc::new(ScoringClient::new(
+        service_config.scoring_intel_endpoint.clone(),
+    ));
 
     // 8. Assemble dependencies.
     let deps = Arc::new(GovernorDeps {

@@ -52,7 +52,11 @@ impl axum::response::IntoResponse for Error {
     }
 }
 
-impl From<sqlx::Error> for Error { fn from(e: sqlx::Error) -> Self { Self::Internal(format!("db: {e}")) } }
+impl From<sqlx::Error> for Error {
+    fn from(e: sqlx::Error) -> Self {
+        Self::Internal(format!("db: {e}"))
+    }
+}
 
 /// JSON (de)serialisation failures inside a service are internal faults: the
 /// request body is already typed by the time it reaches the repository.

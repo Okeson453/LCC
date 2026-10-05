@@ -15,6 +15,37 @@ pub struct Service {
     redis: deadpool_redis::Pool,
 }
 
+/// The fields needed to create a contact.
+///
+/// A struct rather than nine positional parameters: five of them are
+/// `Option<&str>`, so a caller could silently pass `industry` where `email`
+/// belonged and nothing would stop it.
+#[derive(Debug, Clone)]
+pub struct NewContact<'a> {
+    pub full_name: &'a str,
+    pub title: Option<&'a str>,
+    pub headline: Option<&'a str>,
+    pub linkedin_url: Option<&'a str>,
+    pub email: Option<&'a str>,
+    pub company_id: Option<Uuid>,
+    pub tags: Vec<String>,
+    pub notes: Option<&'a str>,
+}
+
+/// The fields needed to create a company. Same reasoning as [`NewContact`].
+#[derive(Debug, Clone)]
+pub struct NewCompany<'a> {
+    pub name: &'a str,
+    pub domain: Option<&'a str>,
+    pub industry: Option<&'a str>,
+    pub size_band: Option<&'a str>,
+    pub funding_stage: Option<&'a str>,
+    pub tech_stack: Vec<String>,
+    pub trigger_events: Vec<String>,
+    pub public_signals: Vec<String>,
+    pub ttl_at: Option<chrono::NaiveDate>,
+}
+
 impl Service {
     pub fn new(repo: PgRepository, redis: deadpool_redis::Pool) -> Self {
         Self { repo, redis }
@@ -39,15 +70,19 @@ impl Service {
     pub async fn create_contact(
         &self,
         member_id: Uuid,
-        full_name: &str,
-        title: Option<&str>,
-        headline: Option<&str>,
-        linkedin_url: Option<&str>,
-        email: Option<&str>,
-        company_id: Option<Uuid>,
-        tags: Vec<String>,
-        notes: Option<&str>,
+        new: NewContact<'_>,
     ) -> Result<Contact, Error> {
+        let NewContact {
+            full_name,
+            title,
+            headline,
+            linkedin_url,
+            email,
+            company_id,
+            tags,
+            notes,
+        } = new;
+
         if full_name.trim().is_empty() {
             return Err(Error::Validation("full_name required".into()));
         }
@@ -160,16 +195,20 @@ impl Service {
     pub async fn create_company(
         &self,
         member_id: Uuid,
-        name: &str,
-        domain: Option<&str>,
-        industry: Option<&str>,
-        size_band: Option<&str>,
-        funding_stage: Option<&str>,
-        tech_stack: Vec<String>,
-        trigger_events: Vec<String>,
-        public_signals: Vec<String>,
-        ttl_at: Option<chrono::NaiveDate>,
+        new: NewCompany<'_>,
     ) -> Result<Company, Error> {
+        let NewCompany {
+            name,
+            domain,
+            industry,
+            size_band,
+            funding_stage,
+            tech_stack,
+            trigger_events,
+            public_signals,
+            ttl_at,
+        } = new;
+
         if name.trim().is_empty() {
             return Err(Error::Validation("name required".into()));
         }
@@ -194,16 +233,14 @@ impl Service {
         Ok(c)
     }
 
-    pub async fn staleness(
-        &self,
-        member_id: Uuid,
-        days: i64,
-    ) -> Result<StalenessReport, Error> {
+    pub async fn staleness(&self, member_id: Uuid, days: i64) -> Result<StalenessReport, Error> {
         self.repo.staleness(member_id, days).await
     }
 
     pub async fn link(&self, m: Uuid, contact_id: Uuid, company_id: Uuid) -> Result<(), Error> {
-        self.repo.link_contact_company(m, contact_id, company_id).await
+        self.repo
+            .link_contact_company(m, contact_id, company_id)
+            .await
     }
 }
 

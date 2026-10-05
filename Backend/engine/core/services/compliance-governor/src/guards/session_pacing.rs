@@ -81,8 +81,7 @@ impl Guard for SessionPacingGuard {
             if elapsed < min_spacing {
                 // Inject ±20% jitter to avoid thundering-herd patterns.
                 let jitter_ms = (elapsed.num_milliseconds() as f64
-                    * (rand::random::<f64>() * 0.4 + 0.8))
-                    as u64;
+                    * (rand::random::<f64>() * 0.4 + 0.8)) as u64;
                 return GuardResult::fail(format!(
                     "session_pacing: jitter_required; last_action={}ms_ago, min={}ms, jitter_inject={}ms",
                     elapsed.num_milliseconds(),

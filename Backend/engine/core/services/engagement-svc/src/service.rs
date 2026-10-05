@@ -66,9 +66,14 @@ impl Service {
             updated_at: now,
         };
         self.repo.insert_task(&t).await?;
-        self.publish_event("engagement.task.created", member_id, &serde_json::json!({
-            "task_id": t.id, "action_type": t.action_type.as_str(), "due_at": t.due_at,
-        })).await;
+        self.publish_event(
+            "engagement.task.created",
+            member_id,
+            &serde_json::json!({
+                "task_id": t.id, "action_type": t.action_type.as_str(), "due_at": t.due_at,
+            }),
+        )
+        .await;
         Ok(t)
     }
 
@@ -91,17 +96,26 @@ impl Service {
                 Some(TaskStatus::Drafted),
             )
             .await?;
-        self.publish_event("engagement.draft_ready", member_id, &serde_json::json!({
-            "task_id": id, "draft_len": draft.len()
-        })).await;
+        self.publish_event(
+            "engagement.draft_ready",
+            member_id,
+            &serde_json::json!({
+                "task_id": id, "draft_len": draft.len()
+            }),
+        )
+        .await;
         // Refresh by listing one — for brevity, return a synthesized object.
         Ok(EngagementTask {
-            id, member_id,
-            contact_id: None, target_post_id: None,
+            id,
+            member_id,
+            contact_id: None,
+            target_post_id: None,
             action_type: ActionType::Reply,
             status: TaskStatus::Drafted,
-            priority_score: None, due_at: None,
-            draft: Some(draft.into()), draft_pins: draft_pins.to_vec(),
+            priority_score: None,
+            due_at: None,
+            draft: Some(draft.into()),
+            draft_pins: draft_pins.to_vec(),
             completed_at: None,
             version: new_v,
             created_at: Utc::now(),
@@ -112,12 +126,16 @@ impl Service {
     pub async fn complete(&self, m: Uuid, id: Uuid, v: i32) -> Result<EngagementTask, Error> {
         let new_v = self.repo.complete_task(m, id, v).await?;
         Ok(EngagementTask {
-            id, member_id: m,
-            contact_id: None, target_post_id: None,
+            id,
+            member_id: m,
+            contact_id: None,
+            target_post_id: None,
             action_type: ActionType::Reply,
             status: TaskStatus::Completed,
-            priority_score: None, due_at: None,
-            draft: None, draft_pins: vec![],
+            priority_score: None,
+            due_at: None,
+            draft: None,
+            draft_pins: vec![],
             completed_at: Some(Utc::now()),
             version: new_v,
             created_at: Utc::now(),
@@ -128,12 +146,16 @@ impl Service {
     pub async fn dismiss(&self, m: Uuid, id: Uuid, v: i32) -> Result<EngagementTask, Error> {
         let new_v = self.repo.dismiss_task(m, id, v).await?;
         Ok(EngagementTask {
-            id, member_id: m,
-            contact_id: None, target_post_id: None,
+            id,
+            member_id: m,
+            contact_id: None,
+            target_post_id: None,
             action_type: ActionType::Reply,
             status: TaskStatus::Skipped,
-            priority_score: None, due_at: None,
-            draft: None, draft_pins: vec![],
+            priority_score: None,
+            due_at: None,
+            draft: None,
+            draft_pins: vec![],
             completed_at: None,
             version: new_v,
             created_at: Utc::now(),

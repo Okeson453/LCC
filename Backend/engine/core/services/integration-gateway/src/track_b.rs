@@ -8,9 +8,7 @@ use crate::router::{route_with_post_target, Track};
 use crate::state::IntegrationGatewayState;
 use chrono::Utc;
 use lcc_compliance::permit_token::PermitClaims;
-use lcc_integrations::track_b::{
-    BrowserExtensionMessage, ExtensionMessageKind, FillTarget,
-};
+use lcc_integrations::track_b::{BrowserExtensionMessage, ExtensionMessageKind, FillTarget};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::oneshot;
@@ -18,7 +16,8 @@ use uuid::Uuid;
 
 /// In-process map from correlation_id → oneshot that the WSS receiver
 /// resolves when the human confirms or cancels.
-type PendingConfirmation = Arc<tokio::sync::Mutex<std::collections::HashMap<Uuid, oneshot::Sender<ConfirmationOutcome>>>>;
+type PendingConfirmation =
+    Arc<tokio::sync::Mutex<std::collections::HashMap<Uuid, oneshot::Sender<ConfirmationOutcome>>>>;
 
 #[derive(Debug, Clone)]
 pub enum ConfirmationOutcome {
@@ -60,32 +59,31 @@ pub async fn execute(
     // 1. Verify permit_token. F-AUDIT-23: bind the action type too.
     //    F-AUDIT-24: the claims were previously bound to `_claims` and then
     //    discarded, so the `jti` needed for replay protection was thrown away.
-    let claims: PermitClaims = state
-        .permit_verifier
-        .verify(&req.permit_token, &action_id, &req.member_id, &req.action_type)?;
+    let claims: PermitClaims = state.permit_verifier.verify(
+        &req.permit_token,
+        &action_id,
+        &req.member_id,
+        &req.action_type,
+    )?;
 
     // 1b. F-AUDIT-22: single-use enforcement, identical to Track A.
     {
         let mut conn = state.redis.get().await?;
-        ReplayGuard::claim(
-            &mut conn,
-            &claims.jti,
-            ReplayGuard::dedupe_ttl(claims.exp),
-        )
-        .await
-        .map_err(|e| {
-            // F-AUDIT-22: this is the first construction of
-            // `PermitError::Replay` in the repository — the variant existed
-            // and was documented, but was never raised.
-            match e {
-                ReplayGuardError::Replay(jti) => {
-                    IntegrationError::Permit(PermitError::Replay(jti))
+        ReplayGuard::claim(&mut conn, &claims.jti, ReplayGuard::dedupe_ttl(claims.exp))
+            .await
+            .map_err(|e| {
+                // F-AUDIT-22: this is the first construction of
+                // `PermitError::Replay` in the repository — the variant existed
+                // and was documented, but was never raised.
+                match e {
+                    ReplayGuardError::Replay(jti) => {
+                        IntegrationError::Permit(PermitError::Replay(jti))
+                    }
+                    ReplayGuardError::StoreUnavailable(msg) => IntegrationError::Permit(
+                        PermitError::InvalidSignature(format!("replay store unavailable: {msg}")),
+                    ),
                 }
-                ReplayGuardError::StoreUnavailable(msg) => IntegrationError::Permit(
-                    PermitError::InvalidSignature(format!("replay store unavailable: {msg}")),
-                ),
-            }
-        })?;
+            })?;
     }
 
     // 2. Idempotency check.
@@ -137,7 +135,9 @@ pub async fn execute(
     let timeout = std::time::Duration::from_secs(req.timeout_seconds);
     let outcome = match tokio::time::timeout(timeout, rx).await {
         Ok(Ok(outcome)) => outcome,
-        Ok(Err(_)) => ConfirmationOutcome::Cancelled { reason: "channel_closed".into() },
+        Ok(Err(_)) => ConfirmationOutcome::Cancelled {
+            reason: "channel_closed".into(),
+        },
         Err(_) => {
             // Timeout — clean up pending entry.
             pending.lock().await.remove(&msg.correlation_id);
@@ -153,7 +153,10 @@ pub async fn execute(
                 "id": platform_id.clone().unwrap_or_default(),
                 "sent_at": Utc::now().to_rfc3339(),
             });
-            state.idempotency.put(&req.idempotency_key, 200, &body).await?;
+            state
+                .idempotency
+                .put(&req.idempotency_key, 200, &body)
+                .await?;
 
             emit(
                 &state.audit,
@@ -226,10 +229,7 @@ pub async fn execute(
     }
 }
 
-async fn push_to_extension(
-    state: Arc<IntegrationGatewayState>,
-    msg: BrowserExtensionMessage,
-) {
+async fn push_to_extension(state: Arc<IntegrationGatewayState>, msg: BrowserExtensionMessage) {
     // Look up the member's active WebSocket connection.
     let key = format!("ext:ws:{}", msg.member_id);
     let mut conn = match state.redis.get().await {
@@ -280,7 +280,10 @@ pub async fn handle_extension_frame(
         .map_err(|e| IntegrationError::TrackB(format!("deserialize: {e}")))?;
 
     match &msg.message {
-        ExtensionMessageKind::ActionSubmitted { platform_response_id, .. } => {
+        ExtensionMessageKind::ActionSubmitted {
+            platform_response_id,
+            ..
+        } => {
             let tx = pending.lock().await.remove(&msg.correlation_id);
             if let Some(tx) = tx {
                 let _ = tx.send(ConfirmationOutcome::Submitted {
@@ -291,7 +294,9 @@ pub async fn handle_extension_frame(
         ExtensionMessageKind::ActionCancelled { reason } => {
             let tx = pending.lock().await.remove(&msg.correlation_id);
             if let Some(tx) = tx {
-                let _ = tx.send(ConfirmationOutcome::Cancelled { reason: reason.clone() });
+                let _ = tx.send(ConfirmationOutcome::Cancelled {
+                    reason: reason.clone(),
+                });
             }
         }
         ExtensionMessageKind::Pong
@@ -305,6 +310,9 @@ pub async fn handle_extension_frame(
     Ok(())
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -322,7 +330,10 @@ mod tests {
             fields: serde_json::json!({}),
             timeout_seconds: 60,
         };
-        assert!(matches!(map_to_fill_target(&req), FillTarget::ConnectionRequestPage));
+        assert!(matches!(
+            map_to_fill_target(&req),
+            FillTarget::ConnectionRequestPage
+        ));
     }
 
     #[test]
@@ -338,7 +349,10 @@ mod tests {
             fields: serde_json::json!({}),
             timeout_seconds: 60,
         };
-        assert!(matches!(map_to_fill_target(&req), FillTarget::SendMessagePage));
+        assert!(matches!(
+            map_to_fill_target(&req),
+            FillTarget::SendMessagePage
+        ));
     }
 
     #[test]

@@ -36,7 +36,9 @@ pub fn delay_for(retry_index: u32, tier: BackoffTier) -> Duration {
         BackoffTier::Standard => 60_000u64,
         BackoffTier::Heavy => 80_000u64,
     };
-    let exp_ms = base_ms.saturating_mul(2u64.saturating_pow(retry_index)).min(cap_ms);
+    let exp_ms = base_ms
+        .saturating_mul(2u64.saturating_pow(retry_index))
+        .min(cap_ms);
 
     // Apply ±20% jitter.
     let mut rng = rand::thread_rng();
@@ -44,11 +46,6 @@ pub fn delay_for(retry_index: u32, tier: BackoffTier) -> Duration {
     let with_jitter_ms = ((exp_ms as f64) * jitter_factor) as u64;
 
     Duration::from_millis(with_jitter_ms)
-}
-
-/// Sleep for the backoff duration for the given retry index.
-pub async fn sleep(retry_index: u32, tier: BackoffTier) {
-    tokio::time::sleep(delay_for(retry_index, tier)).await;
 }
 
 #[cfg(test)]

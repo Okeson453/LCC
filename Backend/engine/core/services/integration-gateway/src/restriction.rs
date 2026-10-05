@@ -35,13 +35,28 @@ impl RestrictionSignal {
 
 /// Phrases (case-insensitive) that indicate a restriction signal.
 const PHRASES: &[(&str, RestrictionSignal)] = &[
-    ("your account has been restricted", RestrictionSignal::AccountRestricted),
+    (
+        "your account has been restricted",
+        RestrictionSignal::AccountRestricted,
+    ),
     ("account restricted", RestrictionSignal::AccountRestricted),
-    ("we've restricted your account", RestrictionSignal::AccountRestricted),
+    (
+        "we've restricted your account",
+        RestrictionSignal::AccountRestricted,
+    ),
     ("captcha", RestrictionSignal::CaptchaChallenge),
-    ("verification challenge", RestrictionSignal::VerificationRequired),
-    ("please verify your identity", RestrictionSignal::VerificationRequired),
-    ("verification required", RestrictionSignal::VerificationRequired),
+    (
+        "verification challenge",
+        RestrictionSignal::VerificationRequired,
+    ),
+    (
+        "please verify your identity",
+        RestrictionSignal::VerificationRequired,
+    ),
+    (
+        "verification required",
+        RestrictionSignal::VerificationRequired,
+    ),
     ("rate limit exceeded", RestrictionSignal::RateLimit429),
     ("too many requests", RestrictionSignal::RateLimit429),
     ("quota exceeded", RestrictionSignal::QuotaExhausted),
@@ -64,7 +79,10 @@ pub fn detect(body: &str) -> (RestrictionSignal, Option<String>) {
 /// is a rate-limit signal regardless of body content.
 pub fn detect_status_and_body(status: u16, body: &str) -> (RestrictionSignal, Option<String>) {
     if status == 429 {
-        return (RestrictionSignal::RateLimit429, Some("HTTP 429".to_string()));
+        return (
+            RestrictionSignal::RateLimit429,
+            Some("HTTP 429".to_string()),
+        );
     }
     if status == 401 || status == 403 {
         // Auth failure could be token revoked or account restricted.
@@ -73,7 +91,10 @@ pub fn detect_status_and_body(status: u16, body: &str) -> (RestrictionSignal, Op
             return (sig, matched);
         }
         // Fallback: assume auth revoked.
-        return (RestrictionSignal::AuthRevoked, Some(format!("HTTP {status}")));
+        return (
+            RestrictionSignal::AuthRevoked,
+            Some(format!("HTTP {status}")),
+        );
     }
     detect(body)
 }

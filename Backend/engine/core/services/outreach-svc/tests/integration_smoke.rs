@@ -1,7 +1,6 @@
 //! Smoke tests for outreach-svc.
 
 use lcc_outreach_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

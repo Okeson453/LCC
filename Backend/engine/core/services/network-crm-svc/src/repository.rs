@@ -65,6 +65,24 @@ impl From<ContactRow> for Contact {
     }
 }
 
+/// A `lcc.companies` row. Column order must match the SELECT below.
+type CompanyRow = (
+    Uuid,              // id
+    Uuid,              // member_id
+    String,            // name
+    Option<String>,    // domain
+    Option<String>,    // industry
+    Option<String>,    // size_band
+    Option<String>,    // funding_stage
+    Vec<String>,       // tech_stack
+    Vec<String>,       // trigger_events
+    Vec<String>,       // public_signals
+    Option<NaiveDate>, // ttl_at
+    i32,               // version
+    DateTime<Utc>,     // created_at
+    DateTime<Utc>,     // updated_at
+);
+
 impl PgRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -148,11 +166,23 @@ impl PgRepository {
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
             "#,
         )
-        .bind(c.id).bind(c.member_id).bind(c.company_id).bind(&c.full_name)
-        .bind(&c.title).bind(&c.headline).bind(&c.linkedin_url).bind(&c.email)
-        .bind(c.connection_strength).bind(c.last_touched_at)
-        .bind(&c.last_interaction_kind).bind(&c.tags).bind(&c.notes)
-        .bind(c.stale_at).bind(c.version).bind(c.created_at).bind(c.updated_at)
+        .bind(c.id)
+        .bind(c.member_id)
+        .bind(c.company_id)
+        .bind(&c.full_name)
+        .bind(&c.title)
+        .bind(&c.headline)
+        .bind(&c.linkedin_url)
+        .bind(&c.email)
+        .bind(c.connection_strength)
+        .bind(c.last_touched_at)
+        .bind(&c.last_interaction_kind)
+        .bind(&c.tags)
+        .bind(&c.notes)
+        .bind(c.stale_at)
+        .bind(c.version)
+        .bind(c.created_at)
+        .bind(c.updated_at)
         .execute(&self.pool)
         .await?;
         Ok(())
@@ -198,17 +228,14 @@ impl PgRepository {
 
     pub async fn delete_contact(&self, member_id: Uuid, id: Uuid) -> Result<(), Error> {
         sqlx::query("DELETE FROM lcc.contacts WHERE member_id = $1 AND id = $2")
-            .bind(member_id).bind(id)
-            .execute(&self.pool).await?;
+            .bind(member_id)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
-    pub async fn touch_contact(
-        &self,
-        member_id: Uuid,
-        id: Uuid,
-        kind: &str,
-    ) -> Result<(), Error> {
+    pub async fn touch_contact(&self, member_id: Uuid, id: Uuid, kind: &str) -> Result<(), Error> {
         sqlx::query(
             r#"
             UPDATE lcc.contacts
@@ -233,11 +260,7 @@ impl PgRepository {
         q: Option<&str>,
         limit: i64,
     ) -> Result<Vec<Company>, Error> {
-        let rows: Vec<(
-            Uuid, Uuid, String, Option<String>, Option<String>,
-            Option<String>, Option<String>, Vec<String>, Vec<String>,
-            Vec<String>, Option<NaiveDate>, i32, DateTime<Utc>, DateTime<Utc>,
-        )> = if let Some(q) = q {
+        let rows: Vec<CompanyRow> = if let Some(q) = q {
             sqlx::query_as(
                 r#"
                 SELECT id, member_id, name, domain, industry,
@@ -250,7 +273,11 @@ impl PgRepository {
                 LIMIT $3
                 "#,
             )
-            .bind(member_id).bind(q).bind(limit).fetch_all(&self.pool).await?
+            .bind(member_id)
+            .bind(q)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
         } else {
             sqlx::query_as(
                 r#"
@@ -264,14 +291,31 @@ impl PgRepository {
                 LIMIT $2
                 "#,
             )
-            .bind(member_id).bind(limit).fetch_all(&self.pool).await?
+            .bind(member_id)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await?
         };
-        rows.into_iter().map(|r| Ok::<Company, Error>(Company {
-            id: r.0, member_id: r.1, name: r.2, domain: r.3, industry: r.4,
-            size_band: r.5, funding_stage: r.6, tech_stack: r.7,
-            trigger_events: r.8, public_signals: r.9, ttl_at: r.10,
-            version: r.11, created_at: r.12, updated_at: r.13,
-        })).collect()
+        rows.into_iter()
+            .map(|r| {
+                Ok::<Company, Error>(Company {
+                    id: r.0,
+                    member_id: r.1,
+                    name: r.2,
+                    domain: r.3,
+                    industry: r.4,
+                    size_band: r.5,
+                    funding_stage: r.6,
+                    tech_stack: r.7,
+                    trigger_events: r.8,
+                    public_signals: r.9,
+                    ttl_at: r.10,
+                    version: r.11,
+                    created_at: r.12,
+                    updated_at: r.13,
+                })
+            })
+            .collect()
     }
 
     pub async fn insert_company(&self, c: &Company) -> Result<(), Error> {
@@ -284,11 +328,22 @@ impl PgRepository {
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
             "#,
         )
-        .bind(c.id).bind(c.member_id).bind(&c.name).bind(&c.domain)
-        .bind(&c.industry).bind(&c.size_band).bind(&c.funding_stage)
-        .bind(&c.tech_stack).bind(&c.trigger_events).bind(&c.public_signals)
-        .bind(c.ttl_at).bind(c.version).bind(c.created_at).bind(c.updated_at)
-        .execute(&self.pool).await?;
+        .bind(c.id)
+        .bind(c.member_id)
+        .bind(&c.name)
+        .bind(&c.domain)
+        .bind(&c.industry)
+        .bind(&c.size_band)
+        .bind(&c.funding_stage)
+        .bind(&c.tech_stack)
+        .bind(&c.trigger_events)
+        .bind(&c.public_signals)
+        .bind(c.ttl_at)
+        .bind(c.version)
+        .bind(c.created_at)
+        .bind(c.updated_at)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
@@ -301,18 +356,21 @@ impl PgRepository {
             VALUES ($1,$2,$3,$4::text,$5,$6,$7,$8::text,$9)
             "#,
         )
-        .bind(i.id).bind(i.member_id).bind(i.contact_id)
-        .bind(i.kind.as_str()).bind(&i.summary).bind(i.occurred_at)
-        .bind(&i.channel).bind(i.direction.as_str()).bind(&i.metadata)
-        .execute(&self.pool).await?;
+        .bind(i.id)
+        .bind(i.member_id)
+        .bind(i.contact_id)
+        .bind(i.kind.as_str())
+        .bind(&i.summary)
+        .bind(i.occurred_at)
+        .bind(&i.channel)
+        .bind(i.direction.as_str())
+        .bind(&i.metadata)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 
-    pub async fn staleness(
-        &self,
-        member_id: Uuid,
-        days: i64,
-    ) -> Result<StalenessReport, Error> {
+    pub async fn staleness(&self, member_id: Uuid, days: i64) -> Result<StalenessReport, Error> {
         let rows: Vec<(Uuid, String, Option<DateTime<Utc>>)> = sqlx::query_as(
             r#"
             SELECT id, full_name, last_touched_at
@@ -326,17 +384,20 @@ impl PgRepository {
         .bind(days as f64)
         .fetch_all(&self.pool)
         .await?;
-        let stale: Vec<StaleContact> = rows.into_iter().map(|(id, full_name, last_touched_at)| {
-            let days_since_touch = last_touched_at
-                .map(|t| (Utc::now() - t).num_days())
-                .unwrap_or(days * 2 + 90);
-            StaleContact {
-                contact_id: id,
-                full_name: full_name.clone(),
-                days_since_touch,
-                suggested_action: suggest(&full_name, days_since_touch),
-            }
-        }).collect();
+        let stale: Vec<StaleContact> = rows
+            .into_iter()
+            .map(|(id, full_name, last_touched_at)| {
+                let days_since_touch = last_touched_at
+                    .map(|t| (Utc::now() - t).num_days())
+                    .unwrap_or(days * 2 + 90);
+                StaleContact {
+                    contact_id: id,
+                    full_name: full_name.clone(),
+                    days_since_touch,
+                    suggested_action: suggest(&full_name, days_since_touch),
+                }
+            })
+            .collect();
         Ok(StalenessReport {
             member_id,
             as_of: Utc::now(),
@@ -354,8 +415,11 @@ impl PgRepository {
             "UPDATE lcc.contacts SET company_id = $3, updated_at = NOW()
              WHERE member_id = $1 AND id = $2",
         )
-        .bind(member_id).bind(contact_id).bind(company_id)
-        .execute(&self.pool).await?;
+        .bind(member_id)
+        .bind(contact_id)
+        .bind(company_id)
+        .execute(&self.pool)
+        .await?;
         Ok(())
     }
 }
@@ -376,4 +440,7 @@ fn suggest(full_name: &str, days: i64) -> String {
 }
 
 #[allow(dead_code)]
-fn _types(_: JsonValue) { let _ = InteractionKind::Other; let _ = InteractionDirection::Inbound; }
+fn _types(_: JsonValue) {
+    let _ = InteractionKind::Other;
+    let _ = InteractionDirection::Inbound;
+}

@@ -21,11 +21,7 @@ pub fn current_trace_id() -> Option<String> {
 
 /// Span for Compliance Governor guard-stack evaluation.
 /// Captures: trace_id, member_id, action_type, decision (filled at end).
-pub fn span_for_governor_evaluate(
-    trace_id: &str,
-    member_id: &str,
-    action_type: &str,
-) -> Span {
+pub fn span_for_governor_evaluate(trace_id: &str, member_id: &str, action_type: &str) -> Span {
     tracing::info_span!(
         "governor.evaluate",
         trace_id = %trace_id,
@@ -39,11 +35,7 @@ pub fn span_for_governor_evaluate(
 
 /// Span for Integration Gateway execute path.
 /// Captures: trace_id, action_id, track, outcome (filled at end).
-pub fn span_for_integration_execute(
-    trace_id: &str,
-    action_id: &str,
-    action_type: &str,
-) -> Span {
+pub fn span_for_integration_execute(trace_id: &str, action_id: &str, action_type: &str) -> Span {
     tracing::info_span!(
         "integration.execute",
         trace_id = %trace_id,

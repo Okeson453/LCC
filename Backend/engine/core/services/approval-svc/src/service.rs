@@ -60,9 +60,7 @@ impl Service {
             requested_by: requester_id,
             decided_reason: None,
             reviewer_ids: vec![],
-            expires_at: input
-                .ttl_hours
-                .map(|h| now + chrono::Duration::hours(h)),
+            expires_at: input.ttl_hours.map(|h| now + chrono::Duration::hours(h)),
             version: 1,
             created_at: now,
             decided_at: None,
@@ -136,8 +134,14 @@ impl Service {
                 input.expected_version,
             )
             .await?;
-        let approved = outcomes.iter().filter(|(_, ok)| *ok && input.decision == ApprovalStatus::Approved).count();
-        let rejected = outcomes.iter().filter(|(_, ok)| *ok && input.decision == ApprovalStatus::Rejected).count();
+        let approved = outcomes
+            .iter()
+            .filter(|(_, ok)| *ok && input.decision == ApprovalStatus::Approved)
+            .count();
+        let rejected = outcomes
+            .iter()
+            .filter(|(_, ok)| *ok && input.decision == ApprovalStatus::Rejected)
+            .count();
         let conflicts = outcomes
             .into_iter()
             .filter_map(|(id, ok)| if !ok { Some(id) } else { None })

@@ -13,6 +13,22 @@ use crate::repository::PgRepository;
 /// Max iterations of the auto-fix quality loop before content is blocked.
 pub const MAX_QUALITY_LOOPS: i32 = 3;
 
+/// The fields needed to create a content item.
+///
+/// Grouped into a struct rather than passed as eight positional parameters:
+/// four adjacent `&str` arguments are easy to transpose at a call site, and
+/// the list was over the workspace's too-many-arguments threshold.
+#[derive(Debug, Clone)]
+pub struct NewContentItem<'a> {
+    pub title: &'a str,
+    pub body: &'a str,
+    pub kind: ContentKind,
+    pub topic: &'a str,
+    pub voice_style_kb_id: Option<Uuid>,
+    pub pinned_kb_ids: Vec<Uuid>,
+    pub idempotency_key: Option<String>,
+}
+
 pub struct Service {
     repo: PgRepository,
     redis: deadpool_redis::Pool,
@@ -42,14 +58,18 @@ impl Service {
     pub async fn create(
         &self,
         member_id: Uuid,
-        title: &str,
-        body: &str,
-        kind: ContentKind,
-        topic: &str,
-        voice_style_kb_id: Option<Uuid>,
-        pinned_kb_ids: Vec<Uuid>,
-        idempotency_key: Option<String>,
+        new: NewContentItem<'_>,
     ) -> Result<ContentItem, Error> {
+        let NewContentItem {
+            title,
+            body,
+            kind,
+            topic,
+            voice_style_kb_id,
+            pinned_kb_ids,
+            idempotency_key,
+        } = new;
+
         // Idempotency: if a key is supplied and a row already exists, return it.
         if let Some(key) = &idempotency_key {
             if let Ok(existing) = self.repo.get_by_idempotency_key(member_id, key).await {
@@ -123,14 +143,26 @@ impl Service {
         // Side-effects on entering specific states.
         match new_state {
             ContentState::Scheduled => {
-                self.publish_audit_event(member_id, id, "content.scheduled", serde_json::json!({
-                    "content_id":id,"scheduled_at":scheduled_at
-                })).await;
+                self.publish_audit_event(
+                    member_id,
+                    id,
+                    "content.scheduled",
+                    serde_json::json!({
+                        "content_id":id,"scheduled_at":scheduled_at
+                    }),
+                )
+                .await;
             }
             ContentState::Published => {
-                self.publish_audit_event(member_id, id, "content.published", serde_json::json!({
-                    "content_id":id,"at":Utc::now()
-                })).await;
+                self.publish_audit_event(
+                    member_id,
+                    id,
+                    "content.published",
+                    serde_json::json!({
+                        "content_id":id,"at":Utc::now()
+                    }),
+                )
+                .await;
                 // Also publish realtime briefing refresh so the dashboard
                 // surfaces the new post.
                 self.publish_realtime(
@@ -226,13 +258,7 @@ impl Service {
         // Exhausted: block the item.
         let _ = self
             .repo
-            .transition(
-                member_id,
-                id,
-                current.version,
-                ContentState::Blocked,
-                None,
-            )
+            .transition(member_id, id, current.version, ContentState::Blocked, None)
             .await?;
         Err(Error::QualityLoopExhausted {
             loop_count: MAX_QUALITY_LOOPS,
@@ -246,9 +272,7 @@ impl Service {
         expected_version: i32,
         schedule: Schedule,
     ) -> Result<ContentItem, Error> {
-        let scheduled_at: chrono::DateTime<Utc> = schedule
-            .scheduled_at
-            .and_utc();
+        let scheduled_at: chrono::DateTime<Utc> = schedule.scheduled_at.and_utc();
         self.transition(
             member_id,
             id,

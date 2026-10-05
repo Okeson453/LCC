@@ -23,7 +23,7 @@ struct ComputeH_cRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct H_cComponents {
+struct HCComponents {
     acceptance_rate: f64,
     reply_rate: f64,
     quota_utilization: f64,
@@ -34,7 +34,7 @@ struct H_cComponents {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct H_cResult {
     h_c: f64,
-    components: H_cComponents,
+    components: HCComponents,
     computed_at_unix_ms: i64,
     h_c_undefined: bool,
     reason: String,

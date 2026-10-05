@@ -1,7 +1,6 @@
 //! Smoke tests for opportunity-svc.
 
 use lcc_opportunity_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

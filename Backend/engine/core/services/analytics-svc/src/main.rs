@@ -11,7 +11,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = sqlx::postgres::PgPoolOptions::new()
         .max_connections(15)
         .acquire_timeout(std::time::Duration::from_secs(5))
-        .connect(&cfg.database_url).await?;
+        .connect(&cfg.database_url)
+        .await?;
     let state = lcc_analytics_svc::state::AppState::new(db).await;
     let app = lcc_analytics_svc::http::build_router(state);
     let addr = SocketAddr::from(([0, 0, 0, 0], cfg.http_port));

@@ -63,9 +63,7 @@ impl Guard for DuplicateTargetGuard {
             }
         };
         if active_count > 0 {
-            return GuardResult::fail(
-                "duplicate_target: active_sequence_exists_for_contact",
-            );
+            return GuardResult::fail("duplicate_target: active_sequence_exists_for_contact");
         }
 
         // Recently completed (within cooldown)?

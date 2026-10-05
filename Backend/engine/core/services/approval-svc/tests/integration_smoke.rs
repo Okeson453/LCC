@@ -1,7 +1,6 @@
 //! Smoke tests for approval-svc.
 
 use lcc_approval_svc::config::Config;
-use serde_json::json;
 
 #[test]
 fn config_defaults_load() {

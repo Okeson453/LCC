@@ -29,7 +29,12 @@ impl UpstreamConfig {
 
     /// Build an upstream config with explicit tuning, for callers that need
     /// to deviate from the gateway-wide defaults.
-    pub fn with_tuning(name: &str, base_url: &str, timeout_ms: u64, max_connections: usize) -> Self {
+    pub fn with_tuning(
+        name: &str,
+        base_url: &str,
+        timeout_ms: u64,
+        max_connections: usize,
+    ) -> Self {
         Self {
             name: name.to_string(),
             base_url: base_url.trim_end_matches('/').to_string(),

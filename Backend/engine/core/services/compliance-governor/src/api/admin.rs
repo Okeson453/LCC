@@ -19,6 +19,15 @@ use uuid::Uuid;
 use crate::error::GovernorError;
 use crate::state::GovernorDeps;
 
+/// A restriction row as returned by the restrictions listing query.
+type RestrictionRow = (
+    Uuid,                  // id
+    String,                // kind
+    Option<DateTime<Utc>>, // detected_at
+    Vec<String>,           // evidence
+    bool,                  // cleared
+);
+
 // ===========================================================================
 // Propose
 // ===========================================================================
@@ -41,6 +50,12 @@ pub struct ProposeConfigVersionResponse {
     pub static_check_report: String,
 }
 
+// This builds a candidate config from `ComplianceConfig::default()` and then
+// overrides only the fields the request supplies. `..Default::default()` would
+// be the wrong rewrite here: it would reset the untouched fields to defaults
+// again, which is what this already does, but it would also hide the intent
+// that the two leading assignments are the only mandatory ones.
+#[allow(clippy::field_reassign_with_default)]
 pub async fn propose_config(
     State(deps): State<Arc<GovernorDeps>>,
     Json(req): Json<ProposeConfigVersionRequest>,
@@ -303,13 +318,11 @@ pub async fn activate_config(
     .map_err(|e| GovernorError::Internal(format!("db: {e}")))?;
 
     if let Some((prev_id,)) = previous {
-        sqlx::query(
-            "UPDATE lcc.compliance_config_versions SET is_active = FALSE WHERE id = $1",
-        )
-        .bind(prev_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| GovernorError::Internal(format!("db: {e}")))?;
+        sqlx::query("UPDATE lcc.compliance_config_versions SET is_active = FALSE WHERE id = $1")
+            .bind(prev_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| GovernorError::Internal(format!("db: {e}")))?;
     }
 
     let activated = sqlx::query(
@@ -324,7 +337,10 @@ pub async fn activate_config(
         "#,
     )
     .bind(req.version_id)
-    .bind(format!("{};{}", req.reviewer_a_user_id, req.reviewer_b_user_id))
+    .bind(format!(
+        "{};{}",
+        req.reviewer_a_user_id, req.reviewer_b_user_id
+    ))
     .bind(&req.reviewer_a_user_id)
     .bind(&req.reviewer_b_user_id)
     .fetch_optional(&mut *tx)
@@ -414,28 +430,29 @@ pub struct ConfigSummary {
 pub async fn list_config_versions(
     State(deps): State<Arc<GovernorDeps>>,
 ) -> Result<(StatusCode, Json<ListConfigVersionsResponse>), GovernorError> {
-    let rows: Result<Vec<(Uuid, String, Option<DateTime<Utc>>, Vec<String>, bool)>, sqlx::Error> =
-        sqlx::query_as(
-            r#"
+    let rows: Result<Vec<RestrictionRow>, sqlx::Error> = sqlx::query_as(
+        r#"
             SELECT id, version, activated_at, two_reviewer_signed_by, is_active
             FROM lcc.compliance_config_versions
             ORDER BY COALESCE(activated_at, created_at) DESC
             LIMIT 50
             "#,
-        )
-        .fetch_all(&deps.db)
-        .await;
+    )
+    .fetch_all(&deps.db)
+    .await;
 
     let versions: Vec<ConfigSummary> = match rows {
         Ok(rows) => rows
             .into_iter()
-            .map(|(id, version, activated_at, signed_by, active)| ConfigSummary {
-                version_id: id,
-                version,
-                activated_at,
-                signed_by,
-                active,
-            })
+            .map(
+                |(id, version, activated_at, signed_by, active)| ConfigSummary {
+                    version_id: id,
+                    version,
+                    activated_at,
+                    signed_by,
+                    active,
+                },
+            )
             .collect(),
         Err(_) => Vec::new(),
     };
@@ -454,6 +471,9 @@ pub async fn list_config_versions(
     ))
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;

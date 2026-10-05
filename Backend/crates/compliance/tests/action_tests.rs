@@ -25,12 +25,18 @@ const MAPPING: &[(ActionType, RiskTier)] = &[
     (ActionType::Comment, RiskTier::Tier2LightEngagement),
     (ActionType::Like, RiskTier::Tier2LightEngagement),
     (ActionType::PostPublish, RiskTier::Tier2LightEngagement),
-    (ActionType::ProfileEditSubmit, RiskTier::Tier2LightEngagement),
+    (
+        ActionType::ProfileEditSubmit,
+        RiskTier::Tier2LightEngagement,
+    ),
     // Tier 3 — network growth.
     (ActionType::ConnectionRequest, RiskTier::Tier3NetworkGrowth),
     // Tier 4 — 1:1 outreach.
     (ActionType::DirectMessage, RiskTier::Tier4OneToOneOutreach),
-    (ActionType::SequenceStepSend, RiskTier::Tier4OneToOneOutreach),
+    (
+        ActionType::SequenceStepSend,
+        RiskTier::Tier4OneToOneOutreach,
+    ),
     // Tier 5 — high stakes.
     (ActionType::JobApplicationSubmit, RiskTier::Tier5HighStakes),
     (ActionType::ClientProposalSend, RiskTier::Tier5HighStakes),

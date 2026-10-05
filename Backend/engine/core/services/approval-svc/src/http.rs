@@ -37,11 +37,7 @@ async fn list(
     Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
     let m = auth(&headers)?;
-    let st = q
-        .status
-        .as_deref()
-        .map(parse_status)
-        .transpose()?;
+    let st = q.status.as_deref().map(parse_status).transpose()?;
     let v = state
         .service()
         .list(m, st, q.limit.unwrap_or(50).min(200))

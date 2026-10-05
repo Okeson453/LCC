@@ -21,7 +21,10 @@ impl Service {
     }
 
     pub async fn list(
-        &self, m: Uuid, s: Option<OpportunityStatus>, limit: i64,
+        &self,
+        m: Uuid,
+        s: Option<OpportunityStatus>,
+        limit: i64,
     ) -> Result<Vec<Opportunity>, Error> {
         self.repo.list(m, s, limit).await
     }

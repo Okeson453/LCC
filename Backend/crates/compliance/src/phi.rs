@@ -16,8 +16,8 @@ pub struct PhiInputs {
     pub skill: f64,
     pub seniority: f64,
     pub geo: f64,
-    pub comp: f64,                  // job-track
-    pub trigger_recency: f64,       // client-track
+    pub comp: f64,            // job-track
+    pub trigger_recency: f64, // client-track
     pub goal_mode: GoalMode,
 }
 
@@ -40,7 +40,11 @@ pub struct PhiComponents {
 }
 
 fn clamp01(x: f64) -> f64 {
-    if x.is_nan() { 0.0 } else { x.clamp(0.0, 1.0) }
+    if x.is_nan() {
+        0.0
+    } else {
+        x.clamp(0.0, 1.0)
+    }
 }
 
 /// Compute φ for the given inputs and weights.

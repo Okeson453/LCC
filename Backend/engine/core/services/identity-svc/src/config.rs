@@ -54,11 +54,12 @@ impl Default for Config {
             refresh_token_ttl_secs: 2592000,
             token_encryption_key: "dev-token-encryption-key".into(),
             http_client: reqwest::Client::new(),
-            unused_jti: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+            unused_jti: std::sync::Arc::new(
+                std::sync::Mutex::new(std::collections::HashSet::new()),
+            ),
         }
     }
 }
-
 
 impl Config {
     pub fn from_env() -> Result<Self, String> {
@@ -69,8 +70,10 @@ impl Config {
 
         let linkedin_client_id = std::env::var("LINKEDIN_CLIENT_ID").unwrap_or_default();
         let linkedin_client_secret = std::env::var("LINKEDIN_CLIENT_SECRET").unwrap_or_default();
-        let public_oauth_redirect_uri = std::env::var("LINKEDIN_REDIRECT_URI")
-            .unwrap_or_else(|_| "https://api.lcc.okeson.example/api/v1/auth/linkedin/callback".into());
+        let public_oauth_redirect_uri =
+            std::env::var("LINKEDIN_REDIRECT_URI").unwrap_or_else(|_| {
+                "https://api.lcc.okeson.example/api/v1/auth/linkedin/callback".into()
+            });
 
         let auth_jwt_secret = std::env::var("LCC_AUTH_JWT_SECRET").unwrap_or_default();
         if auth_jwt_secret.len() < 32 {
@@ -88,15 +91,16 @@ impl Config {
         Ok(Self {
             service_name: "identity-svc".into(),
             audit_svc_url: std::env::var("LCC_AUDIT_SVC_URL")
-                .ok().filter(|s| !s.is_empty())
+                .ok()
+                .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "http://audit-svc:8091".into()),
             compliance_governor_url: std::env::var("LCC_COMPLIANCE_GOVERNOR_URL")
-                .ok().filter(|s| !s.is_empty())
+                .ok()
+                .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "http://compliance-governor:8080".into()),
             database_url: std::env::var("DATABASE_URL")
                 .unwrap_or_else(|_| "postgres://lcc_app:dev_lcc_app@postgres:5432/lcc".into()),
-            redis_url: std::env::var("REDIS_URL")
-                .unwrap_or_else(|_| "redis://redis:6379".into()),
+            redis_url: std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://redis:6379".into()),
             http_port: parse_port("LCC_HTTP_PORT").unwrap_or(8090),
             linkedin_client_id,
             linkedin_client_secret,
@@ -104,7 +108,7 @@ impl Config {
             auth_jwt_secret,
             jwt_issuer: std::env::var("LCC_JWT_ISSUER").unwrap_or_else(|_| "lcc-auth".into()),
             jwt_audience: std::env::var("LCC_JWT_AUDIENCE").unwrap_or_else(|_| "lcc-api".into()),
-            access_token_ttl_secs: parse_u32("LCC_ACCESS_TOKEN_TTL_SECS").unwrap_or(900),    // 15 min
+            access_token_ttl_secs: parse_u32("LCC_ACCESS_TOKEN_TTL_SECS").unwrap_or(900), // 15 min
             refresh_token_ttl_secs: parse_u32("LCC_REFRESH_TOKEN_TTL_SECS").unwrap_or(2_592_000), // 30 d
             token_encryption_key,
             http_client,
@@ -133,4 +137,3 @@ fn parse_port(name: &str) -> Option<u16> {
 fn parse_u32(name: &str) -> Option<u32> {
     std::env::var(name).ok().and_then(|s| s.parse().ok())
 }
-

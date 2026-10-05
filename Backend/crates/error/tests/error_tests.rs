@@ -4,6 +4,9 @@
 //! carrying `resource_type`/`resource_id`, there is no `BadRequest` variant
 //! (`Validation` is the 400), and the `LccError -> ErrorEnvelope` conversion
 //! now lives in the crate rather than being re-implemented per service.
+// Integration tests assert on real return values; `unwrap`/`expect` on a
+// failing assertion is the point, so the production deny does not apply.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use lcc_error::{ErrorEnvelope, LccError};
 
@@ -51,11 +54,7 @@ fn codes_match_http_statuses() {
     // A client switching on `code` and a client switching on the status must
     // never disagree about whether something was a 404 or a 500.
     let cases: Vec<(LccError, &str, u16)> = vec![
-        (
-            LccError::Validation("x".into()),
-            "validation_failed",
-            400,
-        ),
+        (LccError::Validation("x".into()), "validation_failed", 400),
         (
             LccError::NotFound {
                 resource_type: "x".into(),
@@ -67,8 +66,18 @@ fn codes_match_http_statuses() {
         (LccError::Conflict("x".into()), "conflict", 409),
         (LccError::Forbidden("x".into()), "forbidden", 403),
         (LccError::Unauthorized("x".into()), "unauthorized", 401),
-        (LccError::RateLimited { retry_after_ms: 1 }, "rate_limited", 429),
-        (LccError::CircuitOpen { service: "s".into() }, "circuit_open", 503),
+        (
+            LccError::RateLimited { retry_after_ms: 1 },
+            "rate_limited",
+            429,
+        ),
+        (
+            LccError::CircuitOpen {
+                service: "s".into(),
+            },
+            "circuit_open",
+            503,
+        ),
         (LccError::Timeout("x".into()), "upstream_timeout", 504),
     ];
     for (e, code, status) in cases {

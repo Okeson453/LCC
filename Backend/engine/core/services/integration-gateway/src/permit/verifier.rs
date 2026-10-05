@@ -46,10 +46,10 @@ pub enum PermitError {
     #[error("permit_token action_type mismatch (expected {expected}, got {actual})")]
     ActionTypeMismatch { expected: String, actual: String },
     /// F-71: claim `sub` did not match the authenticated member.
-    #[error("permit_token member binding failed (claim sub={actual}, request member_id={expected})")]
+    #[error(
+        "permit_token member binding failed (claim sub={actual}, request member_id={expected})"
+    )]
     MemberMismatch { expected: String, actual: String },
-    #[error("permit_token invalid risk_tier: {0}")]
-    InvalidRiskTier(String),
     #[error("permit_token from in-the-future (iat={iat}, now={now})")]
     NotYetValid { iat: i64, now: i64 },
     #[error("permit_token key not loaded")]
@@ -81,10 +81,9 @@ fn map_base_verify_error(e: LccPermitError) -> PermitError {
         }
         LccPermitError::Malformed(m) => PermitError::InvalidSignature(format!("malformed: {m}")),
         LccPermitError::WrongAudience { actual, .. } => PermitError::AudienceMismatch { actual },
-        LccPermitError::WrongIssuer { expected, actual } => PermitError::IssuerMismatch {
-            expected,
-            actual,
-        },
+        LccPermitError::WrongIssuer { expected, actual } => {
+            PermitError::IssuerMismatch { expected, actual }
+        }
         LccPermitError::UnknownKey(k) => PermitError::InvalidSignature(format!("unknown kid: {k}")),
         LccPermitError::NoKey => PermitError::KeyNotLoaded,
     }
@@ -112,7 +111,10 @@ impl PermitVerifier {
         arr.copy_from_slice(&bytes);
         let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&arr)
             .map_err(|e| PermitError::InvalidSignature(format!("pubkey parse: {e}")))?;
-        let inner = lcc_compliance::permit_token::public_only_verifier(verifying_key, "integration-gateway");
+        let inner = lcc_compliance::permit_token::public_only_verifier(
+            verifying_key,
+            "integration-gateway",
+        );
         Ok(Self { inner })
     }
 
@@ -135,10 +137,7 @@ impl PermitVerifier {
         expected_member_id: &Uuid,
         expected_action_type: &str,
     ) -> Result<PermitClaims, PermitError> {
-        let claims = self
-            .inner
-            .verify(token)
-            .map_err(map_base_verify_error)?;
+        let claims = self.inner.verify(token).map_err(map_base_verify_error)?;
 
         // F-71: hard member binding.
         let expected_member_str = expected_member_id.to_string();
@@ -178,21 +177,30 @@ impl PermitVerifier {
 
         let now = Utc::now().timestamp();
         if claims.exp <= now {
-            return Err(PermitError::Expired { now, exp: claims.exp });
+            return Err(PermitError::Expired {
+                now,
+                exp: claims.exp,
+            });
         }
         if claims.iat > now {
-            return Err(PermitError::NotYetValid { iat: claims.iat, now });
+            return Err(PermitError::NotYetValid {
+                iat: claims.iat,
+                now,
+            });
         }
 
         Ok(claims)
     }
 }
 
+// Tests assert on real return values; `unwrap`/`expect` on a failing
+// assertion is the point, so the production deny does not apply here.
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ed25519_dalek::SigningKey;
     use base64::Engine as _;
+    use ed25519_dalek::SigningKey;
     use lcc_compliance::permit_token::{signing_only_signer, PermitSigner};
     use rand::rngs::OsRng;
 
@@ -239,7 +247,9 @@ mod tests {
         let action = Uuid::now_v7();
         let token = make_claims(&iss, member, action, 60);
         let wrong = Uuid::now_v7();
-        let err = v.verify(&token, &wrong, &member, "like").expect_err("must reject");
+        let err = v
+            .verify(&token, &wrong, &member, "like")
+            .expect_err("must reject");
         assert!(matches!(err, PermitError::ActionMismatch { .. }));
     }
 
@@ -250,7 +260,9 @@ mod tests {
         let impostor = Uuid::now_v7();
         let action = Uuid::now_v7();
         let token = make_claims(&iss, member, action, 60);
-        let err = v.verify(&token, &action, &impostor, "like").expect_err("must reject");
+        let err = v
+            .verify(&token, &action, &impostor, "like")
+            .expect_err("must reject");
         assert!(matches!(err, PermitError::MemberMismatch { .. }));
     }
 
@@ -261,7 +273,9 @@ mod tests {
         let action = Uuid::now_v7();
         // ttl ≤ 0 produces an already-expired token.
         let token = make_claims(&iss, member, action, 0);
-        let err = v.verify(&token, &action, &member, "like").expect_err("must reject");
+        let err = v
+            .verify(&token, &action, &member, "like")
+            .expect_err("must reject");
         assert!(matches!(err, PermitError::Expired { .. }));
     }
 
@@ -290,7 +304,9 @@ mod tests {
         let last = tampered.pop().unwrap();
         let flipped = if last == 'A' { 'B' } else { 'A' };
         tampered.push(flipped);
-        let err = v.verify(&tampered, &action, &member, "like").expect_err("must reject");
+        let err = v
+            .verify(&tampered, &action, &member, "like")
+            .expect_err("must reject");
         assert!(matches!(err, PermitError::InvalidSignature(_)));
     }
 }

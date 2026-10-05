@@ -106,6 +106,10 @@ mod tests {
     fn dedupe_ttl_tracks_remaining_lifetime() {
         let exp = chrono::Utc::now().timestamp() + 45;
         let ttl = ReplayGuard::dedupe_ttl(exp);
-        assert!(ttl.as_secs() >= 44 && ttl.as_secs() <= 46, "got {}", ttl.as_secs());
+        assert!(
+            ttl.as_secs() >= 44 && ttl.as_secs() <= 46,
+            "got {}",
+            ttl.as_secs()
+        );
     }
 }
