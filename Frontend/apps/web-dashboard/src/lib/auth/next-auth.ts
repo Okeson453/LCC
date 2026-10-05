@@ -24,8 +24,11 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      (session as Record<string, unknown>).accessToken = token.accessToken;
-      (session as Record<string, unknown>).refreshToken = token.refreshToken;
+      // `Session` is a closed interface, so a direct cast to
+      // `Record<string, unknown>` is rejected. Widen once through `unknown`.
+      const s = session as unknown as Record<string, unknown>;
+      s.accessToken = token.accessToken;
+      s.refreshToken = token.refreshToken;
       return session;
     },
   },

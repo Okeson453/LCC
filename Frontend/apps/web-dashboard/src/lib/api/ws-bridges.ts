@@ -21,7 +21,7 @@ export interface WsBridgesOptions {
 
 export function useWsBridges({ memberId, token, apiBase }: WsBridgesOptions): RealtimeClient {
   const queryClient = useQueryClient();
-  const client = getRealtimeClient({ baseUrl: apiBase, token, memberId: memberId as string });
+  const client = getRealtimeClient({ baseUrl: apiBase, token, memberId });
 
   useEffect(() => {
     const unsubs: Array<() => void> = [];

@@ -14,8 +14,8 @@ import type {
 
 export function OpportunityDetailShell({
   opp,
-  evidence,
-  actionItems,
+  evidence = [],
+  actionItems = [],
   onStageChange,
 }: {
   opp: Opportunity;

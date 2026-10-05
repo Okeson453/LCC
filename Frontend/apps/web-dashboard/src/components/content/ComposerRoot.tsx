@@ -63,7 +63,9 @@ export function ComposerRoot({ memberId, initialPrompt, compose, onSubmit }: Com
           </CardHeader>
           <CardContent className="space-y-3">
             <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10} aria-label="Draft body" />
-            <ContentQualityPanel memberId={memberId} body={body} onProceed={onSubmit} />
+                        {/* onProceed receives the quality report; the draft body is already
+                held in local state, so there is nothing to hand back to onSubmit. */}
+            <ContentQualityPanel memberId={memberId} body={body} />
             <Button onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending} type="button">
               {submitMutation.isPending ? 'Submitting…' : 'Save draft'}
             </Button>

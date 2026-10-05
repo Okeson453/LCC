@@ -172,7 +172,12 @@ function buildUrl(path: string, query?: Record<string, string | number | boolean
   return qs ? `${base}?${qs}` : base;
 }
 
-async function parseErrorBody(response: Response): Promise<{ error?: { message?: string; details?: unknown } } | null> {
+/** The error envelope the API returns (canonical `Error` schema). */
+interface ApiErrorBody {
+  error?: { code?: string; message?: string; details?: unknown };
+}
+
+async function parseErrorBody(response: Response): Promise<ApiErrorBody | null> {
   try {
     const text = await response.text();
     if (!text) return null;
@@ -184,7 +189,7 @@ async function parseErrorBody(response: Response): Promise<{ error?: { message?:
 
 function classifyStatus(
   status: number,
-  body: { error?: { code?: string } } | null,
+  body: ApiErrorBody | null,
 ): import('./errors').ApiErrorKind {
   if (body?.error?.code === 'GOVERNANCE_DENIED') return 'governance_denied';
   if (body?.error?.code === 'VERSION_MISMATCH') return 'version_mismatch';

@@ -13,7 +13,7 @@ export function ProfileExperienceList({ experiences }: { experiences: ProfileExp
           <div key={i} className="rounded-md border p-3">
             <p className="text-sm font-medium">{e.title} — {e.company}</p>
             <p className="text-xs text-muted-foreground">
-              {e.start_date} → {e.end_date ?? 'present'} · {e.location}
+              {e.start_date ?? '—'} → {e.current ? 'present' : e.end_date ?? '—'}
             </p>
           </div>
         ))}

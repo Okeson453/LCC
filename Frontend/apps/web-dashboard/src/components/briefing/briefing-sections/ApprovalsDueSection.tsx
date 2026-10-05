@@ -6,6 +6,7 @@ import { BriefingSection } from '../BriefingSection';
 import { BriefingCard } from '../BriefingCard';
 import { BriefingEmptyState } from '../BriefingEmptyState';
 import type { BriefingItem, Approval } from '@lcc/api-types';
+import { toKbCitations } from '@/lib/kb-citations';
 
 export interface ApprovalsDueSectionProps {
   memberId: string;
@@ -55,9 +56,9 @@ function ApprovalCard({ approval }: { approval: Approval }): React.ReactElement 
           tier: approval.tier,
           preview: typeof approval.payload === 'object' && approval.payload && 'preview' in approval.payload ? String((approval.payload as Record<string, unknown>).preview) : '',
           targetLabel: typeof approval.payload === 'object' && approval.payload && 'target' in approval.payload ? String((approval.payload as Record<string, unknown>).target) : '',
-          kbRefs: approval.kb_refs,
+          kbRefs: toKbCitations(approval.kb_refs),
           traceId: approval.trace_id,
-          idempotencyKey: approval.idempotency_key,
+          idempotencyKey: approval.id,
           onApprove: async () => undefined,
           onReject: async () => undefined,
         })

@@ -26,6 +26,7 @@ import { ComplianceProvider, RestrictedStateBanner } from '@lcc/compliance-state
 import { ApprovalDialogProvider } from '@lcc/approval-gate';
 import { getRealtimeClient, useWsBridges } from '@/lib/realtime';
 import { useClientSession } from '@/lib/auth/client-session';
+import { isMemberId, type MemberId } from '@lcc/api-types';
 import { publicEnv } from '@/lib/utils/env';
 import { getRestrictionState } from '@/lib/api/admin';
 import { listComplianceConfigVersions } from '@/lib/api/admin';
@@ -82,41 +83,56 @@ function AppLayoutInner({ children }: { children: React.ReactNode }): React.Reac
       realtimeClient={realtimeClient}
       fetcher={async () => getRestrictionState(memberId)}
       configFetcher={async () => {
+        // ComplianceProvider's contract is `Promise<ComplianceConfigVersion>` —
+        // returning null here did not compile. Fall back to an explicit
+        // "no active version" record rather than inventing thresholds: every
+        // field is left undefined so the provider applies no caps until the
+        // backend serves an activated config.
         try {
           const versions = await listComplianceConfigVersions();
           const active = versions.find((v) => v.status === 'active');
-          if (!active) {
-            // S-01 fix: surface a soft error rather than crashing the layout.
-            return null;
-          }
-          return active;
-        } catch (err) {
-          return null;
+          if (active) return active;
+        } catch {
+          // fall through to the empty version below
         }
+        return {
+          id: '00000000-0000-0000-0000-000000000000',
+          version: 0,
+          status: 'draft' as const,
+          config: {},
+          reviewers: [],
+          created_at: new Date(0).toISOString(),
+          activated_at: null,
+        };
       }}
     >
       <ApprovalDialogProvider>
-        <BridgesInner client={realtimeClient} memberId={memberId} token={session.accessToken}>
-          <AppShell>{children}</AppShell>
-        </BridgesInner>
+        <AppShell>{children}</AppShell>
+        {/* Realtime bridges need both a token and a valid branded MemberId.
+            Without them the page still renders; only the live updates are absent. */}
+        {session.accessToken && isMemberId(memberId) ? (
+          <BridgesInner memberId={memberId} token={session.accessToken} />
+        ) : null}
       </ApprovalDialogProvider>
     </ComplianceProvider>
   );
 }
 
+/**
+ * Mounts the realtime cache bridges. Rendered only when the session has both a
+ * token and a valid branded `MemberId` — `getRealtimeClient` keys every
+ * subscription by `MemberId`, so an unvalidated string would poison the query
+ * cache keys.
+ */
 function BridgesInner({
-  client,
   memberId,
   token,
-  children,
 }: {
-  client: ReturnType<typeof getRealtimeClient>;
-  memberId: string;
+  memberId: MemberId;
   token: string;
-  children: React.ReactNode;
-}): React.ReactElement {
+}): null {
   useWsBridges({ memberId, token, apiBase: publicEnv.NEXT_PUBLIC_API_BASE });
-  return <>{children}</>;
+  return null;
 }
 
 function ComplianceBanner({ active }: { active: boolean }): React.ReactElement | null {

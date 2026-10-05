@@ -11,6 +11,7 @@ import { ApprovalsDueSection } from '@/components/briefing/briefing-sections/App
 import { HotOpportunitiesSection } from '@/components/briefing/briefing-sections/HotOpportunitiesSection';
 import { EngagementSection } from '@/components/briefing/briefing-sections/EngagementSection';
 import { FollowupsSection } from '@/components/briefing/briefing-sections/FollowupsSection';
+import type { Briefing } from '@lcc/api-types';
 
 export function TodayPageClient(): React.ReactElement {
   const memberQuery = useQuery({
@@ -37,7 +38,7 @@ function TodayContent({ memberId }: { memberId: string }): React.ReactElement {
     queryKey: ['briefing', memberId] as const,
     queryFn: async () => {
       const { apiFetch } = await import('@/lib/api/client');
-      return apiFetch(`/members/${memberId}/briefing/today`);
+      return apiFetch<Briefing>(`/members/${memberId}/briefing/today`);
     },
     staleTime: 60_000,
   });
@@ -61,7 +62,7 @@ function TodayContent({ memberId }: { memberId: string }): React.ReactElement {
         <BriefingRoot>
           <ApprovalsDueSection
             memberId={memberId}
-            items={briefing.data?.sections?.find((s: { kind: string }) => s.kind === 'approvals_due')?.items ?? []}
+            items={briefing.data?.sections.find((s) => s.kind === 'approvals_due')?.items ?? []}
           />
           <HotOpportunitiesSection memberId={memberId} />
           <EngagementSection memberId={memberId} />

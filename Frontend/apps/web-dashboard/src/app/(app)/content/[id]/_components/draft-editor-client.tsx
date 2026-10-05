@@ -93,7 +93,7 @@ function Editor({ memberId, contentId, router }: { memberId: string; contentId: 
           </CardContent>
         </Card>
 
-        {item.status === 'pending_approval' || item.status === 'approved' ? (
+        {item.status === 'pending_approval' || item.status === 'scheduled' ? (
           <Card>
             <CardHeader>
               <CardTitle>Schedule</CardTitle>
@@ -123,7 +123,7 @@ function Editor({ memberId, contentId, router }: { memberId: string; contentId: 
           targetLabel="LinkedIn post"
           kbRefs={toKbCitations(item.kb_refs)}
           traceId={item.trace_id}
-          idempotencyKey={item.idempotency_key ?? ''}
+          idempotencyKey={item.id}
           onApprove={async () => {
             setShowApproval(false);
             router.push('/content');

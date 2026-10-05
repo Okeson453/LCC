@@ -5,7 +5,14 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@lcc/ui';
 import type { KbCitation } from '@lcc/api-types';
 
 export interface KbCitationChipProps {
-  citation: Pick<KbCitation, 'recordId' | 'title' | 'category' | 'excerpt' | 'url'>;
+  /**
+   * The chip only renders the title (and the tooltip body, when present), so it
+   * requires just the identifying fields rather than a complete `KbCitation`.
+   * Requiring the full shape meant a minimal `{recordId,title,category}` ref —
+   * what `CopilotMessage.kbRefs` carries — could not be passed.
+   */
+  citation: Pick<KbCitation, 'recordId' | 'title'> &
+    Partial<Pick<KbCitation, 'category' | 'excerpt' | 'url'>>;
   className?: string;
 }
 

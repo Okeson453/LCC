@@ -6,7 +6,7 @@
  * shape is kept minimal and includes a custom profile mapper.
  */
 
-import type { OAuthConfig } from 'next-auth/providers/oauth-types';
+import type { OAuthConfig } from 'next-auth/providers/oauth';
 
 interface LinkedInProfile {
   sub: string;
@@ -27,7 +27,7 @@ export default function LinkedInProvider(): OAuthConfig<LinkedInProfile> {
     checks: ['pkce', 'state'],
     clientId: process.env.LINKEDIN_CLIENT_ID ?? '',
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET ?? '',
-    profile(profile) {
+    profile(profile: LinkedInProfile) {
       return {
         id: profile.sub,
         name: profile.name,

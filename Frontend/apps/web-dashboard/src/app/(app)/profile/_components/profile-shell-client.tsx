@@ -60,7 +60,7 @@ function Body({ memberId }: { memberId: string }): React.ReactElement {
                 {p.experience.map((e, i) => (
                   <div key={i} className="rounded-md border p-3">
                     <p className="text-sm font-medium">{e.title} — {e.company}</p>
-                    <p className="text-xs text-muted-foreground">{e.starts_at} → {e.ends_at ?? 'present'} · {e.location}</p>
+                    <p className="text-xs text-muted-foreground">{e.start_date ?? '—'} → {e.current ? 'present' : e.end_date ?? '—'}</p>
                   </div>
                 ))}
               </CardContent>
@@ -80,8 +80,8 @@ function Body({ memberId }: { memberId: string }): React.ReactElement {
               <CardContent className="space-y-2">
                 {(edits.data ?? []).map((e) => (
                   <div key={e.id} className="rounded-md border p-2 text-sm">
-                    <p><span className="font-mono text-xs">{e.field}</span>: {String(e.proposed_value)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Status: {e.status}</p>
+                    <p><span className="font-mono text-xs">{e.field}</span>: {String(e.suggested_value)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Current: {String(e.current_value)}</p>
                   </div>
                 ))}
               </CardContent>
@@ -93,8 +93,8 @@ function Body({ memberId }: { memberId: string }): React.ReactElement {
               <CardContent className="space-y-2">
                 {(history.data ?? []).map((h, i) => (
                   <div key={i} className="rounded-md border p-2 text-sm">
-                    <p>{h.field}: {String(h.previous_value)} → {String(h.next_value)}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{new Date(h.changed_at).toLocaleString()}</p>
+                    <p>Strength: {h.strength}{h.delta ? ` (${h.delta > 0 ? '+' : ''}${h.delta})` : ''}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{new Date(h.captured_at).toLocaleString()}</p>
                   </div>
                 ))}
               </CardContent>

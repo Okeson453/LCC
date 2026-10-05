@@ -6,12 +6,13 @@ import { Button, Input } from '@lcc/ui';
 import { MessageThread } from './MessageThread';
 import { CopilotQuickPrompts } from './CopilotQuickPrompts';
 import { CopilotInput } from './CopilotInput';
+import type { KbCitation } from '@lcc/api-types';
 
 export interface CopilotMessage {
   id: string;
   role: 'user' | 'assistant';
   body: string;
-  kbRefs?: Array<{ recordId: string; title: string; category: string }>;
+  kbRefs?: KbCitation[];
   proposal?: { kind: string; payload: Record<string, unknown>; requiresApproval: boolean };
   createdAt: string;
 }

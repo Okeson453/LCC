@@ -1,13 +1,15 @@
 'use client';
 
+import * as React from 'react';
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, LoadingSkeleton, ErrorState, Tabs, TabsList, TabsTrigger, TabsContent } from '@lcc/ui';
 import { ApprovalDialog, useApprovalDialog } from '@lcc/approval-gate';
-import { RiskTierBadge } from '@lcc/approval-gate';
 import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getSequence, approveStep, pauseSequence } from '@/lib/api/outreach';
 import { toKbCitations } from '@/lib/kb-citations';
+import { tierAllowsEdit, tierForActionType, type KbCitationRef } from '@lcc/api-types';
 
 
 export default function SequencePage({ params }: { params: { sequenceId: string } }): React.ReactElement {
@@ -25,7 +27,14 @@ function Body({ memberId, sequenceId }: { memberId: string; sequenceId: string }
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['outreach', 'sequence', memberId, sequenceId] as const, queryFn: () => getSequence(memberId, sequenceId) });
   const dialog = useApprovalDialog();
-  const [activeStep, setActiveStep] = useState<{ id: string; tier: 1 | 2 | 3 | 4 | 5; body: string; trace_id: string; idempotency_key: string; kb_refs: readonly unknown[] } | null>(null);
+  // `SequenceStep` carries no tier and no idempotency_key, so the active-step
+  // state only holds the fields it really has.
+  const [activeStep, setActiveStep] = React.useState<{
+    id: string;
+    body: string;
+    trace_id: string;
+    kb_refs: readonly KbCitationRef[];
+  } | null>(null);
 
   const approveMutation = useMutation({
     mutationFn: ({ stepId, decision, editedBody }: { stepId: string; decision: 'approve' | 'reject'; editedBody?: string }) =>
@@ -71,10 +80,9 @@ function Body({ memberId, sequenceId }: { memberId: string; sequenceId: string }
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono text-muted-foreground">D+{s.day_offset}</span>
                       <Badge variant="outline" className="capitalize">{s.status}</Badge>
-                      <RiskTierBadge tier={s.tier as 1 | 2 | 3 | 4 | 5} dotOnly />
-                    </div>
+                                          </div>
                     {(s.status === 'pending_approval' || s.status === 'draft') ? (
-                      <Button size="sm" onClick={() => setActiveStep({ id: s.id, tier: s.tier as 1 | 2 | 3 | 4 | 5, body: s.body, trace_id: s.trace_id, idempotency_key: s.idempotency_key, kb_refs: s.kb_refs })} type="button">
+                      <Button size="sm" onClick={() => setActiveStep({ id: s.id, body: s.body, trace_id: s.trace_id, kb_refs: s.kb_refs })} type="button">
                         Review
                       </Button>
                     ) : null}
@@ -100,13 +108,13 @@ function Body({ memberId, sequenceId }: { memberId: string; sequenceId: string }
             onOpenChange={(o) => !o && setActiveStep(null)}
             approvalId={activeStep.id}
             actionType="send_message"
-            tier={activeStep.tier}
+            tier={tierForActionType('send_message')}
             preview={activeStep.body}
             targetLabel="Contact"
             kbRefs={toKbCitations(activeStep.kb_refs)}
             traceId={activeStep.trace_id}
-            idempotencyKey={activeStep.idempotency_key}
-            editablePreview={activeStep.tier >= 3}
+            idempotencyKey={activeStep.id}
+            editablePreview={tierAllowsEdit(tierForActionType('send_message'))}
             isSubmitting={approveMutation.isPending}
             onApprove={async (input) => {
               await approveMutation.mutateAsync({ stepId: activeStep.id, decision: 'approve', editedBody: input.editedPreview });
@@ -119,8 +127,4 @@ function Body({ memberId, sequenceId }: { memberId: string; sequenceId: string }
       </div>
     </ComplianceGate>
   );
-}
-
-function useState<T>(initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
-  return React.useState(initial);
 }

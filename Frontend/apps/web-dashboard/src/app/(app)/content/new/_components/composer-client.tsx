@@ -1,11 +1,11 @@
 'use client';
-import { ACTION_TYPE_TO_TIER } from "@lcc/api-types/manual/risk-tier";
+import { tierForActionType } from '@lcc/api-types';
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Sparkles, Send, Shield } from 'lucide-react';
-import { Button, Textarea, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Alert, AlertTitle, AlertDescription } from '@lcc/ui';
+import { Button, Textarea, Card, CardContent, CardHeader, CardTitle, CardDescription, Badge, Alert, AlertTitle, AlertDescription, LoadingSkeleton } from '@lcc/ui';
 import { ApprovalDialog, useApprovalDialog } from '@lcc/approval-gate';
 import { RiskTierBadge, KbCitationsList } from '@lcc/approval-gate';
 import { ComplianceGate } from '@lcc/compliance-state';
@@ -34,7 +34,7 @@ export function ComposerClient(): React.ReactElement {
     mutationFn: ({ body, id }: { body: string; id: string }) => createContent(id, { body }),
   });
 
-  if (memberQuery.isLoading) return null;
+  if (memberQuery.isLoading) return <LoadingSkeleton rows={3} />;
   if (!memberId) return (
     <div className="p-6">
       <Alert variant="destructive">
@@ -157,7 +157,7 @@ function VariantPicker({
           >
             <div className="flex items-center gap-2">
               <Badge variant="outline">{v.variant}</Badge>
-              <RiskTierBadge tier={ACTION_TYPE_TO_TIER.publish_post} />
+              <RiskTierBadge tier={tierForActionType('publish_post')} />
             </div>
             <p className="mt-2 line-clamp-3 text-sm">{v.body}</p>
           </button>
@@ -189,14 +189,14 @@ function SubmitForApprovalButton({ memberId, body, onSubmitted }: { memberId: st
           onOpenChange={() => onSubmitted(createdId)}
           approvalId={createdId}
           actionType="publish_post"
-          tier={ACTION_TYPE_TO_TIER.publish_post}
+          tier={tierForActionType('publish_post')}
           preview={body}
           targetLabel="LinkedIn post"
           kbRefs={[]}
           traceId={submit.data.trace_id}
-          idempotencyKey={submit.data.idempotency_key ?? ''}
-          onApprove={() => { qc.invalidateQueries({ queryKey: ['content'] }); logger.info('[composer] content approved', { createdId }); }}
-          onReject={() => { logger.warn('[composer] approval declined', { createdId }); }}
+          idempotencyKey={createdId}
+          onApprove={() => { qc.invalidateQueries({ queryKey: ['content'] }); console.info('[composer] content approved', createdId); }}
+          onReject={() => { console.warn('[composer] approval declined', createdId); }}
         />
       ) : null}
     </>
