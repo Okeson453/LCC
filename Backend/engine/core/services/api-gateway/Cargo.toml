@@ -45,5 +45,13 @@ hex = { workspace = true }
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util", "macros"] }
 
+# The contract test lived at Backend/tests/contract/canonical/gateway_routing_test.rs
+# with no `[[test]]` target anywhere in the workspace, so cargo never compiled or
+# ran it and `cargo test --test gateway_routing_test` failed with "no test target".
+# Declaring the target here is what actually wires it into `cargo test --workspace`.
+[[test]]
+name = "gateway_routing_test"
+path = "../../../../tests/contract/canonical/gateway_routing_test.rs"
+
 [lints]
 workspace = true

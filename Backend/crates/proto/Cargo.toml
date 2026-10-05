@@ -28,5 +28,13 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 lcc-error = { path = "../error" }
 
+# Validates that the canonical OpenAPI + realtime contract under
+# `<repo>/Contract/` still declare every endpoint and event the design
+# requires. It was orphaned (no `[[test]]` target), so the contract could
+# silently drift with nothing failing.
+[[test]]
+name = "canonical_contract_test"
+path = "../../tests/contract/canonical/canonical_contract_test.rs"
+
 [lints]
 workspace = true

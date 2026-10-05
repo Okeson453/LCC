@@ -42,5 +42,16 @@ base64 = "0.22"
 rand = "0.8"
 sha2 = "0.10"
 
+[dev-dependencies]
+tokio = { version = "1.38", features = ["full", "test-util", "macros"] }
+axum = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+jsonwebtoken = { workspace = true }
+
+# See api-gateway/Cargo.toml: orphaned contract test, never compiled by cargo.
+[[test]]
+name = "identity_flow_test"
+path = "../../../../tests/contract/canonical/identity_flow_test.rs"
+
 [lints]
 workspace = true

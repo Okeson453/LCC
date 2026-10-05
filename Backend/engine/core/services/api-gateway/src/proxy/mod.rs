@@ -105,24 +105,36 @@ impl UpstreamRegistry {
             _ => "",
         };
 
-        // Subdomain override: the briefing namespace lives under
-        // `/api/v1/members/{member_id}/briefing/...` per the canonical
-        // contract. If we see a 5th segment == "briefing", route to the
-        // orchestrator's pool regardless of the parent domain being
-        // `members`.
-        let effective_domain =
-            if parts.len() >= 5 && parts[..4] == ["api", "v1", "members"] && parts[4] == "briefing"
-            {
-                "briefing"
-            } else {
-                domain
-            };
+        // Subdomain override: the canonical contract nests most of the domain
+        // surface under `/api/v1/members/{member_id}/<subdomain>/...` —
+        // profile, content, engagement, contacts, opportunities, sequences, kb,
+        // analytics, approvals, audit and briefing all live there. Routing on
+        // the third segment alone sent every one of them to identity-svc, so
+        // the subdomain has to win whenever it is a bound prefix.
+        //
+        // The member id sits at segment 4 (index 3), so the subdomain is at
+        // index 4. `export` is deliberately absent from the bound prefixes and
+        // therefore keeps falling through to identity-svc.
+        let effective_domain = if domain == "members"
+            && parts.len() >= 5
+            && parts[..3] == ["api", "v1", "members"]
+            && self.is_bound(parts[4])
+        {
+            parts[4]
+        } else {
+            domain
+        };
 
         self.bindings
             .iter()
             .find(|b| b.prefix == effective_domain)
             .map(|b| &b.pool)
             .ok_or_else(|| format!("no upstream bound for domain `{effective_domain}`"))
+    }
+
+    /// Whether `prefix` is one of the bound domain prefixes.
+    fn is_bound(&self, prefix: &str) -> bool {
+        self.bindings.iter().any(|b| b.prefix == prefix)
     }
 
     /// Translate the canonical inbound path to the upstream-expected path.

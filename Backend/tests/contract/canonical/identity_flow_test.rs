@@ -47,6 +47,14 @@ fn test_config() -> Config {
         token_encryption_key: "0123456789abcdef-test".into(),
         http_client: reqwest::Client::new(),
         unused_jti: Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+        // Fields added to `Config` after this test was written; without them
+        // the crate failed to compile with E0063. This test never opens a
+        // Redis connection, so pointing at an unreachable local address is
+        // safe and keeps the fixture honest about being hermetic.
+        redis_url: "redis://127.0.0.1:1".into(),
+        service_name: "identity-svc-test".into(),
+        audit_svc_url: "http://audit-svc:8091".into(),
+        compliance_governor_url: "http://compliance-governor:8080".into(),
     }
 }
 

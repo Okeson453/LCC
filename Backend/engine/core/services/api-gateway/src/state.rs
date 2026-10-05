@@ -103,8 +103,18 @@ pub fn build_upstream_registry(config: &ApiGatewayConfig) -> UpstreamRegistry {
         ),
         // Realtime: WS upgrades go to a dedicated realtime-svc that runs the
         // 5 dashboard channels. SSE fallback also served from the same host.
+        //
+        // The prefixes must be `ws` and `sse`, not `realtime`: the canonical
+        // realtime contract (Contract/realtime/lcc-realtime-contract.yaml) and
+        // realtime-svc's own router both register `/api/v1/ws/<channel>` and
+        // `/api/v1/sse/<channel>`. Binding "realtime" matched no inbound path,
+        // so every dashboard WS upgrade resolved to "no upstream bound".
         (
-            "realtime",
+            "ws",
+            UpstreamConfig::new("realtime-svc", &config.realtime_svc_url),
+        ),
+        (
+            "sse",
             UpstreamConfig::new("realtime-svc", &config.realtime_svc_url),
         ),
     ];

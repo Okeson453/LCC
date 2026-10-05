@@ -45,5 +45,15 @@ jsonwebtoken = { workspace = true }
 sha2 = "0.10"
 hex = "0.4"
 
+[dev-dependencies]
+serde_json = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+# See api-gateway/Cargo.toml: this contract test was never referenced by any
+# `[[test]]` target, so it was dead weight that cargo silently skipped.
+[[test]]
+name = "realtime_flow_test"
+path = "../../../../tests/contract/canonical/realtime_flow_test.rs"
+
 [lints]
 workspace = true

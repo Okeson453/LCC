@@ -8,30 +8,93 @@
 use std::fs;
 use std::path::PathBuf;
 
-fn contract_path(rel: &str) -> PathBuf {
+/// Resolve the repository's `Contract/` directory.
+///
+/// The contract lives at `<repo>/Contract/`, but the crate this test is built
+/// into sits at `<repo>/Backend/engine/core/services/<svc>/`, so a fixed
+/// `../../..` hop landed on `Backend/contract_audit` — a directory that does
+/// not exist. Walking up until `Contract/openapi` appears makes the lookup
+/// independent of how deep the owning crate is.
+fn contract_root() -> PathBuf {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
-    manifest_dir
-        .join("..")
-        .join("..")
-        .join("..")
-        .join("contract_audit")
-        .join(rel)
+    let mut dir = PathBuf::from(manifest_dir.as_str());
+    loop {
+        let candidate = dir.join("Contract");
+        if candidate.join("openapi").is_dir() {
+            return candidate;
+        }
+        // Also accept running from inside the Contract dir itself.
+        if dir.file_name().map(|n| n == "Contract").unwrap_or(false) {
+            return dir;
+        }
+        if !dir.pop() {
+            panic!(
+                "could not locate the Contract/ directory by walking up from {manifest_dir}"
+            );
+        }
+    }
+}
+
+fn contract_path(rel: &str) -> PathBuf {
+    contract_root().join(rel)
 }
 
 fn read(rel: &str) -> String {
-    fs::read_to_string(contract_path(rel))
-        .unwrap_or_else(|e| panic!("read {rel}: {e}"))
+    fs::read_to_string(contract_path(rel)).unwrap_or_else(|e| panic!("read {rel}: {e}"))
 }
 
-/// Extract top-level path entries from the OpenAPI YAML by counting the
-/// "  /<path>:" lines that begin paths in the document.
+/// The path component of the OpenAPI `servers[0].url`, e.g. `/api/v1`.
+///
+/// The canonical contract declares the namespace the idiomatic OpenAPI 3.1
+/// way — `servers: [{ url: https://…/api/v1 }]` plus paths relative to that
+/// base — rather than inlining `/api/v1` into all 70 path keys. Reading the
+/// path keys alone therefore yields `/auth/linkedin/start`, and the earlier
+/// version of this test asserted against the inlined form and failed 3/9 even
+/// though the contract was correct. Resolving the server base here means the
+/// assertions below run against the *effective* URL, which is what the
+/// gateway actually routes.
+fn server_base_path(openapi: &str) -> String {
+    let mut in_servers = false;
+    for line in openapi.lines() {
+        if line.starts_with("servers:") {
+            in_servers = true;
+            continue;
+        }
+        if !in_servers {
+            continue;
+        }
+        // A new top-level key ends the `servers:` block.
+        if !line.starts_with(' ') && !line.trim().is_empty() {
+            break;
+        }
+        if let Some(url) = line.trim().strip_prefix("- url:") {
+            // Take the path component of the URL, if any.
+            if let Some(idx) = url.find("://") {
+                if let Some(slash) = url[idx + 3..].find('/') {
+                    return url[idx + 3 + slash..].trim_end_matches('/').to_string();
+                }
+            }
+            return String::new();
+        }
+    }
+    String::new()
+}
+
+/// Paths that the gateway serves at the host root rather than under the
+/// versioned namespace (`health::router()` registers these verbatim).
+const INFRA_PATHS: [&str; 3] = ["/healthz", "/readyz", "/metrics"];
+
+/// Extract top-level path entries, resolving each against the server base so
+/// the result is the effective request path. Infra paths stay at the root.
 fn paths(openapi: &str) -> Vec<String> {
+    let base = server_base_path(openapi);
     openapi
         .lines()
         .filter_map(|l| {
             let trimmed = l.trim_start();
-            if trimmed.starts_with("/") && trimmed.contains(':') {
-                Some(trimmed.split(':').next().unwrap().trim().to_string())
+            if trimmed.starts_with('/') && trimmed.contains(':') {
+                let p = trimmed.split(':').next().unwrap().trim().to_string();
+                Some(resolve_path(&p, &base))
             } else {
                 None
             }
@@ -39,8 +102,16 @@ fn paths(openapi: &str) -> Vec<String> {
         .collect()
 }
 
+fn resolve_path(p: &str, base: &str) -> String {
+    if base.is_empty() || INFRA_PATHS.contains(&p) {
+        return p.to_string();
+    }
+    format!("{}{}", base, p)
+}
+
 fn operations(openapi: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();
+    let base = server_base_path(openapi);
     let mut current_path: Option<String> = None;
     for line in openapi.lines() {
         if let Some(m) = line
@@ -49,7 +120,7 @@ fn operations(openapi: &str) -> Vec<(String, String)> {
             .and_then(|s| s.split(':').next().map(|p| p.trim().to_string()))
             .filter(|p| !p.is_empty() && !p.contains(' '))
         {
-            current_path = Some(format!("/{}", m));
+            current_path = Some(resolve_path(&format!("/{m}"), &base));
         } else {
             let trimmed = line.trim_start();
             for verb in &["get", "post", "put", "patch", "delete"] {
@@ -69,9 +140,22 @@ fn canonical_openapi_exists_and_parses() {
     let openapi = read("openapi/lcc-api-canonical.yaml");
     assert!(openapi.contains("openapi: 3.1.0"));
     assert!(openapi.contains("OKESON-LCC"));
-    assert!(openapi.contains("/api/v1/auth/linkedin/start"));
-    assert!(openapi.contains("/api/v1/members/me"));
-    assert!(openapi.contains("/api/v1/admin/compliance/config-versions"));
+    // Assert against resolved effective paths, not raw YAML substrings — the
+    // contract expresses the namespace via `servers[].url`.
+    let paths = paths(&openapi);
+    for expected in [
+        "/api/v1/auth/linkedin/start",
+        "/api/v1/members/me",
+        "/api/v1/admin/compliance/config-versions",
+    ] {
+        assert!(
+            paths.iter().any(|p| p == expected),
+            "canonical OpenAPI is missing effective path {expected}; resolved paths: {paths:?}"
+        );
+    }
+    // The server base must actually carry the version prefix, otherwise every
+    // resolved path above would collapse onto the host root.
+    assert_eq!(server_base_path(&openapi), "/api/v1");
 }
 
 #[test]
@@ -145,12 +229,16 @@ fn canonical_openapi_contains_all_design_endpoints() {
         "/api/v1/admin/compliance/config-versions/{versionId}/activate",
         "/api/v1/admin/compliance/restrictions/{memberId}",
     ];
-    for path in required {
-        assert!(
-            openapi.contains(path),
-            "canonical OpenAPI missing required path {path}"
-        );
-    }
+    let declared = paths(&openapi);
+    let missing: Vec<&str> = required
+        .iter()
+        .copied()
+        .filter(|path| !declared.iter().any(|p| p == path))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "canonical OpenAPI missing required paths: {missing:?}"
+    );
 }
 
 #[test]
