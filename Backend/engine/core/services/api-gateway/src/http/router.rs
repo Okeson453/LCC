@@ -1,5 +1,11 @@
 //! Router — assembles all routes for the api-gateway.
 //!
+//! The routing surface itself is declared as data in [`crate::routes`]; this
+//! module only turns that table into an `axum::Router`. Keeping the table
+//! separate from the builder is what makes the surface verifiable against
+//! `Contract/openapi/lcc-api-canonical.yaml`
+//! (`tests/gateway_contract_conformance.rs`).
+//!
 //! Canonical public surface per lcc-api-canonical.yaml:
 //!   - `/api/v1/auth/*`        OAuth2/PKCE handshake, refresh, logout
 //!   - `/api/v1/members/*`     Member account self-service
@@ -31,113 +37,72 @@ use crate::{
     handlers,
     http::handlers as proxy_h,
     middleware::{auth::require_auth, rate_limit::rate_limit, trace_id::propagate_trace_id},
+    routes::{self, Method},
     state::AppState,
 };
 
-pub fn build_router(state: AppState) -> Router {
-    let auth_routes = Router::new()
-        .route(
-            "/api/v1/auth/linkedin/start",
-            get(handlers::auth_start::auth_start),
-        )
-        .route(
-            "/api/v1/auth/linkedin/callback",
-            get(handlers::auth_callback::auth_callback),
-        )
-        .route(
-            "/api/v1/auth/refresh",
-            post(handlers::auth_refresh::auth_refresh),
-        )
-        .route(
-            "/api/v1/auth/logout",
-            post(handlers::auth_logout::auth_logout),
+/// Build the infra sub-router: served in-process, never auth-gated.
+fn build_infra_router() -> Router<AppState> {
+    let mut infra = Router::<AppState>::new();
+    for spec in routes::infra_routes() {
+        infra = infra.route(
+            spec.pattern,
+            match spec.pattern {
+                "/healthz" => get(crate::health::healthz),
+                "/readyz" => get(crate::health::readyz),
+                "/metrics" => get(crate::health::metrics),
+                // Unreachable: `routes::ROUTES` is the single source of truth
+                // and the conformance test asserts the set of infra patterns.
+                other => {
+                    debug_assert!(false, "no handler for infra route {other}");
+                    axum::routing::any(crate::health::unregistered_infra)
+                }
+            },
         );
+    }
+    infra
+}
+
+pub fn build_router(state: AppState) -> Router {
+    // Infra: served in-process, no auth.
+    let infra = build_infra_router();
+
+    // Public OAuth entry points (no Bearer token exists yet at handshake time).
+    let mut auth_routes = Router::<AppState>::new();
+    for spec in routes::public_auth_routes() {
+        auth_routes = auth_routes.route(
+            spec.pattern,
+            match spec.pattern {
+                "/api/v1/auth/linkedin/start" => get(handlers::auth_start::auth_start),
+                "/api/v1/auth/linkedin/callback" => get(handlers::auth_callback::auth_callback),
+                "/api/v1/auth/refresh" => post(handlers::auth_refresh::auth_refresh),
+                "/api/v1/auth/logout" => post(handlers::auth_logout::auth_logout),
+                // Unreachable while the table stays in sync — see the
+                // conformance test in tests/gateway_contract_conformance.rs.
+                _ => axum::routing::any(proxy_h::proxy_request),
+            },
+        );
+    }
 
     // Protected domain routes. The proxy forwarder passes the canonical path
     // verbatim to the upstream — every upstream implements the canonical
     // namespace `/api/v1/<domain>/...` natively, so no rewrite is needed.
-    let protected = Router::new()
-        .route(
-            "/api/v1/members/me",
-            get(proxy_h::proxy_request).patch(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/members/me/settings",
-            get(proxy_h::proxy_request).patch(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/members/:member_id",
-            get(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/members/:member_id/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/profile/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/content/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/engagement/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/contacts/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/opportunities/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/sequences/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/kb/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/analytics/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/briefing/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/approvals/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/audit/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/admin/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        // Realtime — proxied to realtime-svc.
-        .route(
-            "/api/v1/ws/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        .route(
-            "/api/v1/sse/*path",
-            axum::routing::any(proxy_h::proxy_request),
-        )
-        // Legacy governance eval path kept for internal callers during the
-        // migration window; will be removed once the gateway is the sole
-        // caller. The canonical frontend path is the per-resource
-        // `/approvals/{id}/decide` flow.
-        .route(
-            "/api/v1/admin/governor/evaluate",
-            post(proxy_h::proxy_request),
-        )
+    let mut protected = Router::<AppState>::new();
+    for spec in routes::protected_routes() {
+        protected = protected.route(
+            spec.pattern,
+            match spec.methods {
+                [Method::Get, Method::Patch] => {
+                    get(proxy_h::proxy_request).patch(proxy_h::proxy_request)
+                }
+                [Method::Get] => get(proxy_h::proxy_request),
+                [Method::Post] => post(proxy_h::proxy_request),
+                _ => axum::routing::any(proxy_h::proxy_request),
+            },
+        );
+    }
+
+    let protected = protected
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_auth,
@@ -154,7 +119,7 @@ pub fn build_router(state: AppState) -> Router {
     // All sub-routers below share `AppState`; `.with_state(state)` at the end
     // erases it so the assembled router can be served.
     Router::<AppState>::new()
-        .merge(crate::health::router())
+        .merge(infra)
         // Public auth routes (start/callback are unauthenticated;
         // refresh/logout handle their own auth).
         .merge(auth_routes)

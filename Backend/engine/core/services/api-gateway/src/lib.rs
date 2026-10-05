@@ -10,5 +10,6 @@ pub mod health;
 pub mod http;
 pub mod middleware;
 pub mod proxy;
+pub mod routes;
 pub mod state;
 pub mod telemetry;

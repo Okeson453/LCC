@@ -53,5 +53,11 @@ tokio = { version = "1.38", features = ["full", "test-util", "macros"] }
 name = "gateway_routing_test"
 path = "../../../../tests/contract/canonical/gateway_routing_test.rs"
 
+# Asserts the routing table (src/routes.rs) against the canonical contract, so
+# a contract path can never be declared-and-undocumented-routable again.
+[[test]]
+name = "gateway_contract_conformance"
+path = "../../../../tests/contract/gateway_contract_conformance.rs"
+
 [lints]
 workspace = true

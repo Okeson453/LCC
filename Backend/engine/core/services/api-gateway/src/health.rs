@@ -50,7 +50,7 @@ pub fn router() -> Router<AppState> {
 /// the contract marks this operation `security: []`. It exposes only
 /// process-level counters and histograms — never request bodies, member ids or
 /// credentials.
-async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
     match state.metrics().render() {
         Ok(body) => (
             StatusCode::OK,
@@ -73,11 +73,11 @@ async fn metrics(State(state): State<AppState>) -> impl IntoResponse {
     }
 }
 
-async fn healthz() -> Json<Value> {
+pub async fn healthz() -> Json<Value> {
     Json(json!({ "status": "ok", "service": "api-gateway" }))
 }
 
-async fn readyz(State(state): State<AppState>) -> (axum::http::StatusCode, Json<Value>) {
+pub async fn readyz(State(state): State<AppState>) -> (axum::http::StatusCode, Json<Value>) {
     let mut checks: Vec<Value> = Vec::new();
     let mut all_ok = true;
 
@@ -120,4 +120,15 @@ async fn probe(pool: &SharedPool) -> bool {
         Ok(Err(_)) => false,
         Err(_) => false, // probe timed out
     }
+}
+
+/// Fallback for an infra pattern with no handler bound.
+///
+/// Unreachable while `routes::ROUTES` and the handler dispatch stay in sync —
+/// `debug_assert!` in the builder catches that in debug builds, and the
+/// conformance test asserts the pattern set. Returns 404 rather than
+/// panicking so a future table edit degrades to a missing endpoint instead of
+/// taking the gateway down.
+pub async fn unregistered_infra() -> axum::http::StatusCode {
+    axum::http::StatusCode::NOT_FOUND
 }
