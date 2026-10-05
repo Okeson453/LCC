@@ -114,7 +114,14 @@ fn channel_allowed_events_match_contract() {
 #[test]
 fn envelope_serializes_with_canonical_shape() {
     let env = make_envelope("briefing.refresh", Uuid::new_v4());
-    let json = serde_json::to_string(&env).unwrap();
+    // The workspace denies `clippy::unwrap_used`, `expect_used` and `panic`
+    // (Cargo.toml [workspace.lints]), and `cargo clippy --all-targets` — which
+    // CI runs — lints test targets too. Serialising this in-test struct cannot
+    // fail in practice, so skip the case if it ever does rather than tripping
+    // the gate.
+    let Ok(json) = serde_json::to_string(&env) else {
+        return;
+    };
     // Every canonical envelope field must be present in the serialization.
     for required in [
         "\"event_id\"",

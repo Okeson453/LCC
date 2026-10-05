@@ -5,6 +5,13 @@
 //! and that the static checks match what the implementation actually
 //! registers.
 
+// The workspace denies `clippy::unwrap_used`, `clippy::expect_used` and
+// `clippy::panic` to keep production code free of panicking shortcuts.
+// `cargo clippy --all-targets` — which CI runs — also lints integration-test
+// targets, and in a test those are the assertion mechanism. Exempt this file
+// rather than rewriting every assertion into a `match`.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use std::fs;
 use std::path::PathBuf;
 

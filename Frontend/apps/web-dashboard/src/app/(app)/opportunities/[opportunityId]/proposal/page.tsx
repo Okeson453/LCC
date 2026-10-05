@@ -10,7 +10,7 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getOpportunity, draftProposal } from '@/lib/api/opportunity';
 import { toKbCitations } from '@/lib/kb-citations';
-import { logger } from '@lcc/test-utils';
+import { logger } from '@lcc/test-utils/mocks/logger';
 
 
 export default function ProposalPage({ params }: { params: { opportunityId: string } }): React.ReactElement {

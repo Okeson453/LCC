@@ -13,7 +13,7 @@ import { fetchCurrentMember } from '@/lib/api/members';
 import { composeContent, createContent, runQualityCheck, submitForApproval, scheduleContent } from '@/lib/api/content';
 import { useComposerStore } from '@/lib/stores';
 import type { ContentVariant, QualityFlag } from '@lcc/api-types';
-import { logger } from '@lcc/test-utils';
+import { logger } from '@lcc/test-utils/mocks/logger';
 
 export function ComposerClient(): React.ReactElement {
   const memberQuery = useQuery({ queryKey: ['members', 'me'] as const, queryFn: fetchCurrentMember });

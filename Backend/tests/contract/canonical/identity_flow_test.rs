@@ -17,6 +17,13 @@
 //! expected behavior; the contract guarantees the error envelope shape
 //! regardless.
 
+// The workspace denies `clippy::unwrap_used`, `clippy::expect_used` and
+// `clippy::panic` (Backend/Cargo.toml [workspace.lints]) to keep production
+// code free of panicking shortcuts. `cargo clippy --all-targets` — which CI runs
+// — also lints integration-test targets, and in a test an `unwrap`/`expect` is
+// the assertion mechanism: it is how a failure is reported. Exempt this file
+// rather than rewriting every assertion into a `match`.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #![cfg(test)]
 
 use axum::body::to_bytes;
