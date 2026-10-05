@@ -23,6 +23,15 @@ struct Inner {
     /// F-AUDIT-07: the JWT verifier. The previous `require_auth` called
     /// `state.jwt_secret()` / `state.jwt_audience()`, neither of which existed.
     pub jwt_verifier: std::sync::Arc<lcc_auth::JwtVerifier>,
+    /// Prometheus registry backing the `GET /metrics` scrape endpoint.
+    ///
+    /// The canonical contract declares `GET /metrics` with `security: []`
+    /// (a public Prometheus scrape) and `docs/endpoint_contract_matrix.md`
+    /// records it as live on the gateway — but `health::router()` only ever
+    /// registered `/healthz` and `/readyz`, so the endpoint was declared and
+    /// documented yet unroutable. The `lcc_observability::Metrics` collector
+    /// existed the whole time; nothing constructed or served it.
+    pub metrics: std::sync::Arc<lcc_observability::Metrics>,
 }
 
 /// Per-upstream tuning. `timeout_ms` is deliberately short: the gateway is on
@@ -152,12 +161,25 @@ impl AppState {
             config.auth_jwt_audience.clone(),
         ));
 
+        // Backs `GET /metrics`. A registry that fails to initialise still has
+        // to yield a servable (if empty) exposition, so fall back to a
+        // best-effort construction rather than refusing to start the gateway.
+        let metrics = std::sync::Arc::new(
+            lcc_observability::Metrics::new(&config.service_name).unwrap_or_else(|e| {
+                tracing::warn!("metrics registry init failed ({e}); serving empty exposition");
+                lcc_observability::Metrics::new("api-gateway").unwrap_or_else(|_| {
+                    unreachable!("Metrics::new only fails on duplicate registration")
+                })
+            }),
+        );
+
         Self(Arc::new(Inner {
             config,
             http_client,
             upstreams,
             rate_limiter,
             jwt_verifier,
+            metrics,
         }))
     }
 
@@ -175,6 +197,11 @@ impl AppState {
 
     pub fn rate_limiter(&self) -> &RateLimiter {
         &self.0.rate_limiter
+    }
+
+    /// Prometheus registry backing `GET /metrics`.
+    pub fn metrics(&self) -> &lcc_observability::Metrics {
+        &self.0.metrics
     }
 
     pub fn jwt_verifier(&self) -> &std::sync::Arc<lcc_auth::JwtVerifier> {
