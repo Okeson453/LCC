@@ -2,8 +2,15 @@
 # codegen-api-types.sh — Generate @lcc/api-types from backend contracts.
 #
 # Pipeline:
-#   1. Run `openapi-typescript` on `schemas/openapi/api-gateway.yaml`
+#   1. Run `openapi-typescript` on the CANONICAL contract,
+#      `Contract/openapi/lcc-api-canonical.yaml`
 #      → emits HTTP types to `packages/api-types/src/generated/http/`
+#
+#      This previously read `schemas/openapi/api-gateway.yaml` — a superseded
+#      55-path document with no `/api/v1` namespace that the contract audit
+#      explicitly replaced (70 paths / 82 operations). Generating the frontend's
+#      types from it meant `@lcc/api-types` never described the API the gateway
+#      and the services actually serve.
 #   2. Run `buf generate` on `proto/` with TypeScript plugin
 #      → emits gRPC stubs to `proto/gen/typescript/`, then mirror
 #      → into `packages/api-types/src/generated/grpc/`
@@ -30,9 +37,12 @@ OUT_DIR="packages/api-types/src/generated"
 mkdir -p "$OUT_DIR/http" "$OUT_DIR/grpc" "$OUT_DIR/events"
 
 # 1. OpenAPI → HTTP types
-say "OpenAPI → TypeScript (api-gateway.yaml → $OUT_DIR/http/)"
+CANONICAL_OPENAPI="../Contract/openapi/lcc-api-canonical.yaml"
+[ -f "$CANONICAL_OPENAPI" ] || die "canonical contract not found at $CANONICAL_OPENAPI"
+
+say "OpenAPI → TypeScript (lcc-api-canonical.yaml → $OUT_DIR/http/)"
 pnpm exec openapi-typescript \
-  schemas/openapi/api-gateway.yaml \
+  "$CANONICAL_OPENAPI" \
   --output "$OUT_DIR/http/index.ts" \
   --enum \
   --immutable \
