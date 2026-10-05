@@ -49,7 +49,7 @@ export interface ProfileView { id: string; member_id: string; display_name: stri
  * shape; until the backend serves it, those fields map to honest empty
  * values rather than being read off a type that does not have them.
  */
-export async function getProfile(memberId: string): Promise<ProfileView> {
+export async function getProfile(_memberId: string): Promise<ProfileView> {
   const snap = await apiFetch<ProfileSnapshot>(API_PATHS.profile.me);
   return {
     id: snap.id,

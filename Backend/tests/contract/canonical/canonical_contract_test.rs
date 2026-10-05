@@ -28,9 +28,7 @@ fn contract_root() -> PathBuf {
             return dir;
         }
         if !dir.pop() {
-            panic!(
-                "could not locate the Contract/ directory by walking up from {manifest_dir}"
-            );
+            panic!("could not locate the Contract/ directory by walking up from {manifest_dir}");
         }
     }
 }
@@ -275,7 +273,13 @@ fn canonical_openapi_uses_bearer_security() {
 #[test]
 fn realtime_contract_has_all_five_channels() {
     let rt = read("realtime/lcc-realtime-contract.yaml");
-    for ch in ["ws.briefing", "ws.approvals", "ws.engagement", "ws.compliance", "ws.sequence"] {
+    for ch in [
+        "ws.briefing",
+        "ws.approvals",
+        "ws.engagement",
+        "ws.compliance",
+        "ws.sequence",
+    ] {
         assert!(rt.contains(ch), "realtime contract missing channel {ch}");
     }
 }

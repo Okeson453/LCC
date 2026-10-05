@@ -47,23 +47,56 @@ fn registry_resolves_canonical_paths_to_correct_upstreams() {
         ("/api/v1/auth/linkedin/start", "identity-svc"),
         ("/api/v1/auth/refresh", "identity-svc"),
         ("/api/v1/members/me", "identity-svc"),
-        ("/api/v1/members/{memberId}/profile/snapshots/latest", "profile-svc"),
+        (
+            "/api/v1/members/{memberId}/profile/snapshots/latest",
+            "profile-svc",
+        ),
         ("/api/v1/members/{memberId}/content", "content-svc"),
-        ("/api/v1/members/{memberId}/content/{contentId}/quality-check", "content-svc"),
-        ("/api/v1/members/{memberId}/engagement/queue", "engagement-svc"),
-        ("/api/v1/members/{memberId}/contacts/stale", "network-crm-svc"),
-        ("/api/v1/members/{memberId}/opportunities", "opportunity-svc"),
-        ("/api/v1/members/{memberId}/opportunities/{opportunityId}/draft-proposal", "opportunity-svc"),
+        (
+            "/api/v1/members/{memberId}/content/{contentId}/quality-check",
+            "content-svc",
+        ),
+        (
+            "/api/v1/members/{memberId}/engagement/queue",
+            "engagement-svc",
+        ),
+        (
+            "/api/v1/members/{memberId}/contacts/stale",
+            "network-crm-svc",
+        ),
+        (
+            "/api/v1/members/{memberId}/opportunities",
+            "opportunity-svc",
+        ),
+        (
+            "/api/v1/members/{memberId}/opportunities/{opportunityId}/draft-proposal",
+            "opportunity-svc",
+        ),
         ("/api/v1/members/{memberId}/sequences", "outreach-svc"),
-        ("/api/v1/members/{memberId}/sequences/{sequenceId}/pause", "outreach-svc"),
+        (
+            "/api/v1/members/{memberId}/sequences/{sequenceId}/pause",
+            "outreach-svc",
+        ),
         ("/api/v1/members/{memberId}/kb/records", "kb-svc"),
-        ("/api/v1/members/{memberId}/analytics/account-health", "analytics-svc"),
+        (
+            "/api/v1/members/{memberId}/analytics/account-health",
+            "analytics-svc",
+        ),
         ("/api/v1/members/{memberId}/briefing/today", "orchestrator"),
         ("/api/v1/members/{memberId}/approvals", "approval-svc"),
-        ("/api/v1/members/{memberId}/approvals/{approvalId}/decide", "approval-svc"),
+        (
+            "/api/v1/members/{memberId}/approvals/{approvalId}/decide",
+            "approval-svc",
+        ),
         ("/api/v1/members/{memberId}/audit", "audit-svc"),
-        ("/api/v1/admin/compliance/config-versions", "compliance-governor"),
-        ("/api/v1/admin/compliance/restrictions/{memberId}", "compliance-governor"),
+        (
+            "/api/v1/admin/compliance/config-versions",
+            "compliance-governor",
+        ),
+        (
+            "/api/v1/admin/compliance/restrictions/{memberId}",
+            "compliance-governor",
+        ),
         ("/api/v1/ws/briefing", "realtime-svc"),
         ("/api/v1/ws/sequence", "realtime-svc"),
     ];
@@ -110,10 +143,7 @@ fn registry_rewrites_legacy_upstreams_correctly() {
         "/v1/content_svc"
     );
     assert_eq!(
-        registry.rewrite_for_upstream(
-            "/api/v1/content/{contentId}/quality-check",
-            "content-svc"
-        ),
+        registry.rewrite_for_upstream("/api/v1/content/{contentId}/quality-check", "content-svc"),
         "/v1/content_svc/{contentId}/quality-check"
     );
 
@@ -146,10 +176,7 @@ fn registry_rewrites_legacy_upstreams_correctly() {
 
     // analytics
     assert_eq!(
-        registry.rewrite_for_upstream(
-            "/api/v1/analytics/account-health",
-            "analytics-svc"
-        ),
+        registry.rewrite_for_upstream("/api/v1/analytics/account-health", "analytics-svc"),
         "/v1/analytics_svc/account-health"
     );
 }

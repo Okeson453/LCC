@@ -11,8 +11,7 @@
  * single place that maps between the two.
  */
 
-import type { KbCitation, KbCategory } from '@lcc/api-types';
-import type { KbCitationRef } from '@lcc/api-types';
+import type { KbCitation, KbCategory, KbCitationRef } from '@lcc/api-types';
 
 /** Categories the UI knows how to label; anything else falls back to `goal`. */
 const KNOWN_CATEGORIES: readonly KbCategory[] = [

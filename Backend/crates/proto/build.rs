@@ -53,9 +53,8 @@ fn main() {
         return;
     }
 
-    let manifest_dir = PathBuf::from(
-        std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into()),
-    );
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into()));
     let out_dir = manifest_dir.join("src").join("gen");
 
     if buf_available() {

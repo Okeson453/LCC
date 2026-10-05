@@ -33,7 +33,10 @@ fn route_covers_all_five_channels() {
         route_event("compliance.restriction_detected"),
         Some(Channel::Compliance)
     );
-    assert_eq!(route_event("sequence.reply_detected"), Some(Channel::Sequence));
+    assert_eq!(
+        route_event("sequence.reply_detected"),
+        Some(Channel::Sequence)
+    );
 }
 
 #[test]
@@ -122,6 +125,9 @@ fn envelope_serializes_with_canonical_shape() {
         "\"trace_id\"",
         "\"payload\"",
     ] {
-        assert!(json.contains(required), "missing field {required} in {json}");
+        assert!(
+            json.contains(required),
+            "missing field {required} in {json}"
+        );
     }
 }

@@ -10,6 +10,7 @@ import { ComplianceGate } from '@lcc/compliance-state';
 import { fetchCurrentMember } from '@/lib/api/members';
 import { getOpportunity, draftProposal } from '@/lib/api/opportunity';
 import { toKbCitations } from '@/lib/kb-citations';
+import { logger } from '@lcc/test-utils';
 
 
 export default function ProposalPage({ params }: { params: { opportunityId: string } }): React.ReactElement {
@@ -36,7 +37,7 @@ function Form({ memberId, opportunityId }: { memberId: string; opportunityId: st
 
   const submit = useMutation({
     mutationFn: () => draftProposal(memberId, opportunityId),
-    onSuccess: () => { setShowApproval(false); console.info('[proposal] submitted for approval (backend send-proposal pending)'); },
+    onSuccess: () => { setShowApproval(false); logger.info('[proposal] submitted for approval (backend send-proposal pending)'); },
   });
 
 

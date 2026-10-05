@@ -13,6 +13,7 @@ import { fetchCurrentMember } from '@/lib/api/members';
 import { composeContent, createContent, runQualityCheck, submitForApproval, scheduleContent } from '@/lib/api/content';
 import { useComposerStore } from '@/lib/stores';
 import type { ContentVariant, QualityFlag } from '@lcc/api-types';
+import { logger } from '@lcc/test-utils';
 
 export function ComposerClient(): React.ReactElement {
   const memberQuery = useQuery({ queryKey: ['members', 'me'] as const, queryFn: fetchCurrentMember });
@@ -195,8 +196,8 @@ function SubmitForApprovalButton({ memberId, body, onSubmitted }: { memberId: st
           kbRefs={[]}
           traceId={submit.data.trace_id}
           idempotencyKey={createdId}
-          onApprove={() => { qc.invalidateQueries({ queryKey: ['content'] }); console.info('[composer] content approved', createdId); }}
-          onReject={() => { console.warn('[composer] approval declined', createdId); }}
+          onApprove={() => { qc.invalidateQueries({ queryKey: ['content'] }); logger.info('[composer] content approved', { createdId }); }}
+          onReject={() => { logger.warn('[composer] approval declined', { createdId }); }}
         />
       ) : null}
     </>
