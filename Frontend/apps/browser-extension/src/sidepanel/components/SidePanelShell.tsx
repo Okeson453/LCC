@@ -6,7 +6,7 @@
  */
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ApprovalDialog, KbCitationsList, GovernanceTrace, GuardFailurePanel, RiskTierBadge } from '@lcc/approval-gate';
+import { ApprovalDialog, RiskTierBadge } from '@lcc/approval-gate';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Tabs, TabsList, TabsTrigger, TabsContent } from '@lcc/ui';
 import { proxyApiRequest } from '../../background/api-client';
 import { useExtensionToken } from '../../popup/hooks/use-extension-state';
@@ -93,9 +93,6 @@ function ApprovalsPane(): React.ReactElement {
             await decide.mutateAsync({ id: active.id, decision: 'reject' });
             setActive(null);
           }}
-          kbCitationsSlot={(refs) => <KbCitationsList citations={refs} />}
-          governanceTraceSlot={() => <GovernanceTrace traceId={active.trace_id} idempotencyKey={active.idempotency_key} />}
-          guardFailureSlot={(g) => <GuardFailurePanel guards={g} />}
         />
       ) : null}
     </div>

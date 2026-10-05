@@ -3,7 +3,7 @@
  * `lcc.detectedSurface` events; the background relays to the popup.
  * Audit ref: M-24.
  */
-import { detectSurface, type LinkedInSurface } from '../dom/detector';
+import { detectSurface } from '../dom/detector';
 import type { ContentMessage } from '../../types';
 
 export function startPageBridge(): void {

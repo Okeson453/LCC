@@ -29,7 +29,7 @@ async function currentTab(): Promise<chrome.tabs.Tab | undefined> {
   return tab;
 }
 
-async function forwardFetcher(req: ActionRequest): Promise<ActionResponse> {
+async function forwardFetcher(_req: ActionRequest): Promise<ActionResponse> {
   // Fetcher delegates through background to avoid CORS. Only Tier-1 reads.
   const api = chrome.runtime.getURL('');
   return { ok: true, data: { proxied: true, url: api } };

@@ -15,14 +15,30 @@ export type {
 export type {
   Approval,
   ComplianceConfig,
-  ComplianceReason,
   KbCitation,
-  MemberRestriction,
   Member,
   ProfileSnapshot,
   RelationshipStage,
+  RestrictionState,
   RiskTier,
 } from '@lcc/api-types';
+
+/**
+ * Why a member is restricted. Mirrors the `restricted_reason` enum on the
+ * canonical `RestrictionState` schema
+ * (Contract/openapi/lcc-api-canonical.yaml).
+ *
+ * This was previously re-exported as `ComplianceReason` from @lcc/api-types,
+ * but no such member was ever exported from that package, so the extension
+ * failed to typecheck. The enum below is the real contract shape.
+ */
+export type ComplianceReason =
+  | 'denial_rate'
+  | 'manual_review'
+  | 'oauth_expired'
+  | 'governance_fail'
+  | 'abuse_signal'
+  | 'none';
 
 /**
  * Messages exchanged across chrome.runtime boundaries. Each entry is keyed by

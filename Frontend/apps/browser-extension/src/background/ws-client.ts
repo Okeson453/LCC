@@ -56,7 +56,16 @@ async function connect(): Promise<void> {
 
 function scheduleReconnect(): void {
   if (reconnectTimer) return;
-  const delay = computeBackoffMs(retries, 1_000, 30_000, 250);
+  // `computeBackoffMs(attempt, config)` takes a BackoffConfig, not four
+  // positional numbers — the old call site passed 1_000/30_000/250 as extra
+  // args and failed to typecheck. 250 is the ±jitter in ms the extension wants,
+  // expressed as a ratio of the 1 s base.
+  const delay = computeBackoffMs(retries, {
+    baseMs: 1_000,
+    capMs: 30_000,
+    factor: 2,
+    jitterRatio: 0.25,
+  });
   retries += 1;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;

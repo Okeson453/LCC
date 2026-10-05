@@ -18,7 +18,7 @@ export async function trackLinkedInTabs(): Promise<void> {
   for (const t of tabs) {
     if (t.id) await tagLinkedInTab(t.id);
   }
-  chrome.tabs.onUpdated.addListener(async (id, change, t) => {
+  chrome.tabs.onUpdated.addListener(async (id, _change, t) => {
     if (t.url?.includes('linkedin.com')) await tagLinkedInTab(id);
     else await untagLinkedInTab(id);
   });

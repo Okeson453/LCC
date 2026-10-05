@@ -46,7 +46,10 @@ export function ApprovalDecisionDrawer({ approval, kbByRecordId, decide, trigger
 
           <KbCitationsList citations={approval.kb_refs.map((id) => kbByRecordId[id]).filter(Boolean)} />
 
-          <GovernanceTrace traceId={approval.trace_id} idempotencyKey={approval.idempotency_key} />
+          <GovernanceTrace
+            traceId={approval.trace_id}
+            evaluation={{ permit: false, failedGuard: null, reason: null }}
+          />
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

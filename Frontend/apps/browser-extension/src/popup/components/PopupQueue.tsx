@@ -6,7 +6,7 @@
  */
 import * as React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RiskTierBadge, ApprovalDialog, KbCitationsList, GovernanceTrace, GuardFailurePanel } from '@lcc/approval-gate';
+import { RiskTierBadge, ApprovalDialog } from '@lcc/approval-gate';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button } from '@lcc/ui';
 import { proxyApiRequest } from '../../background/api-client';
 import type { ApprovalSummary } from '../../lib/types';
@@ -79,9 +79,6 @@ export function PopupQueue(): React.ReactElement {
             await decide.mutateAsync({ id: active.id, decision: 'reject' });
             setActive(null);
           }}
-          kbCitationsSlot={(refs) => <KbCitationsList citations={refs} />}
-          governanceTraceSlot={() => <GovernanceTrace traceId={active.trace_id} idempotencyKey={active.idempotency_key} />}
-          guardFailureSlot={(g) => <GuardFailurePanel guards={g} />}
         />
       ) : null}
 
