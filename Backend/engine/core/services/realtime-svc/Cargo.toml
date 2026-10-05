@@ -55,5 +55,11 @@ uuid = { workspace = true, features = ["v4"] }
 name = "realtime_flow_test"
 path = "../../../../tests/contract/canonical/realtime_flow_test.rs"
 
+# Asserts realtime-svc's Channel::allowed_events and route_event against
+# Contract/realtime/lcc-realtime-contract.yaml.
+[[test]]
+name = "realtime_contract_conformance"
+path = "../../../../tests/contract/realtime_contract_conformance.rs"
+
 [lints]
 workspace = true
