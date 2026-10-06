@@ -21,6 +21,38 @@ contract_audit/
     └── contract_completeness_matrix.md             ← executive summary + acceptance criteria (23 KB)
 ```
 
+### This directory holds contracts only — no implementation
+
+`Contract/` contains the authoritative *descriptions* of the API. It must never
+contain a copy of the code those descriptions refer to.
+
+This directory previously also carried `services/` (15 services),
+`crates/` (`lcc-auth`) and `canonical-contract-tests/` (4 files) — snapshots of
+`Backend/engine/core/services/`, `Backend/crates/` and
+`Backend/tests/contract/canonical/`. Those copies were:
+
+- **never compiled** — there is no `Contract/Cargo.toml` and no workspace
+  member points at them, so `cargo build --workspace` never saw them;
+- **already divergent** — every service differed from its `Backend/` counterpart
+  (7–22 files each), and their routers still used the superseded
+  `/v1/<service>_svc/…` namespace rather than the canonical `/api/v1/…` form;
+- **never referenced** by any build, CI workflow, script or manifest.
+
+They were therefore a stale mirror of code that already lived elsewhere, and
+anyone reading them would have been reading code that no longer compiles against
+the contract. They have been deleted; the live implementations and tests remain
+in `Backend/`, and each is now checked against this directory automatically:
+
+| Check | Asserts |
+|---|---|
+| `Backend/tests/contract/gateway_contract_conformance.rs` | all 70 canonical REST paths are routed by the gateway |
+| `Backend/tests/contract/realtime_contract_conformance.rs` | `realtime-svc`'s 5 channels and 19 events match `realtime/lcc-realtime-contract.yaml` |
+| `Backend/tests/contract/canonical/*.rs` | per-bounded-context request/response conformance |
+| `Frontend/apps/web-dashboard/tests/unit/contract-conformance.test.ts` | every frontend API path resolves to a contract path |
+
+This directory is now **specification-only**. Adding a service or crate copy here
+is a regression: it reintroduces the drift these tests exist to prevent.
+
 ---
 
 ## Headline Numbers
