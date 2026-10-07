@@ -246,8 +246,17 @@ impl PgRepository {
         Ok(row.0)
     }
 
+    /// Set the embedding status of one record.
+    ///
+    /// `member_id` is part of the `WHERE` clause, not just the caller's
+    /// identity: this is a write, and `lcc.kb_records` has no row-level
+    /// security enabled (only one table in the schema does), so scoping by
+    /// `id` alone would let any authenticated member write to any other
+    /// member's record. A record belonging to someone else now reads as
+    /// `NotFound` rather than silently succeeding.
     pub async fn set_embedding_status(
         &self,
+        member_id: Uuid,
         id: Uuid,
         status: EmbeddingStatus,
         embedding_id: Option<&str>,
@@ -255,11 +264,12 @@ impl PgRepository {
         let res = sqlx::query(
             r#"
             UPDATE lcc.kb_records
-            SET embedding_status = $2::text, embedding_id = $3, updated_at = NOW()
-            WHERE id = $1
+            SET embedding_status = $3::text, embedding_id = $4, updated_at = NOW()
+            WHERE id = $1 AND member_id = $2
             "#,
         )
         .bind(id)
+        .bind(member_id)
         .bind(status.as_str())
         .bind(embedding_id)
         .execute(&self.pool)

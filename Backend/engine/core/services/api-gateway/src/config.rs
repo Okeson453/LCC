@@ -15,6 +15,12 @@ pub struct ApiGatewayConfig {
 
     pub rate_limit_per_minute: u32,
 
+    /// Browser origins permitted to call the API, as a comma-separated list.
+    /// The dashboard is served from a different origin than the gateway in
+    /// every non-local deployment, so without this the browser blocks every
+    /// request before it leaves the page.
+    pub cors_allowed_origins: Vec<String>,
+
     pub audit_svc_url: String,
     pub orchestrator_url: String,
     pub identity_svc_url: String,
@@ -47,6 +53,9 @@ impl Default for ApiGatewayConfig {
             // production and mint tokens under a publicly-known HS256 key.
             auth_jwt_secret: DEV_ONLY_JWT_SECRET.into(),
             rate_limit_per_minute: 600,
+            // Local dev only. Production must set LCC_CORS_ALLOWED_ORIGINS
+            // explicitly; `*` is rejected below for non-local environments.
+            cors_allowed_origins: vec!["http://localhost:3000".into()],
             // F-AUDIT-37: every upstream URL below was `:8080`, but only
             // api-gateway itself binds 8080. The Core Engine services bind
             // 8081-8091 (see each service's `config.rs` `http_port` default,
@@ -147,6 +156,16 @@ impl ApiGatewayConfig {
             }
         }
 
+        if let Ok(v) = std::env::var("LCC_CORS_ALLOWED_ORIGINS") {
+            let parsed: Vec<String> = v
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if !parsed.is_empty() {
+                cfg.cors_allowed_origins = parsed;
+            }
+        }
         if let Ok(v) = std::env::var("LCC_AUTH_JWT_AUDIENCE") {
             if !v.is_empty() {
                 cfg.auth_jwt_audience = v;

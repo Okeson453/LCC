@@ -235,8 +235,10 @@ impl Service {
                 auto_fixes,
                 evaluated_at: Utc::now(),
             };
-            self.repo.record_quality_check(id, &result).await?;
-            let _ = self.repo.increment_quality_loop(id).await?;
+            self.repo
+                .record_quality_check(member_id, id, &result)
+                .await?;
+            self.repo.increment_quality_loop(member_id, id).await?;
             if passed {
                 return Ok(result);
             }

@@ -127,5 +127,54 @@ pub fn build_router(state: AppState) -> Router {
         // Trace-id propagation applies to every route so the id is present
         // on upstream forwards and on the client-visible response.
         .layer(middleware::from_fn(propagate_trace_id))
+        // CORS is applied last (outermost) so it also covers the error
+        // responses the auth and rate-limit layers produce — a 401 without
+        // `Access-Control-Allow-Origin` is unreadable by the browser and
+        // surfaces as an opaque network error instead of an auth failure.
+        .layer(cors_layer(&state))
         .with_state(state)
+}
+
+/// Build the CORS layer from the configured origin allow-list.
+///
+/// A wildcard is accepted only for local development. `allow_credentials`
+/// is never combined with `*`, which the spec forbids and browsers reject,
+/// so a wildcard environment drops credentials and the caller falls back to
+/// bearer headers rather than cookies.
+fn cors_layer(state: &AppState) -> tower_http::cors::CorsLayer {
+    use tower_http::cors::{Any, CorsLayer};
+
+    let origins = &state.config().cors_allowed_origins;
+    let wildcard = origins.iter().any(|o| o == "*");
+
+    if wildcard {
+        return CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any);
+    }
+
+    let parsed: Vec<axum::http::HeaderValue> = origins
+        .iter()
+        .filter_map(|o| o.parse::<axum::http::HeaderValue>().ok())
+        .collect();
+    CorsLayer::new()
+        .allow_origin(parsed)
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::PATCH,
+            axum::http::Method::DELETE,
+        ])
+        // `x-trace-id` and `x-member-id` are set by the client/gateway; the
+        // client also sends `Idempotency-Key` on mutations.
+        .allow_headers([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderName::from_static("idempotency-key"),
+            axum::http::HeaderName::from_static("x-trace-id"),
+        ])
+        .expose_headers([axum::http::HeaderName::from_static("x-trace-id")])
+        .max_age(std::time::Duration::from_secs(600))
 }

@@ -10,7 +10,9 @@ name = "lcc-token-mint-cli"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.5", features = ["derive"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+lcc-auth = { path = "../../../../crates/auth" }
+uuid = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

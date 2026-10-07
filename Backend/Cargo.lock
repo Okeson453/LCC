@@ -2314,11 +2314,13 @@ name = "lcc-token-mint-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "lcc-auth",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

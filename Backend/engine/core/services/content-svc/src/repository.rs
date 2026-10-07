@@ -221,31 +221,46 @@ impl PgRepository {
         Ok(row.0)
     }
 
-    pub async fn increment_quality_loop(&self, id: Uuid) -> Result<i32, Error> {
+    /// `member_id` scopes the write even though the caller has already
+    /// fetched the item member-scoped. `lcc.content_items` has no RLS, so the
+    /// tenant predicate belongs in the statement itself rather than resting on
+    /// a caller's earlier read.
+    pub async fn increment_quality_loop(&self, member_id: Uuid, id: Uuid) -> Result<i32, Error> {
         let row: (i32,) = sqlx::query_as(
             r#"
             UPDATE lcc.content_items
             SET quality_loop_count = quality_loop_count + 1, updated_at = NOW()
-            WHERE id = $1
+            WHERE id = $1 AND member_id = $2
             RETURNING quality_loop_count
             "#,
         )
         .bind(id)
+        .bind(member_id)
         .fetch_one(&self.pool)
         .await?;
         Ok(row.0)
     }
 
+    /// `lcc.content_quality_checks` is keyed by `content_id` and carries no
+    /// `member_id` of its own, so the tenant predicate is enforced with an
+    /// `EXISTS` guard against the owning item rather than a column on the
+    /// child row. Writing a check against another member's item inserts
+    /// nothing and reports `NotFound`.
     pub async fn record_quality_check(
         &self,
+        member_id: Uuid,
         id: Uuid,
         q: &QualityCheckResult,
     ) -> Result<(), Error> {
-        sqlx::query(
+        let res = sqlx::query(
             r#"
             INSERT INTO lcc.content_quality_checks
                 (id, content_id, passed, loop, issues, auto_fixes, evaluated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            SELECT $1, $2, $3, $4, $5, $6, $7
+            WHERE EXISTS (
+                SELECT 1 FROM lcc.content_items
+                WHERE id = $2 AND member_id = $8
+            )
             "#,
         )
         .bind(Uuid::new_v4())
@@ -255,8 +270,12 @@ impl PgRepository {
         .bind(&q.issues)
         .bind(&q.auto_fixes)
         .bind(q.evaluated_at)
+        .bind(member_id)
         .execute(&self.pool)
         .await?;
+        if res.rows_affected() == 0 {
+            return Err(Error::NotFound(format!("content item {id}")));
+        }
         Ok(())
     }
 

@@ -120,12 +120,13 @@ impl Service {
     /// Worker callback: mark a record as embedded/failed.
     pub async fn set_embedding_status(
         &self,
+        member_id: Uuid,
         id: Uuid,
         status: EmbeddingStatus,
         embedding_id: Option<String>,
     ) -> Result<(), Error> {
         self.repo
-            .set_embedding_status(id, status, embedding_id.as_deref())
+            .set_embedding_status(member_id, id, status, embedding_id.as_deref())
             .await
     }
 }

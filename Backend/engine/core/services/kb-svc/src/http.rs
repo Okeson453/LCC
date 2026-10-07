@@ -145,14 +145,13 @@ async fn set_status(
     headers: HeaderMap,
     Json(req): Json<SetStatusRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    // Internal endpoint — worker-only. Caller check via service token.
-    let member = require_member(&headers)?;
+    // The verified member scopes the write — see `PgRepository::set_embedding_status`.
+    let member_id = require_member(&headers)?;
     let status = parse_status(&req.status)?;
     state
         .service()
-        .set_embedding_status(id, status, req.embedding_id)
+        .set_embedding_status(member_id, id, status, req.embedding_id)
         .await?;
-    let _ = member; // unused after auth
     Ok(axum::http::StatusCode::NO_CONTENT.into_response())
 }
 

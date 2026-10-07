@@ -27,6 +27,7 @@ fn config() -> ApiGatewayConfig {
         auth_jwt_issuer: "lcc-identity-svc".into(),
         auth_jwt_secret: "x".into(),
         rate_limit_per_minute: 60,
+        cors_allowed_origins: vec!["http://localhost:3000".into()],
         audit_svc_url: "http://audit-svc:8091".into(),
         orchestrator_url: "http://orchestrator:8081".into(),
         identity_svc_url: "http://identity-svc:8090".into(),
