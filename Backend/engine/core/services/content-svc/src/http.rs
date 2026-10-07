@@ -1,4 +1,8 @@
-//! Content-svc HTTP — canonical /api/v1/content/* namespace.
+//! Content-svc HTTP — canonical `/api/v1/members/{memberId}/content/*`
+//! namespace, per `lcc-api-canonical.yaml`.
+//!
+//! The gateway forwards the path verbatim, so these literals must match the
+//! contract exactly.
 
 use axum::{
     extract::{Path, Query, State},
@@ -17,19 +21,27 @@ use crate::service::NewContentItem;
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
+    // Plain string literals, not `format!`/`const` — the service-routing
+    // conformance test reads these literals to prove the served paths match
+    // the contract, so an indirection would hide the route from it.
     Router::new()
-        .route("/api/v1/content/items", get(list).post(create))
-        .route("/api/v1/content/items/:id", get(get_one))
+        .route("/api/v1/members/:member_id/content", get(list).post(create))
         .route(
-            "/api/v1/content/items/:id",
-            axum::routing::patch(update_body).delete(delete_one),
+            "/api/v1/members/:member_id/content/:content_id",
+            get(get_one).patch(update_body).delete(delete_one),
         )
-        .route("/api/v1/content/items/:id/transition", post(transition))
         .route(
-            "/api/v1/content/items/:id/quality-check",
+            "/api/v1/members/:member_id/content/:content_id/quality-check",
             post(quality_check),
         )
-        .route("/api/v1/content/items/:id/schedule", post(schedule))
+        .route(
+            "/api/v1/members/:member_id/content/:content_id/submit-for-approval",
+            post(transition),
+        )
+        .route(
+            "/api/v1/members/:member_id/content/:content_id/schedule",
+            post(schedule),
+        )
         .with_state(state)
 }
 
@@ -41,10 +53,11 @@ struct ListQuery {
 
 async fn list(
     State(state): State<AppState>,
+    Path(member_id): Path<Uuid>,
     headers: HeaderMap,
     Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
+    let m = member(&headers, member_id)?;
     let st = parse_state(q.state.as_deref())?;
     Ok(Json(
         json!({"items": state.service().list(m, st, q.limit.unwrap_or(50).min(200)).await?}),
@@ -53,11 +66,11 @@ async fn list(
 
 async fn get_one(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((member_id, content_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
-    Ok(Json(state.service().get(m, id).await?))
+    let m = member(&headers, member_id)?;
+    Ok(Json(state.service().get(m, content_id).await?))
 }
 
 #[derive(Deserialize)]
@@ -73,10 +86,11 @@ struct CreateRequest {
 
 async fn create(
     State(state): State<AppState>,
+    Path(member_id): Path<Uuid>,
     headers: HeaderMap,
     Json(req): Json<CreateRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
+    let m = member(&headers, member_id)?;
     let kind = parse_kind(&req.kind)?;
     let item = state
         .service()
@@ -104,26 +118,26 @@ struct UpdateBodyRequest {
 
 async fn update_body(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((member_id, content_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(req): Json<UpdateBodyRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
+    let m = member(&headers, member_id)?;
     Ok(Json(
         state
             .service()
-            .update_body(m, id, req.version, &req.body)
+            .update_body(m, content_id, req.version, &req.body)
             .await?,
     ))
 }
 
 async fn delete_one(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((member_id, content_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
-    state.service().delete(m, id).await?;
+    let m = member(&headers, member_id)?;
+    state.service().delete(m, content_id).await?;
     Ok(axum::http::StatusCode::NO_CONTENT.into_response())
 }
 
@@ -136,17 +150,17 @@ struct TransitionRequest {
 
 async fn transition(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((member_id, content_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(req): Json<TransitionRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
+    let m = member(&headers, member_id)?;
     let st = parse_state(Some(&req.new_state))?
         .ok_or_else(|| Error::Validation("new_state required".into()))?;
     Ok(Json(
         state
             .service()
-            .transition(m, id, req.version, st, req.scheduled_at)
+            .transition(m, content_id, req.version, st, req.scheduled_at)
             .await?,
     ))
 }
@@ -158,12 +172,15 @@ struct QualityCheckRequest {
 
 async fn quality_check(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((member_id, content_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(req): Json<QualityCheckRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
-    let result = state.service().run_quality_loop(m, id, req.version).await?;
+    let m = member(&headers, member_id)?;
+    let result = state
+        .service()
+        .run_quality_loop(m, content_id, req.version)
+        .await?;
     Ok(Json(result))
 }
 
@@ -176,11 +193,11 @@ struct ScheduleRequest {
 
 async fn schedule(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    Path((member_id, content_id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
     Json(req): Json<ScheduleRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = require_member(&headers)?;
+    let m = member(&headers, member_id)?;
     let schedule = Schedule {
         scheduled_at: req.scheduled_at,
         slots: req.slots,
@@ -188,9 +205,20 @@ async fn schedule(
     Ok(Json(
         state
             .service()
-            .schedule(m, id, req.version, schedule)
+            .schedule(m, content_id, req.version, schedule)
             .await?,
     ))
+}
+
+/// Resolve the caller from the bearer token and refuse if the `{memberId}`
+/// path segment names a different member. The JWT stays authoritative for who
+/// is calling; a mismatch is a cross-member access attempt, not a no-op.
+fn member(headers: &HeaderMap, member_id: Uuid) -> Result<Uuid, Error> {
+    let m = require_member(headers)?;
+    if m != member_id {
+        return Err(Error::Forbidden);
+    }
+    Ok(m)
 }
 
 fn require_member(headers: &HeaderMap) -> Result<Uuid, Error> {

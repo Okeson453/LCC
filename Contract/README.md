@@ -26,22 +26,25 @@ contract_audit/
 `Contract/` contains the authoritative *descriptions* of the API. It must never
 contain a copy of the code those descriptions refer to.
 
-This directory previously also carried `services/` (15 services),
-`crates/` (`lcc-auth`) and `canonical-contract-tests/` (4 files) — snapshots of
-`Backend/engine/core/services/`, `Backend/crates/` and
-`Backend/tests/contract/canonical/`. Those copies were:
+This directory previously also carried copies of the implementation:
 
-- **never compiled** — there is no `Contract/Cargo.toml` and no workspace
-  member points at them, so `cargo build --workspace` never saw them;
-- **already divergent** — every service differed from its `Backend/` counterpart
-  (7–22 files each), and their routers still used the superseded
-  `/v1/<service>_svc/…` namespace rather than the canonical `/api/v1/…` form;
-- **never referenced** by any build, CI workflow, script or manifest.
+| Removed | Duplicated | State when found |
+|---|---|---|
+| `services/` (15 services) | `Backend/engine/core/services/*` | never compiled; 7–22 files drifted per service; routers still on the superseded `/v1/<service>_svc/…` namespace |
+| `crates/lcc-auth` | `Backend/crates/*` | never compiled; diverged |
+| `canonical-contract-tests/` (4 files) | `Backend/tests/contract/canonical/*.rs` | never compiled; diverged after the canonical tests were repaired |
+| `frontend-api/` (17 modules) | `Frontend/apps/web-dashboard/src/lib/api/*.ts` | never compiled; 4 modules (`approval`, `client`, `profile`, `ws-bridges`) had drifted |
+| `frontend-realtime-channels/` (6 modules) | `Frontend/packages/realtime/src/channels/*.ts` | never compiled; byte-identical duplicates |
 
-They were therefore a stale mirror of code that already lived elsewhere, and
-anyone reading them would have been reading code that no longer compiles against
-the contract. They have been deleted; the live implementations and tests remain
-in `Backend/`, and each is now checked against this directory automatically:
+There is no `Contract/Cargo.toml` or workspace member pointing at any of them,
+so `cargo build --workspace` never compiled a line of it and divergence was
+invisible to CI. No build script, CI workflow, manifest or make target
+referenced any of these paths.
+
+They were a stale mirror of code that already lived elsewhere, and anyone
+auditing against them would have been reading code that had been replaced. They
+have been deleted; the live implementations and tests remain in `Backend/` and
+`Frontend/`, and each is now checked against this directory automatically:
 
 | Check | Asserts |
 |---|---|

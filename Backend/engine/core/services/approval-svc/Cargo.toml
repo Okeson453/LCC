@@ -22,3 +22,8 @@ thiserror = "1"
 tracing = { workspace = true }
 redis = { version = "0.27", features = ["tokio-comp", "streams"] }
 deadpool-redis = "0.18"
+
+# Asserts every domain service router serves the canonical paths+methods.
+[[test]]
+name = "service_routing_conformance"
+path = "../../../../tests/contract/service_routing_conformance.rs"
