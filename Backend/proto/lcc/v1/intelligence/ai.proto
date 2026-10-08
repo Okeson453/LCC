@@ -1,7 +1,16 @@
 syntax = "proto3";
 package lcc.v1.intelligence;
 
-import "google/protobuf/timestamp.proto";
+// F-AUDIT-78: this imported google/protobuf/timestamp.proto but never
+// referenced google.protobuf.Timestamp anywhere in the file. protoc reports
+// that as a diagnostic, and the codegen step treats it as a failure, so the
+// `proto-binary` build failed with:
+//
+//   protoc failed: lcc/v1/intelligence/ai.proto:4:1: warning:
+//     Import google/protobuf/timestamp.proto is unused.
+//
+// and the build then died on the missing generated file. Removed; this was
+// the only file in the tree with an unused import.
 import "lcc/v1/common/trace.proto";
 
 // DraftKind — discriminates the response payload.

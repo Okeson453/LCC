@@ -114,26 +114,35 @@ jobs:
       - name: Every declared workload has a matching Dockerfile or source tree
         run: |
           set -euo pipefail
+          shopt -s nullglob
           for manifest in infra/k8s/base/*.yaml; do
+            # F-AUDIT-77: kustomization.yaml is a kustomize build file, not a
+            # workload. This loop included it, and the image lookup below then
+            # matched nothing — under `set -e` + `pipefail` that made the
+            # command substitution exit the whole step *before* the
+            # `if [ -z "$image" ]` message could explain why, so the job failed
+            # with a bare "exit code 1" and no diagnostic at all.
+            [[ "$(basename "$manifest")" == kustomization.yaml ]] && continue
+
             name=$(basename "$manifest" .yaml)
-            image=$(grep -oE 'image: [^ ]+' "$manifest" | head -1 | awk '{print $2}')
+            # `|| true` so a manifest with no image reports a readable error
+            # instead of aborting the step inside the substitution.
+            image=$(grep -oE '^[[:space:]]*image: [^ ]+' "$manifest" | head -1 | awk '{print $2}' || true)
             if [ -z "$image" ]; then
               echo "::error file=$manifest::no container image declared"
               exit 1
             fi
-            # An image is only legitimate if the component it builds exists.
-            #
+
             # F-AUDIT-73: the intelligence *workers* are named with underscores
             # on disk (`enrichment_worker`, `re_embed_worker`,
             # `voice_train_worker`) while their manifests use hyphens
             # (`enrichment-worker`, ...), so a literal match rejected three
             # perfectly real workloads. Both spellings are tried.
             alt=${name//-/_}
-            # F-AUDIT-75: this used a single `ls -d p1 p2 p3 ...`, which exits
-            # non-zero if *any* path is missing — so it required every candidate
-            # directory to exist rather than any one of them, and rejected every
-            # workload. Matched with a loop so the semantics are "any", and the
-            # loop is the same shape used to verify this locally.
+            # F-AUDIT-75: a single `ls -d p1 p2 p3 ...` exits non-zero if *any*
+            # path is missing, demanding that every candidate exist rather than
+            # any one of them. Match with a loop, which is the shape verified
+            # locally.
             found=0
             for d in "engine/core/services/$name" \
                      "engine/core/workers/$name" \
