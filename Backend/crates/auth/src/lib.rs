@@ -5,11 +5,15 @@
 //! LinkedIn OAuth handshake (state + PKCE) lives in `identity-svc`; this crate
 //! provides the helpers consumed by that service.
 
+pub mod guard;
+pub mod identity;
 pub mod jwt;
 pub mod middleware;
 pub mod pkce;
 pub mod rbac;
 
+pub use guard::{require_auth, require_permission, SharedVerifier};
+pub use identity::{caller_from_headers, member_requiring, Caller};
 pub use jwt::{JwtClaims, JwtError, JwtIssuer, JwtVerifier};
 pub use middleware::{AuthenticatedUser, AuthnLayer};
 pub use pkce::{derive_code_challenge, generate_code_verifier, PkcePair};

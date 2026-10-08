@@ -113,10 +113,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 9. Metrics.
     let metrics = Arc::new(Metrics::new("compliance-governor")?);
 
-    // 10. Router — canonical REST namespace per lcc-api-canonical.yaml.
-    let app = http::build_router(deps.clone(), metrics.clone());
+    // 10. JWT verifier for the admin authorization gate.
+    //
+    // F-AUDIT-60: the /api/v1/admin/compliance/** routes previously performed
+    // no service-level authentication at all. Building the verifier here and
+    // passing it into the router makes the gate explicit and, like the gateway,
+    // fail closed: without LCC_AUTH_JWT_SECRET the governor refuses to start
+    // rather than serving its admin surface open.
+    let jwt_secret = std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| {
+        "LCC_AUTH_JWT_SECRET must be set: compliance-governor's admin routes are          authenticated with it, and starting without it would serve them unauthenticated."
+    })?;
+    let jwt_verifier = std::sync::Arc::new(lcc_auth::JwtVerifier::new(
+        jwt_secret.as_bytes(),
+        lcc_auth::DEFAULT_JWT_ISSUER,
+        lcc_auth::DEFAULT_JWT_AUDIENCE,
+    ));
 
-    // 11. Serve.
+    // 11. Router — canonical REST namespace per lcc-api-canonical.yaml.
+    let app = http::build_router(deps.clone(), metrics.clone(), jwt_verifier);
+
+    // 12. Serve.
     let _ = started_at(); // initialize uptime tracking
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", service_config.http_port)).await?;
     tracing::info!(addr = ?listener.local_addr()?, "compliance-governor serving");

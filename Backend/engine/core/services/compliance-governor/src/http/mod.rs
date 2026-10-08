@@ -29,9 +29,15 @@ use crate::state::GovernorDeps;
 
 pub mod admin_rest;
 
+/// Builds the governor router.
+///
+/// `jwt_verifier` is threaded in rather than read from the environment so the
+/// admin subtree's authorization gate is testable with an explicit secret and
+/// so the decoding key is parsed once at startup instead of per request.
 pub fn build_router(
     deps: Arc<GovernorDeps>,
     metrics: Arc<lcc_observability::metrics::Metrics>,
+    jwt_verifier: lcc_auth::SharedVerifier,
 ) -> Router {
     Router::new()
         .route("/healthz", get(crate::health::healthz))
@@ -51,6 +57,39 @@ pub fn build_router(
             post(activate_config_handler),
         )
         .route("/api/v1/admin/evaluate", post(evaluate_action_http_handler))
+        // ---------------------------------------------------------------------
+        // F-AUDIT-60: every route above is a state change on the compliance
+        // configuration that decides what the platform is permitted to send —
+        // the highest-consequence surface in the system — and none of them
+        // performed any service-level check. The gateway verifies a token
+        // before proxying, but a caller able to reach this service directly
+        // (cluster-internal path, misconfigured ingress, an SSRF elsewhere)
+        // could propose, review and activate a config version with no
+        // credential at all.
+        //
+        // The gate is applied as a `route_layer` over the admin subtree rather
+        // than inside each handler, because per-handler checks are precisely
+        // what produced the original gap: the next handler added under this
+        // path would be unprotected unless someone remembered. With the layer
+        // here, a new route is protected by default and cannot be reached by
+        // an alternative execution path that skips the handler body.
+        //
+        // `ManageComplianceConfig` is the permission from
+        // `lcc_auth::rbac`; only Owner and Admin hold it. Authenticated
+        // callers without it get 403, missing/invalid credentials get 401.
+        // ---------------------------------------------------------------------
+        .route_layer(axum::middleware::from_fn(move |request, next| {
+            let v = jwt_verifier.clone();
+            async move {
+                lcc_auth::guard::require_permission(
+                    v,
+                    lcc_auth::Permission::ManageComplianceConfig,
+                    request,
+                    next,
+                )
+                .await
+            }
+        }))
         // Legacy internal-only routes kept for backward compatibility with any
         // internal callers during the migration window. These are deprecated and
         // will be removed once the gateway is the sole caller. They are
