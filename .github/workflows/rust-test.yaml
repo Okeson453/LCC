@@ -70,19 +70,35 @@ jobs:
       # Installing protoc lets build.rs generate the stubs, so the
       # `proto-binary` path is genuinely compiled and tested instead of being
       # silently excluded from the gate.
-      - name: Install protobuf compiler and well-known types
-        # F-AUDIT-76: `protobuf-compiler` alone installs `protoc` but NOT the
-        # google/protobuf well-known type definitions, so codegen failed with
-        #     protoc failed: google/protobuf/timestamp.proto: File not found
-        # and the build then died on the missing generated file. The well-known
-        # types ship in `libprotobuf-dev`, which is the package that actually
-        # provides /usr/include/google/protobuf. This went unnoticed locally
-        # because a development machine that already has libprotobuf-dev
-        # cannot reproduce it.
+      # F-AUDIT-76/79: the protobuf toolchain must be pinned, not taken from
+      # the runner image.
+      #
+      # The Ubuntu 22.04 image ships protoc 3.12, which predates stable proto3
+      # `optional` support, so codegen failed with
+      #   This file contains proto3 optional fields, but
+      #   --experimental_allow_proto3_optional was not specified
+      # and the build then died on the missing generated file. The image also
+      # does not provide the google/protobuf well-known types, which ship in
+      # `libprotobuf-dev` — that produced an earlier, different failure on the
+      # same job:
+      #   protoc failed: google/protobuf/timestamp.proto: File not found
+      #
+      # Installing the official release archive pins both: the compiler version
+      # and, because the archive bundles `include/`, the well-known types it
+      # resolves against. A pinned version also keeps CI reproducible instead
+      # of tracking whatever the runner image ships.
+      - name: Install protoc
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends protobuf-compiler libprotobuf-dev
-          test -f /usr/include/google/protobuf/timestamp.proto
+          set -euo pipefail
+          protoc_ver=25.3
+          curl -sSLo /tmp/protoc.zip \
+            "https://github.com/protocolbuffers/protobuf/releases/download/v${protoc_ver}/protoc-${protoc_ver}-linux-x86_64.zip"
+          unzip -oq /tmp/protoc.zip -d /tmp/protoc
+          sudo install -m 0755 /tmp/protoc/bin/protoc /usr/local/bin/protoc
+          sudo cp -r /tmp/protoc/include/. /usr/local/include/
+          protoc --version
+          test -f /usr/local/include/google/protobuf/timestamp.proto
+          echo "well-known types present"
 
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
