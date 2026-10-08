@@ -1,12 +1,13 @@
 use axum::{
     extract::{Path, Query, State},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
+use lcc_auth::{rbac::Permission, Caller};
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::domain::{ActionType, TaskStatus};
@@ -29,7 +30,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/engagement/tasks/:id/complete", post(complete))
         .route("/api/v1/engagement/tasks/:id/dismiss", post(dismiss))
         .with_state(state)
-                // F-AUDIT-56: this merge was missing, so the service exposed no
+        // F-AUDIT-56: this merge was missing, so the service exposed no
         // health endpoint at all and its pod would have crash-looped on the
         // manifest's /healthz liveness probe.
         //
@@ -56,16 +57,23 @@ async fn inbox(
     headers: HeaderMap,
     Query(q): Query<InboxQuery>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
-    let v = state
+    let c = auth(&headers)?;
+    // Reading one's own inbox is a `ViewOwnData` read, which every role holds.
+    require(c, Permission::ViewOwnData)?;
+    let limit = clamp_limit(q.limit);
+    // One extra row answers `has_more` honestly instead of guessing from a
+    // full page; the contract's `InboxPage` carries the flag.
+    let mut v = state
         .service()
-        .inbox(
-            m,
-            q.limit.unwrap_or(50).min(200),
-            q.unread_only.unwrap_or(false),
-        )
+        .inbox(c.member_id, limit + 1, q.unread_only.unwrap_or(false))
         .await?;
-    Ok(Json(json!({"messages":v})))
+    let has_more = v.len() > limit as usize;
+    v.truncate(limit as usize);
+    Ok(Json(json!({
+        "items": v,
+        "next_cursor": serde_json::Value::Null,
+        "has_more": has_more,
+    })))
 }
 
 async fn mark_read(
@@ -73,9 +81,12 @@ async fn mark_read(
     Path(id): Path<Uuid>,
     headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
-    state.service().mark_read(m, id).await?;
-    Ok(axum::http::StatusCode::NO_CONTENT.into_response())
+    let c = auth(&headers)?;
+    require(c, Permission::ViewOwnData)?;
+    // 204 whether or not a row matched: an unknown id and another member's id
+    // must be indistinguishable.
+    state.service().mark_read(c.member_id, id).await?;
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 async fn queue(
@@ -83,13 +94,18 @@ async fn queue(
     headers: HeaderMap,
     Query(q): Query<ListQuery>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
+    let c = auth(&headers)?;
+    require(c, Permission::ViewOwnData)?;
     let status = q.status.as_deref().map(parse_status).transpose()?;
     let v = state
         .service()
-        .list(m, status, q.limit.unwrap_or(50).min(200))
+        .list(c.member_id, status, clamp_limit(q.limit))
         .await?;
-    Ok(Json(json!({"tasks":v})))
+    // The contract declares this 200 as a bare array of EngagementTask
+    // (`/members/{memberId}/engagement/queue`), and the dashboard client types
+    // it as `QueueItem[]`. The previous `{"tasks": [...]}` envelope matched
+    // neither.
+    Ok(Json(v))
 }
 
 #[derive(Deserialize)]
@@ -106,12 +122,16 @@ async fn create_task(
     headers: HeaderMap,
     Json(req): Json<CreateTaskRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
+    let c = auth(&headers)?;
+    // Creating a unit of engagement work is drafting, so it takes the same
+    // permission as drafting content: an Auditor (read-only) and a Reviewer
+    // (approve-only) may not add to the queue.
+    require(c, Permission::DraftContent)?;
     let a = parse_action(&req.action_type)?;
     let t = state
         .service()
         .create_task(
-            m,
+            c.member_id,
             a,
             req.contact_id,
             req.target_post_id,
@@ -119,14 +139,16 @@ async fn create_task(
             req.due_at,
         )
         .await?;
-    Ok((axum::http::StatusCode::CREATED, Json(t)))
+    Ok((StatusCode::CREATED, Json(t)))
 }
 
 #[derive(Deserialize)]
 struct DraftRequest {
     version: i32,
-    draft: String,
-    draft_pins: Vec<Uuid>,
+    /// design §11.12 `draft_body` / contract `EngagementTask.draft_body`.
+    /// `draft_pins` is intentionally not accepted: no column, no contract
+    /// field, no design field.
+    draft_body: String,
 }
 
 async fn update_draft(
@@ -135,11 +157,12 @@ async fn update_draft(
     headers: HeaderMap,
     Json(req): Json<DraftRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
+    let c = auth(&headers)?;
+    require(c, Permission::EditContent)?;
     Ok(Json(
         state
             .service()
-            .update_draft(m, id, req.version, &req.draft, &req.draft_pins)
+            .update_draft(c.member_id, id, req.version, &req.draft_body)
             .await?,
     ))
 }
@@ -155,8 +178,17 @@ async fn complete(
     headers: HeaderMap,
     Json(req): Json<VersionedRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
-    Ok(Json(state.service().complete(m, id, req.version).await?))
+    let c = auth(&headers)?;
+    // `complete` is the send/approve transition on an outbound reply. The
+    // contract calls it Tier-2 ("Approve a reply/comment/congratulation send"),
+    // so it needs a send-capable role, not merely a valid token.
+    require(c, Permission::ApproveSend)?;
+    Ok(Json(
+        state
+            .service()
+            .complete(c.member_id, id, req.version)
+            .await?,
+    ))
 }
 
 async fn dismiss(
@@ -165,49 +197,62 @@ async fn dismiss(
     headers: HeaderMap,
     Json(req): Json<VersionedRequest>,
 ) -> Result<impl IntoResponse, Error> {
-    let m = auth(&headers)?;
-    Ok(Json(state.service().dismiss(m, id, req.version).await?))
+    let c = auth(&headers)?;
+    require(c, Permission::EditContent)?;
+    Ok(Json(
+        state
+            .service()
+            .dismiss(c.member_id, id, req.version)
+            .await?,
+    ))
 }
 
-fn auth(headers: &HeaderMap) -> Result<Uuid, Error> {
-    let token = headers
-        .get(axum::http::header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer "))
-        .ok_or(Error::Unauthorized)?;
-    let claims = lcc_auth::verify_token(
-        token,
-        &std::env::var("LCC_AUTH_JWT_SECRET").map_err(|_| Error::Unauthorized)?,
-    )
-    .map_err(|_| Error::Unauthorized)?;
-    Uuid::parse_str(&claims.sub).map_err(|_| Error::Unauthorized)
+/// Bound `limit` to the contract's page size. A negative or zero limit is
+/// coerced rather than passed through, because `LIMIT 0` would answer 200 with
+/// an empty queue that looks like "you have no work".
+fn clamp_limit(limit: Option<i64>) -> i64 {
+    match limit {
+        Some(n) if n > 0 => n.min(200),
+        Some(_) => 50,
+        None => 50,
+    }
 }
 
+/// Verify the bearer token and return the caller's member id and role.
+///
+/// `member_id` comes from the verified `sub` claim and never from a header, path
+/// or body value, so a caller cannot reach another member's rows by supplying a
+/// different id. `lcc_auth::caller_from_headers` fails closed: a missing,
+/// non-`Bearer`, badly-signed, expired or non-UUID-`sub` credential is 401, and
+/// so is a token whose `role` is not one of the five known roles.
+fn auth(headers: &HeaderMap) -> Result<Caller, Error> {
+    lcc_auth::caller_from_headers(headers).map_err(from_lcc_error)
+}
+
+/// Require a permission, keeping 401 and 403 distinct: an unusable credential
+/// is 401, an authenticated caller without the right is 403 (RFC 9110).
+fn require(caller: Caller, perm: Permission) -> Result<(), Error> {
+    caller.require(perm).map_err(from_lcc_error)
+}
+
+fn from_lcc_error(e: lcc_auth::LccError) -> Error {
+    match e {
+        lcc_auth::LccError::Unauthorized(_) => Error::Unauthorized,
+        lcc_auth::LccError::Forbidden(_) => Error::Forbidden,
+        lcc_auth::LccError::Validation(m) => Error::Validation(m),
+        other => Error::Internal(other.to_string()),
+    }
+}
+
+/// design §11.12's CHECK list == the contract enum == the proto enum.
+/// The previous parser also accepted `completed` and `skipped`, neither of
+/// which is in any authority and both of which the column now rejects.
 fn parse_action(s: &str) -> Result<ActionType, Error> {
-    Ok(match s {
-        "reply" => ActionType::Reply,
-        "comment" => ActionType::Comment,
-        "like" => ActionType::Like,
-        "connect" => ActionType::Connect,
-        "remind" => ActionType::Remind,
-        "share" => ActionType::Share,
-        "publish" => ActionType::Publish,
-        "custom_note" => ActionType::CustomNote,
-        other => return Err(Error::Validation(format!("unknown action {other}"))),
-    })
+    s.parse()
+        .map_err(|_| Error::Validation(format!("unknown action_type {s:?}")))
 }
 
 fn parse_status(s: &str) -> Result<TaskStatus, Error> {
-    Ok(match s {
-        "queued" => TaskStatus::Queued,
-        "drafted" => TaskStatus::Drafted,
-        "sent" => TaskStatus::Sent,
-        "completed" => TaskStatus::Completed,
-        "skipped" => TaskStatus::Skipped,
-        "expired" => TaskStatus::Expired,
-        other => return Err(Error::Validation(format!("unknown status {other}"))),
-    })
+    s.parse()
+        .map_err(|_| Error::Validation(format!("unknown status {s:?}")))
 }
-
-#[allow(dead_code)]
-fn _t(_: Value) {}

@@ -35,8 +35,12 @@ impl Service {
         self.repo.inbox(member_id, limit, unread_only).await
     }
 
+    /// Idempotent by construction: marking an already-read message changes no
+    /// rows, and an id that is not this member's changes no rows either. Both
+    /// answer 204, so the endpoint is not an existence oracle.
     pub async fn mark_read(&self, member_id: Uuid, id: Uuid) -> Result<(), Error> {
-        self.repo.mark_inbox_read(member_id, id).await
+        self.repo.mark_inbox_read(member_id, id).await?;
+        Ok(())
     }
 
     pub async fn create_task(
@@ -55,15 +59,14 @@ impl Service {
             contact_id,
             target_post_id,
             action_type,
+            // `queued` is the design §11.12 / contract / proto starting state.
             status: TaskStatus::Queued,
             priority_score,
             due_at,
-            draft: None,
-            draft_pins: vec![],
+            draft_body: None,
             completed_at: None,
             version: 1,
             created_at: now,
-            updated_at: now,
         };
         self.repo.insert_task(&t).await?;
         self.publish_event(
@@ -77,90 +80,98 @@ impl Service {
         Ok(t)
     }
 
+    /// Store a draft and move the task to `drafted`.
+    ///
+    /// The response is the row as stored. The previous version built the
+    /// response in memory — `contact_id: None`, `action_type: Reply`,
+    /// `created_at: Utc::now()`, `updated_at: Utc::now()` — so a caller was told
+    /// the task was a reply with no contact and was created just now, whatever
+    /// the database actually held. Re-reading is the only version of this that
+    /// cannot lie.
     pub async fn update_draft(
         &self,
         member_id: Uuid,
         id: Uuid,
         expected_version: i32,
-        draft: &str,
-        draft_pins: &[Uuid],
+        draft_body: &str,
     ) -> Result<EngagementTask, Error> {
-        let new_v = self
+        let new_version = self
             .repo
             .update_task(
                 member_id,
                 id,
                 expected_version,
-                Some(draft),
-                Some(draft_pins),
+                Some(draft_body),
                 Some(TaskStatus::Drafted),
             )
             .await?;
+        let version = match new_version {
+            Some(v) => v,
+            None => {
+                return Err(self
+                    .explain_no_update(member_id, id, expected_version)
+                    .await)
+            }
+        };
         self.publish_event(
             "engagement.draft_ready",
             member_id,
-            &serde_json::json!({
-                "task_id": id, "draft_len": draft.len()
-            }),
+            &serde_json::json!({ "task_id": id, "draft_len": draft_body.len() }),
         )
         .await;
-        // Refresh by listing one — for brevity, return a synthesized object.
-        Ok(EngagementTask {
-            id,
-            member_id,
-            contact_id: None,
-            target_post_id: None,
-            action_type: ActionType::Reply,
-            status: TaskStatus::Drafted,
-            priority_score: None,
-            due_at: None,
-            draft: Some(draft.into()),
-            draft_pins: draft_pins.to_vec(),
-            completed_at: None,
-            version: new_v,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        })
+        debug_assert_eq!(version, expected_version + 1);
+        self.require_task(member_id, id).await
     }
 
+    /// Mark the reply as sent.
+    ///
+    /// The canonical terminal state is `sent` (design §11.12, the contract
+    /// enum, the proto enum); the previous `'completed'` is in none of them.
     pub async fn complete(&self, m: Uuid, id: Uuid, v: i32) -> Result<EngagementTask, Error> {
-        let new_v = self.repo.complete_task(m, id, v).await?;
-        Ok(EngagementTask {
-            id,
-            member_id: m,
-            contact_id: None,
-            target_post_id: None,
-            action_type: ActionType::Reply,
-            status: TaskStatus::Completed,
-            priority_score: None,
-            due_at: None,
-            draft: None,
-            draft_pins: vec![],
-            completed_at: Some(Utc::now()),
-            version: new_v,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        })
+        let new_version = self.repo.complete_task(m, id, v).await?;
+        if new_version.is_none() {
+            return Err(self.explain_no_update(m, id, v).await);
+        }
+        self.require_task(m, id).await
     }
 
+    /// Mark the task dismissed — the contract's `dismissed`, not `skipped`.
     pub async fn dismiss(&self, m: Uuid, id: Uuid, v: i32) -> Result<EngagementTask, Error> {
-        let new_v = self.repo.dismiss_task(m, id, v).await?;
-        Ok(EngagementTask {
-            id,
-            member_id: m,
-            contact_id: None,
-            target_post_id: None,
-            action_type: ActionType::Reply,
-            status: TaskStatus::Skipped,
-            priority_score: None,
-            due_at: None,
-            draft: None,
-            draft_pins: vec![],
-            completed_at: None,
-            version: new_v,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        })
+        let new_version = self.repo.dismiss_task(m, id, v).await?;
+        if new_version.is_none() {
+            return Err(self.explain_no_update(m, id, v).await);
+        }
+        self.require_task(m, id).await
+    }
+
+    /// Re-read a task the caller owns. 404 if it is not theirs or is gone.
+    async fn require_task(&self, member_id: Uuid, id: Uuid) -> Result<EngagementTask, Error> {
+        self.repo
+            .get_task(member_id, id)
+            .await?
+            .ok_or_else(|| Error::NotFound(format!("engagement task {id}")))
+    }
+
+    /// Turn "the guarded UPDATE matched no row" into the right status.
+    ///
+    /// The UPDATE returns nothing for three different reasons, and answering
+    /// the same way for all of them (as the previous code did, with a blanket
+    /// 409) turns the endpoint into an existence oracle: a caller could send a
+    /// bogus version against a guessed task id and learn from 409-vs-404 that
+    /// the task exists. So the row is re-checked with the same `member_id`
+    /// predicate the UPDATE used: absent or not owned is 404, owned with a
+    /// different `version` is 409.
+    async fn explain_no_update(&self, member_id: Uuid, id: Uuid, expected_version: i32) -> Error {
+        match self.repo.get_task(member_id, id).await {
+            Ok(Some(task)) => Error::Conflict(format!(
+                "engagement task {id} is at version {}, not {expected_version}",
+                task.version
+            )),
+            Ok(None) => Error::NotFound(format!("engagement task {id}")),
+            // A read failure here must not be reported as a version conflict:
+            // that would tell a caller their task exists when we do not know.
+            Err(e) => e,
+        }
     }
 
     async fn publish_event(&self, name: &str, m: Uuid, payload: &serde_json::Value) {
