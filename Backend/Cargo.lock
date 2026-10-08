@@ -2115,6 +2115,7 @@ dependencies = [
  "axum",
  "chrono",
  "deadpool-redis",
+ "lcc-auth",
  "lcc-observability",
  "redis",
  "serde",

@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 lcc-observability = { path = "../../../../crates/observability" }
+lcc-auth = { path = "../../../../crates/auth" }
 
 axum = { workspace = true }
 tokio = { workspace = true }

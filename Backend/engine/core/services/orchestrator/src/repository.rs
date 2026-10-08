@@ -115,8 +115,13 @@ impl PgRepository {
     ) -> Result<Vec<OpportunitySummary>, Error> {
         let rows: Vec<HotOpportunityRow> = sqlx::query_as(
             r#"
-                SELECT o.id, c.name, o.position::TEXT AS position,
-                       o.fit_score, o.status::TEXT AS status, o.discovered_at
+            SELECT o.id, c.name,
+                   -- The `position` is the opportunity's title. `lcc.opportunities.kind`
+                   -- is the CATEGORY enum (job_posting, referral, ...) and must never
+                   -- be used here: it answers "what sort of opportunity is this",
+                   -- not "what is the role". `title` is already TEXT.
+                   o.title AS position,
+                   o.fit_score, o.status::TEXT AS status, o.discovered_at
                 FROM lcc.opportunities o
                 LEFT JOIN lcc.companies c ON c.id = o.company_id
                 WHERE o.member_id = $1
@@ -192,17 +197,33 @@ impl PgRepository {
         let rows: Vec<ActiveSequenceRow> = sqlx::query_as(
             r#"
             SELECT s.id, s.contact_id, s.current_step,
-                   s.last_step_sent_at, s.status::TEXT AS status
+                   -- `lcc.sequences` has no `last_step_sent_at` column. The last
+                   -- time a step actually went out is a fact about the steps, so
+                   -- it is derived: the MAX of that sequence's `sent_at`. A
+                   -- sequence with nothing sent yet yields NULL, which is the
+                   -- honest answer rather than a stand-in. `sequences.started_at`
+                   -- is NOT equivalent -- it is when the sequence was created.
+                   (SELECT MAX(st.sent_at)
+                      FROM lcc.sequence_steps st
+                     WHERE st.sequence_id = s.id
+                       AND st.sent_at IS NOT NULL) AS last_step_sent_at,
+                   -- `lcc.sequences` names this column `state`, not `status`:
+                   -- it is the lcc.sequence_state ENUM
+                   -- (active|paused|completed|abandoned|replied).
+                   s.state::TEXT AS status
             FROM lcc.sequences s
             WHERE s.member_id = $1
-              AND s.status = 'active'
+              AND s.state = 'active'
               AND EXISTS (
                   SELECT 1 FROM lcc.sequence_steps st
                   WHERE st.sequence_id = s.id
                     AND st.sent_at IS NULL
                     AND st.scheduled_at <= NOW()
               )
-            ORDER BY s.last_step_sent_at NULLS FIRST
+            -- Sequences that have never sent anything are the most overdue and
+            -- so they lead. Among the rest, the longest-idle sequence is most
+            -- overdue. `id` makes the order total and therefore stable.
+            ORDER BY last_step_sent_at ASC NULLS FIRST, s.id
             LIMIT $2
             "#,
         )
