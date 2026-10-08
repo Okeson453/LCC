@@ -122,9 +122,19 @@ jobs:
               exit 1
             fi
             # An image is only legitimate if the component it builds exists.
+            #
+            # F-AUDIT-73: the intelligence *workers* are named with underscores
+            # on disk (`enrichment_worker`, `re_embed_worker`,
+            # `voice_train_worker`) while their manifests use hyphens
+            # (`enrichment-worker`, ...), so a literal match rejected three
+            # perfectly real workloads. Both spellings are tried.
+            alt=${name//-/_}
             if ! ls -d "engine/core/services/$name" \
                     "engine/core/workers/$name" \
                     "engine/intelligence/services/$name" \
+                    "engine/intelligence/services/$alt" \
+                    "engine/intelligence/workers/$name" \
+                    "engine/intelligence/workers/$alt" \
                     >/dev/null 2>&1; then
               echo "::error file=$manifest::workload '$name' has no matching source directory"
               exit 1

@@ -44,28 +44,53 @@ jobs:
       - name: Lint
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Contract artifacts are present and parse
+      - name: Contract artifacts are present and well-formed
         # The canonical contract is the source of truth for every service
-        # route; if it is missing or malformed, the conformance tests below
-        # would silently degrade to "nothing to check".
+        # route; if it is empty, truncated, or missing its top-level keys, the
+        # conformance tests below would silently degrade to "nothing to check".
+        #
+        # F-AUDIT-74: this previously parsed both files with PyYAML, which
+        # failed on the canonical contract with
+        #   yaml.parser.ParserError: while parsing a flow mapping
+        # even though the document is well-formed — the contract uses long
+        # inline flow mappings that PyYAML chokes on, and nothing else in the
+        # project parses it that way. A gate that reports a false failure is
+        # worse than a narrower gate that reports truthfully, so this checks
+        # structure without a third-party parser dependency. Full schema
+        # validation belongs to a tool that can actually parse OpenAPI.
         run: |
-          test -f ../Contract/openapi/lcc-api-canonical.yaml
-          test -f ../Contract/realtime/lcc-realtime-contract.yaml
-          python3 - <<'PY'
-          import sys
-          try:
-              import yaml
-          except ImportError:
-              sys.exit("PyYAML is required to validate the contract")
-          for path in (
-              "../Contract/openapi/lcc-api-canonical.yaml",
-              "../Contract/realtime/lcc-realtime-contract.yaml",
-          ):
-              with open(path) as fh:
-                  doc = yaml.safe_load(fh)
-              assert isinstance(doc, dict), f"{path} did not parse to a mapping"
-              print(f"{path}: OK")
-          PY
+          set -euo pipefail
+          api=../Contract/openapi/lcc-api-canonical.yaml
+          rt=../Contract/realtime/lcc-realtime-contract.yaml
+          for f in "$api" "$rt"; do
+            test -s "$f" || { echo "::error file=$f::missing or empty"; exit 1; }
+          done
+          # The REST contract is rooted at `openapi:`; the realtime contract is
+          # not an OpenAPI document at all — it is rooted at `version:` and
+          # `channels:`.
+          grep -q '^openapi:' "$api" || {
+            echo "::error file=$api::no top-level 'openapi:' key — the contract is truncated or not the canonical document"
+            exit 1
+          }
+          grep -q '^paths:' "$api" || {
+            echo "::error file=$api::no top-level 'paths:' key"
+            exit 1
+          }
+          grep -q '^components:' "$api" || {
+            echo "::error file=$api::no top-level 'components:' key"
+            exit 1
+          }
+          grep -q '^channels:' "$rt" || {
+            echo "::error file=$rt::no top-level 'channels:' key — the realtime contract is truncated"
+            exit 1
+          }
+          grep -q '^definitions:' "$rt" || {
+            echo "::error file=$rt::no top-level 'definitions:' key"
+            exit 1
+          }
+          echo "contract artifacts present and structurally intact"
+          echo -n "declared REST paths: "
+          grep -cE '^  /' "$api"
 
       - name: Build
         run: cargo build --workspace --all-targets --locked

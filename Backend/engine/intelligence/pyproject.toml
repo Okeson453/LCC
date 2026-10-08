@@ -50,7 +50,21 @@ dev = [
 ]
 
 [tool.uv]
-package = true
+# F-AUDIT-72: `package = true` makes uv build and install this project, which
+# invokes setuptools auto-discovery. The intelligence services are *applications*
+# — each is launched with uvicorn or baked into its own Dockerfile from
+# `services/<name>/src/` — not a library, so there is nothing coherent for
+# setuptools to discover as a single distribution. The build failed outright:
+#
+#   error: Multiple top-level packages discovered in a flat-layout:
+#   ['proto', 'infra', 'config', 'crates', 'engine', 'schemas', 'packages',
+#    'observability']
+#   setuptools will not proceed with this build.
+#
+# `package = false` declares the project virtual: uv still resolves and installs
+# the dependency set, and still runs pytest/ruff against the source, but does
+# not attempt to build a wheel that is never consumed.
+package = false
 
 [tool.pytest.ini_options]
 addopts = "-v --strict-markers --asyncio-mode=auto"

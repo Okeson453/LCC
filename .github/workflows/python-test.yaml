@@ -10,7 +10,12 @@ jobs:
   python-test:
     defaults:
       run:
-        working-directory: Backend
+        # F-AUDIT-72: the Python project is `engine/intelligence`
+        # (name = "lcc-engine-intelligence"), not `Backend`. `Backend/pyproject.toml`
+        # is a stale duplicate with the same dependency list, and resolving it
+        # fails setuptools auto-discovery outright. These gates now run against
+        # the project that actually holds the intelligence services.
+        working-directory: Backend/engine/intelligence
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
@@ -44,7 +49,7 @@ jobs:
         run: uv sync --frozen --all-extras --dev
 
       - name: Run pytest
-        run: uv run --frozen pytest -q
+        run: uv run --frozen pytest ../../tests -q
 
       - name: Upload coverage
         if: always()
