@@ -2,6 +2,9 @@
 name = "lcc-audit-svc"
 version = "0.1.0"
 edition = "2021"
+license = "Proprietary"
+# F-AUDIT-85: proprietary monorepo, never published; see [workspace.package].
+publish = false
 
 [dependencies]
 lcc-observability = { path = "../../../../crates/observability" }

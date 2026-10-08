@@ -4,6 +4,10 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
+# F-AUDIT-85: proprietary monorepo, never published; see [workspace.package].
+# Without this, `cargo deny check licenses` reports this crate as unlicensed
+# because it inherits the non-SPDX `license = "Proprietary"`.
+publish.workspace = true
 
 [lib]
 path = "src/lib.rs"

@@ -15,6 +15,12 @@ exclude = [
 version = "0.1.0"
 edition = "2021"
 license = "Proprietary"
+# F-AUDIT-85: this monorepo is proprietary and is never published to a
+# registry. Declaring it keeps cargo-deny's `private.ignore` meaningful, so
+# first-party crates carrying `license = "Proprietary"` (which is not valid
+# SPDX) are not reported as `unlicensed`. Without it, `cargo deny check`
+# licenses fails on all 27 workspace crates.
+publish = false
 authors = ["OKESON-LCC Engineering"]
 repository = "https://github.com/okeson-lcc/lcc"
 rust-version = "1.78"

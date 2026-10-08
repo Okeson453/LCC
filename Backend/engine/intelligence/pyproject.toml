@@ -96,3 +96,23 @@ strict = true
 warn_unused_ignores = true
 warn_return_any = true
 plugins = ["pydantic.mypy"]
+
+# F-AUDIT-81: these seven packages live in this repository under
+# `Backend/packages/`, not on PyPI. Nothing mapped them to a local path, so
+# uv went to the registry and the resolution failed outright:
+#
+#   error: No solution found when resolving dependencies
+#     cause: Because compliance-types was not found in the package registry
+#            and your project depends on compliance-types, ...
+#
+# The Python Intelligence Engine cannot be installed or tested at all. Each
+# name is now bound to its in-repo path, which is what makes the intelligence
+# tier self-contained and offline-resolvable against the monorepo.
+[tool.uv.sources]
+compliance-types = { path = "../../packages/compliance-types" }
+event-bus = { path = "../../packages/event-bus" }
+intelligence-common = { path = "../../packages/intelligence-common" }
+kb-client = { path = "../../packages/kb-client" }
+llm-client = { path = "../../packages/llm-client" }
+lcc-proto = { path = "../../packages/proto" }
+vector-db = { path = "../../packages/vector-db" }

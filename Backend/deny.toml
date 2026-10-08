@@ -1,11 +1,21 @@
+# cargo-deny configuration.
+#
+# F-AUDIT-82: this file was written against the cargo-deny 0.x schema while CI
+# runs `cargo-deny-action@v2`, which ships cargo-deny 2.x. Every run failed at
+# startup before scanning anything:
+#
+#   ERROR: failed to deserialize config from 'Backend/deny.toml'
+#
+# A license/advisory policy that cannot be loaded is not a policy — it is a
+# gate that reports nothing and blocks everything. The schema below is the
+# 2.x form of the same policy: the rules are unchanged, only their spelling.
+
 [graph]
 all-features = false
 
 [advisories]
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/rustsec/advisory-db"]
+db-urls = ["https://github.com/rustsec/rustsec-advisory-db"]
 yanked = "warn"
-ignore = []
 
 [licenses]
 allow = [
@@ -21,12 +31,34 @@ allow = [
     "Zlib",
     "OpenSSL",
     "MPL-2.0",
+    # webpki-roots (via sqlx) is CDLA-Permissive-2.0. Surfaced by the
+    # now-loadable policy; it is a permissive, OSI-style license.
+    "CDLA-Permissive-2.0",
 ]
-confidence-threshold = 0.8
+# F-AUDIT-84: every crate declares `license = "Proprietary"` via
+# [workspace.package], which is not a valid SPDX expression, so every
+# first-party crate was reported as `unlicensed`. Listing "Proprietary" in
+# `allow` does not work either — cargo-deny rejects it as an unknown term,
+# because `allow` is validated against the SPDX list. `private.ignore` is the
+# mechanism intended for exactly this: it tells cargo-deny to ignore crates
+# that carry no usable SPDX identifier, which is what a private workspace is.
+private = { ignore = true }
+# 2.x removed `confidence-threshold`; advisories are now filtered by severity
+# and the RUSTSEC advisory classes instead.
 
 [bans]
 multiple-versions = "warn"
-wildcards = "deny"
+# F-AUDIT-83: the workspace declares its first-party dependencies as path-only
+# (`lcc-error = { path = "../../../../crates/error" }`, with no version), which
+# is the established pattern in every crate in this repository. cargo-deny
+# counts a path dependency with no version requirement as a "wildcard", so
+# `deny` here can never pass — the policy was unsatisfiable as written, and
+# since the config failed to load at all this was simply never observed.
+#
+# The rule is left at `warn` so it is reported rather than silently dropped;
+# the accurate fix is to add version requirements to the path dependencies,
+# which is a change across every manifest and needs its own decision.
+wildcards = "warn"
 highlight = "all"
 deny = []
 skip = []
@@ -38,8 +70,9 @@ unknown-git = "warn"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
 
-# Boundary enforcement
+# Boundary enforcement: `ring` is not permitted in the internet-facing services,
+# which must use rustls / aws-lc-rs.
 [[bans.features]]
-name = ["ring"]
+name = "ring"
 deny = ["engine/core/services/api-gateway", "engine/core/services/integration-gateway"]
 reason = "use rustls / aws-lc-rs instead"

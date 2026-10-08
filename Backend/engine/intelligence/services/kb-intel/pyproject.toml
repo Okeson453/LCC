@@ -21,3 +21,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/kb_intel"]
+
+# F-AUDIT-81: these live in this repository at `Backend/packages/`, not on
+# PyPI. Without a path binding uv resolves them against the registry and
+# the install fails with "<name> was not found in the package registry".
+[tool.uv.sources]
+intelligence-common = { path = "../../../../packages/intelligence-common" }
+kb-client = { path = "../../../../packages/kb-client" }
+lcc-proto = { path = "../../../../packages/proto" }
+vector-db = { path = "../../../../packages/vector-db" }
