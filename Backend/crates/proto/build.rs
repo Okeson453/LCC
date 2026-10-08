@@ -121,8 +121,35 @@ fn generate_with_protoc(manifest_dir: &Path, out_dir: &Path) {
 
     let proto_root = manifest_dir.join("../../proto");
     let mut includes = vec![proto_root.clone()];
-    // google/protobuf well-known types are imported by the .proto files.
-    includes.push(PathBuf::from("/usr/include"));
+    // The google/protobuf well-known types are imported by the .proto files.
+    //
+    // F-AUDIT-76: `/usr/include` was the only candidate, but the well-known
+    // types are provided by `libprotobuf-dev`, not `protobuf-compiler`, and
+    // live under a distribution-dependent path. On a runner with only
+    // `protobuf-compiler` installed, codegen failed with
+    //     protoc failed: google/protobuf/timestamp.proto: File not found
+    // and the build then died on the missing generated file — a confusing
+    // failure for a missing include path. Probe the real locations instead,
+    // and say exactly what is missing if none has it.
+    let wkt = PathBuf::from("google/protobuf/timestamp.proto");
+    let mut wkt_root: Option<PathBuf> = None;
+    for candidate in ["/usr/include", "/usr/local/include"] {
+        let p = PathBuf::from(candidate);
+        if p.join(&wkt).exists() {
+            wkt_root = Some(p);
+            break;
+        }
+    }
+    match wkt_root {
+        Some(root) => includes.push(root),
+        None => {
+            println!(
+                "cargo:warning=google/protobuf well-known types not found in /usr/include \
+                 or /usr/local/include. Install libprotobuf-dev (Debian/Ubuntu) or \
+                 protobuf-devel (Fedora/RHEL); the proto-binary feature cannot be generated."
+            );
+        }
+    }
 
     let files: Vec<PathBuf> = PROTOS
         .iter()

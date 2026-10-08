@@ -129,13 +129,21 @@ jobs:
             # (`enrichment-worker`, ...), so a literal match rejected three
             # perfectly real workloads. Both spellings are tried.
             alt=${name//-/_}
-            if ! ls -d "engine/core/services/$name" \
-                    "engine/core/workers/$name" \
-                    "engine/intelligence/services/$name" \
-                    "engine/intelligence/services/$alt" \
-                    "engine/intelligence/workers/$name" \
-                    "engine/intelligence/workers/$alt" \
-                    >/dev/null 2>&1; then
+            # F-AUDIT-75: this used a single `ls -d p1 p2 p3 ...`, which exits
+            # non-zero if *any* path is missing — so it required every candidate
+            # directory to exist rather than any one of them, and rejected every
+            # workload. Matched with a loop so the semantics are "any", and the
+            # loop is the same shape used to verify this locally.
+            found=0
+            for d in "engine/core/services/$name" \
+                     "engine/core/workers/$name" \
+                     "engine/intelligence/services/$name" \
+                     "engine/intelligence/services/$alt" \
+                     "engine/intelligence/workers/$name" \
+                     "engine/intelligence/workers/$alt"; do
+              if [ -d "$d" ]; then found=1; break; fi
+            done
+            if [ "$found" -eq 0 ]; then
               echo "::error file=$manifest::workload '$name' has no matching source directory"
               exit 1
             fi

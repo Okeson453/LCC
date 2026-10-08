@@ -70,10 +70,19 @@ jobs:
       # Installing protoc lets build.rs generate the stubs, so the
       # `proto-binary` path is genuinely compiled and tested instead of being
       # silently excluded from the gate.
-      - name: Install protobuf compiler
+      - name: Install protobuf compiler and well-known types
+        # F-AUDIT-76: `protobuf-compiler` alone installs `protoc` but NOT the
+        # google/protobuf well-known type definitions, so codegen failed with
+        #     protoc failed: google/protobuf/timestamp.proto: File not found
+        # and the build then died on the missing generated file. The well-known
+        # types ship in `libprotobuf-dev`, which is the package that actually
+        # provides /usr/include/google/protobuf. This went unnoticed locally
+        # because a development machine that already has libprotobuf-dev
+        # cannot reproduce it.
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends protobuf-compiler
+          sudo apt-get install -y --no-install-recommends protobuf-compiler libprotobuf-dev
+          test -f /usr/include/google/protobuf/timestamp.proto
 
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
