@@ -2297,12 +2297,14 @@ name = "lcc-test-utils"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "deadpool-redis",
  "lcc-compliance",
  "lcc-config",
  "redis",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tokio",
  "uuid",

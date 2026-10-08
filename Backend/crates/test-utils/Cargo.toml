@@ -23,3 +23,81 @@ lcc-config = { path = "../config" }
 
 [lints]
 workspace = true
+
+# Dev-dependencies for the revived suites declared below.
+# `chrono` and `sha2` are imported by tests/integration/common/harness.rs and
+# its consumers; they were never declared because those files were never
+# compiled by any crate before the `[[test]]` targets below were added.
+#
+# Note on lints: Cargo has no per-target lint configuration, so the
+# `clippy::unwrap_used` / `expect_used` / `panic` denies inherited from the
+# workspace cannot be relaxed here without also relaxing them for the library
+# target. F-AUDIT-51 therefore puts the exemption at the top of each test file
+# as a crate-level `#![allow(...)]`, which is narrower than a package-wide
+# relaxation and leaves the production lints fully intact.
+[dev-dependencies]
+chrono = { workspace = true }
+sha2 = { workspace = true }
+
+# ---------------------------------------------------------------------------
+# Orphaned-suite revival (F-AUDIT-45)
+# ---------------------------------------------------------------------------
+# `Backend/tests/**` and `Backend/tests/integration/**` sat at the workspace
+# root, but the root `Cargo.toml` is a *virtual* manifest ([workspace] with no
+# [package]), so cargo never discovered them: `cargo test --workspace` compiled
+# and ran none of those 15 files. The `just contract-test` recipe names
+# `--test '*contract*'`, which therefore matched nothing, and the integration
+# suite had no runner at all.
+#
+# These suites are now declared explicitly against this package so they are
+# actually compiled and executed. Each `path` is the real file, unchanged.
+[[test]]
+name = "integration_rls_isolation"
+path = "../../tests/integration/rls_isolation.rs"
+
+[[test]]
+name = "integration_migration_integrity"
+path = "../../tests/integration/migration_integrity.rs"
+
+[[test]]
+name = "integration_audit_log_chain_integrity"
+path = "../../tests/integration/audit_log_chain_integrity.rs"
+
+[[test]]
+name = "integration_daily_briefing_assembly"
+path = "../../tests/integration/daily_briefing_assembly.rs"
+
+[[test]]
+name = "integration_governor_e2e"
+path = "../../tests/integration/governor_e2e.rs"
+
+[[test]]
+name = "integration_oauth_refresh_rotation"
+path = "../../tests/integration/oauth_refresh_rotation.rs"
+
+[[test]]
+name = "integration_onboarding_flow"
+path = "../../tests/integration/onboarding_flow.rs"
+
+[[test]]
+name = "integration_opportunity_funnel"
+path = "../../tests/integration/opportunity_funnel.rs"
+
+[[test]]
+name = "integration_publish_idempotency"
+path = "../../tests/integration/publish_idempotency.rs"
+
+[[test]]
+name = "integration_sequence_pause_on_reply"
+path = "../../tests/integration/sequence_pause_on_reply.rs"
+
+[[test]]
+name = "integration_ttl_purge"
+path = "../../tests/integration/ttl_purge.rs"
+
+# NOTE: the three `tests/contract/*_conformance.rs` suites are deliberately NOT
+# declared here. They import `lcc_api_gateway` / `lcc_realtime_svc`, so they
+# must be compiled by the crates that own those types, and they already are:
+#   engine/core/services/api-gateway/Cargo.toml  -> gateway_contract_conformance
+#   engine/core/services/realtime-svc/Cargo.toml -> realtime_contract_conformance
+# Re-declaring them here would both fail to compile and duplicate the targets.

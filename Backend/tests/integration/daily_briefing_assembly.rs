@@ -4,6 +4,15 @@
 //! expected counts (inbound messages, pending approvals, scheduled posts,
 //! opportunity signals) and that the briefing row is created in the DB.
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[path = "common/harness.rs"]
 mod harness;
 
@@ -88,7 +97,9 @@ fn briefing_audit_row_is_written() {
         "ok",
         json!({"delivered_at": chrono::Utc::now()}),
     );
-    audit.verify_chain().expect("briefing audit chain must verify");
+    audit
+        .verify_chain()
+        .expect("briefing audit chain must verify");
     assert_eq!(audit.rows.len(), 2);
 }
 
@@ -109,7 +120,10 @@ fn briefing_idempotency_prevents_duplicate_within_4h() {
     let should_skip_old = last_generated_old
         .map(|t| now - t < Duration::hours(4))
         .unwrap_or(false);
-    assert!(!should_skip_old, "should generate if last briefing > 4h ago");
+    assert!(
+        !should_skip_old,
+        "should generate if last briefing > 4h ago"
+    );
 }
 
 #[test]

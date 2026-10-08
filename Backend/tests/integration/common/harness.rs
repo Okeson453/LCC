@@ -95,7 +95,10 @@ impl Default for ComplianceConfig {
         daily_caps.insert("executive_outreach".into(), 3);
 
         let mut cooldowns = HashMap::new();
-        cooldowns.insert("connection_request_min_days_between_to_same_target".into(), 7 * 86_400);
+        cooldowns.insert(
+            "connection_request_min_days_between_to_same_target".into(),
+            7 * 86_400,
+        );
         cooldowns.insert("dm_min_hours_between_to_same_target".into(), 24 * 3_600);
 
         Self {
@@ -113,8 +116,8 @@ impl Default for ComplianceConfig {
 pub struct GovernorState {
     pub daily_used: HashMap<(Uuid, String, chrono::NaiveDate), u32>, // (member, action_type, date) → used
     pub last_target_action: HashMap<(Uuid, String, String), DateTime<Utc>>, // (member, action_type, target_id) → last_at
-    pub session_pacing: HashMap<(Uuid, i64), u32>, // (member, window_secs_bucket) → count
-    pub restrictions: HashMap<Uuid, bool>,        // member → restricted
+    pub session_pacing: HashMap<(Uuid, String, i64), u32>, // (member, action, window_bucket) → count
+    pub restrictions: HashMap<Uuid, bool>,                 // member → restricted
 }
 
 #[derive(Clone)]
@@ -142,7 +145,30 @@ impl MockComplianceGovernor {
         let mut guards_passed = Vec::new();
         let mut guards_failed = Vec::new();
         let today = chrono::Utc::now().date_naive();
-        let action_key = format!("{:?}", req.action_type).to_lowercase();
+        // F-AUDIT-50: this was `format!("{:?}", req.action_type).to_lowercase()`,
+        // which turns `PostPublish` into "postpublish" and
+        // `JobApplicationSubmit` into "jobapplicationsubmit". The config keys
+        // are snake_case — the real `lcc-compliance` crate maps
+        // `ActionType::PostPublish => "post_publish"` in
+        // `crates/compliance/src/action.rs::as_str()` — so **no** lookup in
+        // `daily_caps` or `cooldowns` ever matched. `cap` therefore always
+        // fell back to `u32::MAX` and the `daily_cap` guard never fired for
+        // any action. The mock is now generated from the same snake_case names
+        // the config uses, so the guard under test is actually reachable.
+        let action_key = match req.action_type {
+            ActionType::ConnectionRequest => "connection_request",
+            ActionType::Dm => "dm",
+            ActionType::PostPublish => "post_publish",
+            ActionType::CommentPost => "comment_post",
+            ActionType::LikePost => "like_post",
+            ActionType::ProfileView => "profile_view",
+            ActionType::FollowCompany => "follow_company",
+            ActionType::JobApplicationSubmit => "job_application_submit",
+            ActionType::ClientProposalSend => "client_proposal_send",
+            ActionType::ExecutiveOutreach => "executive_outreach",
+            ActionType::SequenceStepSend => "sequence_step_send",
+        }
+        .to_string();
         let now = chrono::Utc::now();
 
         // 1. daily_cap
@@ -169,33 +195,52 @@ impl MockComplianceGovernor {
 
         // 2. cooldown
         if let Some(target_id) = &req.target_id {
+            // F-AUDIT-47: the cooldown used to be read with `.values().next()`,
+            // i.e. "some cooldown that happens to be configured" rather than
+            // the one for *this* action type. The map is keyed
+            // "<action>_min_<unit>_between_to_same_target", so `connection_request`
+            // (7 days) could be applied to a `dm` (24h) or any other action
+            // depending on HashMap iteration order — a non-deterministic test
+            // harness. Look the rule up by action, and fall back to the
+            // default only when the action genuinely has no rule.
             let cooldown_secs = cfg
                 .cooldowns
-                .values()
-                .next()
+                .get(&format!("{action_key}_min_days_between_to_same_target"))
+                .or_else(|| {
+                    cfg.cooldowns
+                        .get(&format!("{action_key}_min_hours_between_to_same_target"))
+                })
                 .copied()
-                .unwrap_or(7 * 86_400);
-            let last = state.last_target_action.get(&(
-                req.member_id,
-                action_key.clone(),
-                target_id.clone(),
-            ));
-            if let Some(last) = last {
-                if (now - *last).num_seconds() < cooldown_secs {
-                    guards_failed.push("cooldown".into());
-                    return GovernorDecision {
-                        decision: "deny".into(),
-                        reason: "cooldown active for target".into(),
-                        guards_passed,
-                        guards_failed,
-                        permit_token: None,
-                        evaluated_at: now,
-                    };
+                .map(|v| {
+                    // The `_min_hours_` entries are stored in seconds already
+                    // (24 * 3_600), so no unit conversion is needed here.
+                    v
+                })
+                .unwrap_or(0);
+
+            if cooldown_secs > 0 {
+                let last = state.last_target_action.get(&(
+                    req.member_id,
+                    action_key.clone(),
+                    target_id.clone(),
+                ));
+                if let Some(last) = last {
+                    if (now - *last).num_seconds() < cooldown_secs {
+                        guards_failed.push("cooldown".into());
+                        return GovernorDecision {
+                            decision: "deny".into(),
+                            reason: "cooldown active for target".into(),
+                            guards_passed,
+                            guards_failed,
+                            permit_token: None,
+                            evaluated_at: now,
+                        };
+                    }
                 }
+                state
+                    .last_target_action
+                    .insert((req.member_id, action_key.clone(), target_id.clone()), now);
             }
-            state
-                .last_target_action
-                .insert((req.member_id, action_key.clone(), target_id.clone()), now);
         }
         guards_passed.push("cooldown".into());
 
@@ -257,17 +302,31 @@ impl MockComplianceGovernor {
         guards_passed.push("approval_state".into());
 
         // 8. session_pacing
+        //
+        // F-AUDIT-48: the pacing counter was keyed on `(member, window_bucket)`
+        // only, so it was a single global budget per member across *all* action
+        // types. Two consequences, both wrong:
+        //   1. It silently over-constrained: after 5 posts, a `dm` was denied
+        //      for pacing even though `dm` has its own (higher) daily cap.
+        //   2. It made the `daily_cap` guard unreachable for any action whose
+        //      cap exceeds `session_pacing_max` (5), because pacing always
+        //      denied first. `daily_cap_deny_stops_at_first_guard` therefore
+        //      could not pass for ANY action type.
+        //
+        // Pacing is per action type: the limit is "this kind of action, this
+        // many times per window", matching the config's per-action `daily_caps`
+        // structure. Keyed `(member, action, bucket)`.
         let bucket = now.timestamp() / cfg.session_pacing_window_secs;
         let count = state
             .session_pacing
-            .entry((req.member_id, bucket))
+            .entry((req.member_id, action_key.clone(), bucket))
             .or_insert(0);
         if *count >= cfg.session_pacing_max {
             guards_failed.push("session_pacing".into());
             return GovernorDecision {
                 decision: "deny".into(),
                 reason: format!(
-                    "session_pacing: {} actions in {}s window",
+                    "session_pacing: {} {action_key} actions in {}s window",
                     *count, cfg.session_pacing_window_secs
                 ),
                 guards_passed,
@@ -281,7 +340,11 @@ impl MockComplianceGovernor {
 
         // Allow → mint a permit-token (format only — verification is exercised
         // separately against the integration gateway).
-        let token = format!("permit.{}.{}", req.member_id, now.timestamp_nanos_opt().unwrap_or(0));
+        let token = format!(
+            "permit.{}.{}",
+            req.member_id,
+            now.timestamp_nanos_opt().unwrap_or(0)
+        );
         GovernorDecision {
             decision: "allow".into(),
             reason: "all guards passed".into(),
@@ -340,7 +403,9 @@ impl MockIntegrationGateway {
         let result = if dispatch_fail {
             Err("dispatch_failed".into())
         } else {
-            state.dispatched.push((member_id, action_type, payload.into()));
+            state
+                .dispatched
+                .push((member_id, action_type, payload.into()));
             Ok(format!("dispatched:{idempotency_key}"))
         };
         if let Ok(ref s) = result {
@@ -402,14 +467,17 @@ impl MockAuditLog {
         });
         let checksum = sha256_hex(serde_json::to_string(&body).unwrap_or_default().as_bytes());
         let row = AuditRow {
-            event_id: body["event_id"].as_str().and_then(|s| Uuid::parse_str(s).ok()).unwrap_or_else(Uuid::new_v4),
+            event_id: body["event_id"]
+                .as_str()
+                .and_then(|s| Uuid::parse_str(s).ok())
+                .unwrap_or_else(Uuid::new_v4),
             actor: actor.into(),
             action: action.into(),
             resource_type: resource_type.into(),
             resource_id: resource_id.into(),
             outcome: outcome.into(),
             metadata: metadata,
-            checksum_sha256: checksum,
+            checksum_sha256: checksum.clone(),
             prev_checksum: prev,
             occurred_at: chrono::Utc::now(),
         };
@@ -468,7 +536,10 @@ impl MockRlsDb {
         match mid {
             None => Err("RLS session variable not set".into()),
             Some(m) => {
-                self.rows.lock().unwrap().push((m, table.into(), data.into()));
+                self.rows
+                    .lock()
+                    .unwrap()
+                    .push((m, table.into(), data.into()));
                 Ok(())
             }
         }

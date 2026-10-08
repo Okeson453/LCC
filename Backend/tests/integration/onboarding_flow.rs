@@ -10,12 +10,19 @@
 //! 7. Integration Gateway dispatches → content_item state → published.
 //! Each step writes an audit row; the chain remains intact.
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[path = "common/harness.rs"]
 mod harness;
 
-use harness::{
-    ActionType, MockAuditLog, MockComplianceGovernor, MockIntegrationGateway,
-};
+use harness::{ActionType, MockAuditLog, MockComplianceGovernor, MockIntegrationGateway};
 use uuid::Uuid;
 
 #[test]
@@ -102,7 +109,13 @@ fn full_happy_path_first_post() {
     );
 
     // 7. Integration gateway dispatches.
-    let dispatch = gw.execute(member, &permit, ActionType::PostPublish, "draft-1:post", "hello world");
+    let dispatch = gw.execute(
+        member,
+        &permit,
+        ActionType::PostPublish,
+        "draft-1:post",
+        "hello world",
+    );
     assert!(dispatch.is_ok());
     audit.insert(
         "system:integration-gateway",
@@ -135,8 +148,22 @@ fn onboarding_with_low_grounding_blocks_publish() {
     let member = Uuid::new_v4();
 
     // Signup + draft + try to publish without KB refs.
-    audit.insert("system:identity-svc", "member.created", "member", &member.to_string(), "ok", serde_json::json!({}));
-    audit.insert("system:ai-worker", "llm.draft_content", "content_item", "d1", "ok", serde_json::json!({"kb_refs": []}));
+    audit.insert(
+        "system:identity-svc",
+        "member.created",
+        "member",
+        &member.to_string(),
+        "ok",
+        serde_json::json!({}),
+    );
+    audit.insert(
+        "system:ai-worker",
+        "llm.draft_content",
+        "content_item",
+        "d1",
+        "ok",
+        serde_json::json!({"kb_refs": []}),
+    );
 
     let req = harness::GovernorRequest {
         member_id: member,
@@ -164,6 +191,8 @@ fn onboarding_with_low_grounding_blocks_publish() {
         }),
     );
 
-    audit.verify_chain().expect("chain must verify even on deny path");
+    audit
+        .verify_chain()
+        .expect("chain must verify even on deny path");
     assert_eq!(audit.rows.len(), 3);
 }

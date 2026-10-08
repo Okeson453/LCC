@@ -8,6 +8,15 @@
 //! 5. On refresh failure, emit `oauth.token_refresh_failed` (so a restriction
 //!    can be detected).
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use chrono::{Duration, Utc};
 
 #[derive(Debug, Clone)]
@@ -34,7 +43,11 @@ impl OAuthStore {
         self.tokens.iter_mut().find(|t| t.member_id == member_id)
     }
 
-    fn refresh_if_expiring(&mut self, member_id: &str, threshold_days: i64) -> Result<String, String> {
+    fn refresh_if_expiring(
+        &mut self,
+        member_id: &str,
+        threshold_days: i64,
+    ) -> Result<String, String> {
         let t = self.get_mut(member_id).ok_or("not found")?;
         let soon = Utc::now() + Duration::days(threshold_days);
         if t.expires_at > soon {
@@ -44,7 +57,8 @@ impl OAuthStore {
         let new_access = format!("new-access-{member_id}-{}", Utc::now().timestamp());
         t.access_token_hash = sha256(&new_access);
         t.expires_at = Utc::now() + Duration::days(60);
-        self.refresh_attempts.push((member_id.to_string(), Ok(new_access.clone())));
+        self.refresh_attempts
+            .push((member_id.to_string(), Ok(new_access.clone())));
         Ok(new_access)
     }
 
@@ -139,7 +153,11 @@ fn adding_new_token_replaces_old() {
         .iter()
         .filter(|t| t.member_id == "alice")
         .collect();
-    assert_eq!(alice_tokens.len(), 1, "duplicate member_id must replace, not stack");
+    assert_eq!(
+        alice_tokens.len(),
+        1,
+        "duplicate member_id must replace, not stack"
+    );
     assert_eq!(alice_tokens[0].access_token_hash, "second");
 }
 

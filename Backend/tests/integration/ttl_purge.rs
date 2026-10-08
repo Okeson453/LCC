@@ -4,6 +4,15 @@
 //! The data-purge-worker removes rows where `ttl_expires_at < NOW()`.
 //! Vectors in Qdrant must be removed alongside the SQL row.
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]

@@ -12,16 +12,25 @@ BEGIN;
 -- sequence_steps — add missing columns the canonical contract requires.
 -- 0015 added denial_count, last_error; this adds the rest.
 -- -----------------------------------------------------------------------------
+-- F-AUDIT-38 (verified against a real PostgreSQL 15 run): the migration created
+-- a unique index on `idempotency_key` but never added the column to the table,
+-- so the index statement failed with
+--     ERROR: column "idempotency_key" does not exist
+-- The intent — stated in this migration's own header, "sequence_step.kind,
+-- idempotency_key uniqueness" — is a dedup key, so the column is added here.
+-- Uniqueness is enforced per (sequence_id, key) rather than globally: a
+-- client-supplied key only has to be unique within the sequence it belongs to.
 ALTER TABLE lcc.sequence_steps
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    ADD COLUMN IF NOT EXISTS rendered_body_hash TEXT,  -- SHA-256 of body for idempotency dedup
-    ADD COLUMN IF NOT EXISTS contact_id UUID;          -- denormalised for fast filters; FK enforced in code
+    ADD COLUMN IF NOT EXISTS rendered_body_hash TEXT,   -- SHA-256 of body for idempotency dedup
+    ADD COLUMN IF NOT EXISTS contact_id UUID,           -- denormalised for fast filters; FK enforced in code
+    ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_sequence_steps_contact
     ON lcc.sequence_steps (contact_id)
     WHERE contact_id IS NOT NULL;
 
--- Idempotency: when an idempotency_key is present it must be globally unique.
+-- Idempotency: when an idempotency_key is present it must be unique per sequence.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -31,7 +40,7 @@ BEGIN
       AND indexname = 'uniq_sequence_steps_idem_key'
   ) THEN
     CREATE UNIQUE INDEX uniq_sequence_steps_idem_key
-      ON lcc.sequence_steps (idempotency_key)
+      ON lcc.sequence_steps (sequence_id, idempotency_key)
       WHERE idempotency_key IS NOT NULL;
   END IF;
 END$$;
@@ -189,7 +198,12 @@ BEGIN
                  WHERE table_schema = 'lcc'
                    AND table_name = 'engagement_replies'
                    AND column_name = 'version') THEN
-    ALTER TABLE lcc.engagement_reails
+    -- F-AUDIT-44 (verified against a real PostgreSQL 15 run): the guard above
+    -- tests `engagement_replies` but the ALTER targeted a misspelled
+    -- `lcc.engagement_reails`, so the statement failed with
+    --     ERROR: relation "lcc.engagement_reails" does not exist
+    -- and 0018 aborted before adding the optimistic-concurrency column.
+    ALTER TABLE lcc.engagement_replies
       ADD COLUMN version BIGINT NOT NULL DEFAULT 1;
   END IF;
 END$$;

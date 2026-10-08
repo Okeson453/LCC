@@ -16,7 +16,24 @@ CREATE TABLE lcc.members (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deactivated_at TIMESTAMPTZ
 );
-SELECT lcc.attach_member_rls('members');
+-- F-AUDIT-36 (verified against a real PostgreSQL 15 run of the full
+-- migration set, not static reading): this call was `attach_member_rls('members')`
+-- with the default `p_member_column = 'member_id'`. `lcc.members` has no
+-- `member_id` column, so the policy body failed to build and migration 0003
+-- aborted with
+--     ERROR: column "member_id" does not exist
+-- Because every later migration references `lcc.members`, all of 0003-0019 and
+-- the dev seed aborted in cascade — the schema could not be built at all.
+--
+-- 0002 added the `p_member_column` parameter specifically to handle this case,
+-- but the call site here was never updated to pass 'id', so the fix existed
+-- only in the helper. The explicit DROP/CREATE at the bottom of this file
+-- intended to repair the policy afterwards, but it is unreachable because the
+-- migration aborts long before reaching it.
+--
+-- Passing 'id' makes the policy correct at creation time. The trailing
+-- DROP/CREATE remains as a defence-in-depth no-op.
+SELECT lcc.attach_member_rls('members', 'id');
 -- Members table is keyed by id, not by member_id — RLS policy applied is "always allow the row matching your id".
 
 CREATE TABLE lcc.oauth_tokens (

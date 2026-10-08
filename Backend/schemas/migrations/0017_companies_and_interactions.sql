@@ -47,11 +47,23 @@ CREATE TABLE IF NOT EXISTS lcc.companies (
     deleted_at TIMESTAMPTZ,                      -- soft delete
     version BIGINT NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    -- A member cannot have two non-deleted companies with the same
-    -- (case-insensitive) name.
-    UNIQUE (member_id, lower(name))
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- F-AUDIT-37 (verified against a real PostgreSQL 15 run): the case-insensitive
+-- uniqueness rule was written as a table-level `UNIQUE (member_id, lower(name))`
+-- constraint. A table constraint may only contain plain column references, not
+-- expressions, so the statement failed to parse:
+--     ERROR: syntax error at or near "("
+-- and 0017 — and therefore the two contract-required tables `lcc.companies` and
+-- `lcc.interactions` — was never created.
+--
+-- The correct construct is a unique INDEX over the expression, which does
+-- enforce the intended rule. The partial predicate additionally implements the
+-- design's "non-deleted" requirement: soft-deleting a company frees the name.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_companies_member_name_live
+    ON lcc.companies (member_id, lower(name))
+    WHERE deleted_at IS NULL;
 
 -- Most reads filter by member; partial unique prevents the same name from
 -- being inserted twice for the same member.
@@ -86,43 +98,69 @@ CREATE TRIGGER companies_touch BEFORE UPDATE ON lcc.companies
 --     per a quick read of 0008, no FK is declared, so the column is just text.
 --     The canonical contract requires it to be a UUID reference.)
 -- =============================================================================
+-- 2. Link contacts → companies
+-- -----------------------------------------------------------------------------
+-- F-AUDIT-41 (verified against a real PostgreSQL 15 run): the whole block below
+-- was guarded by
+--     IF EXISTS (... column_name = 'company_id' AND data_type <> 'uuid')
+-- i.e. "convert company_id from text to uuid *if it is already there*". But
+-- `lcc.contacts` (0008) never had a `company_id` column at all — only a
+-- free-text `company` — so the condition was false, the entire conversion and
+-- FK block was skipped, and the very next unguarded statement failed:
+--     ERROR: column "company_id" does not exist
+--     HINT: Perhaps you meant to reference the column "contacts.company"
+-- Because 0017 aborted, neither `lcc.companies` nor `lcc.interactions` was
+-- ever created, and `PATCH /api/v1/contacts/{id}/company` — declared in the
+-- canonical contract and implemented in network-crm-svc against
+-- `lcc.contacts.company_id` — had no column to write to.
+--
+-- The condition was written for the wrong starting state. `company_id` must be
+-- ADDED (it is the contract-required relation to `lcc.companies.id`; the
+-- existing `company` TEXT column is a denormalised display name and is kept),
+-- and the FK added once the column is UUID. This is now idempotent and
+-- handles all three states: absent, present-as-text, present-as-uuid.
 DO $$
 BEGIN
-  -- Only attempt the conversion if the column is not yet typed as UUID.
+  -- 1) Add the column when missing. Contract ContactCreate.company_id is a
+  --    uuid; network-crm-svc binds it as Option<Uuid>.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'lcc' AND table_name = 'contacts' AND column_name = 'company_id'
+  ) THEN
+    ALTER TABLE lcc.contacts ADD COLUMN company_id UUID;
+  END IF;
+
+  -- 2) If it exists as text (legacy deployments), convert it to uuid.
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'lcc'
-      AND table_name = 'contacts'
-      AND column_name = 'company_id'
-      AND data_type <> 'uuid'
+    WHERE table_schema = 'lcc' AND table_name = 'contacts'
+      AND column_name = 'company_id' AND data_type <> 'uuid'
   ) THEN
-    -- 1) Drop any NOT NULL constraint that would block NULL during conversion.
     ALTER TABLE lcc.contacts ALTER COLUMN company_id DROP NOT NULL;
-
-    -- 2) Try to cast text → uuid. Rows that don't parse become NULL — this
-    --    is a one-time data backfill on existing rows. New rows must be UUID.
     BEGIN
       ALTER TABLE lcc.contacts
         ALTER COLUMN company_id TYPE UUID USING (company_id::uuid);
     EXCEPTION WHEN others THEN
-      -- If any row is non-castable, NULL it; we do not lose data otherwise.
-      UPDATE lcc.contacts SET company_id = NULL WHERE company_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+      -- Non-castable legacy values are dropped rather than failing the release.
+      UPDATE lcc.contacts SET company_id = NULL
+        WHERE company_id IS NOT NULL
+          AND company_id !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
       ALTER TABLE lcc.contacts
         ALTER COLUMN company_id TYPE UUID USING (company_id::uuid);
     END;
+  END IF;
 
-    -- 3) Add the FK now that the column is UUID.
-    IF NOT EXISTS (
-      SELECT 1 FROM information_schema.table_constraints
-      WHERE table_schema = 'lcc'
-        AND table_name = 'contacts'
-        AND constraint_type = 'FOREIGN KEY'
-        AND constraint_name = 'contacts_company_id_fkey'
-    ) THEN
-      ALTER TABLE lcc.contacts
-        ADD CONSTRAINT contacts_company_id_fkey
-        FOREIGN KEY (company_id) REFERENCES lcc.companies(id) ON DELETE SET NULL;
-    END IF;
+  -- 3) Add the FK now that the column is UUID.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_schema = 'lcc'
+      AND table_name = 'contacts'
+      AND constraint_type = 'FOREIGN KEY'
+      AND constraint_name = 'contacts_company_id_fkey'
+  ) THEN
+    ALTER TABLE lcc.contacts
+      ADD CONSTRAINT contacts_company_id_fkey
+      FOREIGN KEY (company_id) REFERENCES lcc.companies(id) ON DELETE SET NULL;
   END IF;
 END$$;
 
@@ -203,7 +241,47 @@ BEGIN
   END LOOP;
 END$$;
 
--- Indexes for opportunity queries (canonical /opportunities list with filters)
+-- F-AUDIT-43 (verified against a real PostgreSQL 15 run of the full migration
+-- set): this index referenced `opportunities.status` and `opportunities.fit_score`,
+-- but `lcc.opportunities` as created by 0009 carries neither. Its real columns
+-- are: id, member_id, kind, funnel, title, company, contact_id, phi_score,
+-- phi_components, last_signal_at, metadata, created_at, updated_at.
+--
+-- So 0017 failed with
+--     ERROR: column "status" does not exist
+-- and aborted — which is why `lcc.companies` and `lcc.interactions`, the two
+-- tables the canonical contract requires, were never created.
+--
+-- The mismatch is not the index's fault: both the canonical contract
+-- (`components.schemas.Opportunity`: `type`, `source`, `status`, `fit_score`,
+-- `company_id`, `discovered_at`, `version`) and opportunity-svc's own SQL
+-- (`SELECT ... company_id, source::TEXT, status::TEXT, fit_score,
+-- discovered_at, ... version`) expect the contract shape. The 0009 table is the
+-- stale artifact — it predates the contract and was never brought forward.
+--
+-- Rather than rewrite the index to match the stale table (which would leave
+-- every opportunity-svc query broken at runtime), the columns are brought into
+-- line with the contract here. `funnel`/`phi_score` are retained as
+-- compatibility aliases so no existing consumer loses data, and the
+-- service-facing names become the source of truth.
+ALTER TABLE lcc.opportunities
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'discovered',
+    ADD COLUMN IF NOT EXISTS fit_score DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES lcc.companies(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual',
+    ADD COLUMN IF NOT EXISTS discovered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS last_evaluated_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS version INT NOT NULL DEFAULT 1;
+
+-- Backfill the renamed columns from their 0009 equivalents so pre-existing rows
+-- keep their meaning: `funnel` carried the stage (an enum type), `phi_score`
+-- the fit score. `funnel` is cast to text because `opportunity_funnel` and
+-- `status` are different types and COALESCE requires a common one.
+UPDATE lcc.opportunities
+   SET fit_score = COALESCE(fit_score, phi_score),
+       status   = COALESCE(NULLIF(status, 'discovered'), funnel::TEXT)
+ WHERE fit_score IS NULL OR funnel IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_opportunities_member_status_fit
     ON lcc.opportunities (member_id, status, fit_score DESC NULLS LAST)
     WHERE status IN ('discovered', 'qualified', 'contacted', 'conversation');

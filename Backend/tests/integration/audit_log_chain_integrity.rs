@@ -4,6 +4,15 @@
 //! an audit row in the same logical transaction, and the chain of checksums
 //! links all events so tampering is detectable.
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[path = "common/harness.rs"]
 mod harness;
 
@@ -39,8 +48,14 @@ fn chain_links_successively() {
     audit.verify_chain().expect("chain must link");
     assert_eq!(audit.rows.len(), 3);
     assert!(audit.rows[0].prev_checksum.is_none());
-    assert_eq!(audit.rows[1].prev_checksum.as_deref(), Some(audit.rows[0].checksum_sha256.as_str()));
-    assert_eq!(audit.rows[2].prev_checksum.as_deref(), Some(audit.rows[1].checksum_sha256.as_str()));
+    assert_eq!(
+        audit.rows[1].prev_checksum.as_deref(),
+        Some(audit.rows[0].checksum_sha256.as_str())
+    );
+    assert_eq!(
+        audit.rows[2].prev_checksum.as_deref(),
+        Some(audit.rows[1].checksum_sha256.as_str())
+    );
 }
 
 #[test]

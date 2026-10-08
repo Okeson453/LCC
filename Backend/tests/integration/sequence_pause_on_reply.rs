@@ -5,6 +5,15 @@
 //! Governor also enforces this via the approval_state guard — outbound DMs
 //! require a fresh approval after any inbound reply.
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[path = "common/harness.rs"]
 mod harness;
 
@@ -43,7 +52,10 @@ impl SequenceEngine {
         false
     }
     fn current_state(&self, id: &str) -> SequenceState {
-        self.sequences.get(id).map(|s| s.0.clone()).unwrap_or(SequenceState::Active)
+        self.sequences
+            .get(id)
+            .map(|s| s.0.clone())
+            .unwrap_or(SequenceState::Active)
     }
 }
 
@@ -115,7 +127,11 @@ fn completed_sequence_dispatches_zero_further() {
     engine.dispatch_step("seq-2");
     engine.sequences.get_mut("seq-2").unwrap().0 = SequenceState::Completed;
     assert!(!engine.dispatch_step("seq-2"));
-    assert_eq!(engine.sequences.get("seq-2").unwrap().1, 1, "only 1 dispatch happened");
+    assert_eq!(
+        engine.sequences.get("seq-2").unwrap().1,
+        1,
+        "only 1 dispatch happened"
+    );
 }
 
 #[test]

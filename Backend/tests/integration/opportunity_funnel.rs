@@ -4,6 +4,15 @@
 //! discovered → qualified → in_conversation → proposed → negotiating → won
 //! (with terminal `lost` branches).
 
+// F-AUDIT-51: the workspace lint set denies `clippy::unwrap_used`,
+// `expect_used` and `panic` because an `unwrap` on a `Result` can take a
+// production service down. In a test binary the opposite holds: panicking IS
+// the failure signal, and `unwrap()` is the idiomatic way to assert "this
+// fixture must be valid, and if it is not the test must fail". These suites
+// were never compiled by any crate before the `[[test]]` targets were added
+// in `crates/test-utils/Cargo.toml`, so they never faced the gate.
+// The exemption is file-scoped so the production lints stay fully intact.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum FunnelStage {
     Discovered,
@@ -36,7 +45,11 @@ impl Opportunity {
             FunnelStage::Discovered => &[FunnelStage::Qualified, FunnelStage::Lost][..],
             FunnelStage::Qualified => &[FunnelStage::InConversation, FunnelStage::Lost][..],
             FunnelStage::InConversation => &[FunnelStage::Proposed, FunnelStage::Lost][..],
-            FunnelStage::Proposed => &[FunnelStage::Negotiating, FunnelStage::Won, FunnelStage::Lost][..],
+            FunnelStage::Proposed => &[
+                FunnelStage::Negotiating,
+                FunnelStage::Won,
+                FunnelStage::Lost,
+            ][..],
             FunnelStage::Negotiating => &[FunnelStage::Won, FunnelStage::Lost][..],
             FunnelStage::Won | FunnelStage::Lost => &[][..],
         };
@@ -79,7 +92,11 @@ fn illegal_skip_denied() {
     // Can't jump from Discovered → Proposed.
     let result = opp.transition(FunnelStage::Proposed);
     assert!(result.is_err());
-    assert_eq!(opp.stage, FunnelStage::Discovered, "stage must remain unchanged on illegal transition");
+    assert_eq!(
+        opp.stage,
+        FunnelStage::Discovered,
+        "stage must remain unchanged on illegal transition"
+    );
 }
 
 #[test]
