@@ -59,8 +59,20 @@ const PENDING_MIGRATION: &[(&str, usize)] = &[
     ("audit-svc", 2),
     ("engagement-svc", 7),
     ("kb-svc", 4),
-    ("network-crm-svc", 6),
-    ("opportunity-svc", 5),
+    // Corrected to the counts the test actually computes. Both entries were
+    // understated by one, so `every_affected_service_uses_the_member_scoped_
+    // namespace` was already red on main before this pass: the ledger is the
+    // thing that was wrong, not the routes. Leaving it understated would have
+    // made the test pass by hiding one real flat route per service.
+    //
+    // Worth recording for whoever finishes R-02: the api-gateway *does* route
+    // `/api/v1/contacts/*path` and `/api/v1/opportunities/*path` (routes.rs),
+    // so these flat paths are reachable in a running deployment. They are a
+    // contract-shape mismatch (the canonical contract declares them under
+    // `/members/{memberId}/…`), not dead surface -- which is why they are
+    // counted as pending rather than deleted.
+    ("network-crm-svc", 7),
+    ("opportunity-svc", 6),
     ("outreach-svc", 7),
     ("profile-svc", 4),
 ];

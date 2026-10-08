@@ -30,7 +30,7 @@ impl Service {
             .await
     }
 
-    pub async fn get(&self, id: Uuid) -> Result<AuditEventRow, Error> {
+    pub async fn get(&self, id: i64) -> Result<AuditEventRow, Error> {
         self.repo.get(id).await
     }
 }

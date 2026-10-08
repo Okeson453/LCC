@@ -59,7 +59,10 @@ async fn list(
 
 async fn get_one(
     State(state): State<AppState>,
-    Path(id): Path<Uuid>,
+    // `lcc_audit.events.id` is a BIGSERIAL and the canonical contract declares
+    // it as `integer/int64`, so the path segment is parsed as an i64. A UUID
+    // here could never match a row.
+    Path(id): Path<i64>,
     _headers: HeaderMap,
 ) -> Result<impl IntoResponse, Error> {
     let v = state.service().get(id).await?;

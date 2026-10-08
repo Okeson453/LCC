@@ -45,7 +45,10 @@ impl Guard for CooldownGuard {
         // single source of truth for "what was actually sent."
         let query = sqlx::query_scalar::<_, Option<chrono::DateTime<chrono::Utc>>>(
             r#"
-            SELECT MAX(created_at) FROM audit_log
+            -- The real audit table is `lcc_audit.events` (migration 0011),
+            -- where the timestamp column is `occurred_at`. There is no
+            -- `audit_log` table anywhere in the schema.
+            SELECT MAX(occurred_at) FROM lcc_audit.events
             WHERE action = $1
               AND resource_id = $2
               AND actor = 'system:integration-gateway'

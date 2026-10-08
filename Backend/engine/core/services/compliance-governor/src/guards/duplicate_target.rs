@@ -44,10 +44,12 @@ impl Guard for DuplicateTargetGuard {
         // but we double-check.
         let active_query = sqlx::query_scalar::<_, i64>(
             r#"
-            SELECT COUNT(*) FROM sequence
+            -- The table is `lcc.sequences` and the column is `state`
+            -- (lcc.sequence_state), not `status`.
+            SELECT COUNT(*) FROM lcc.sequences
             WHERE member_id = $1
               AND contact_id = $2
-              AND status = 'active'
+              AND state = 'active'
             "#,
         )
         .bind(action.member_id)
@@ -69,11 +71,17 @@ impl Guard for DuplicateTargetGuard {
         // Recently completed (within cooldown)?
         let recent_query = sqlx::query_scalar::<_, i64>(
             r#"
-            SELECT COUNT(*) FROM sequence
+            -- lcc.sequence_state has five values
+            -- (active|paused|completed|abandoned|replied). The guard's
+            -- `completed_no_reply` / `completed_engaged` distinction has no
+            -- column to live in, so both collapse to the single `completed`
+            -- state; what the reply did not change is `completed_at`, which is
+            -- the real "when did this sequence end" column.
+            SELECT COUNT(*) FROM lcc.sequences
             WHERE member_id = $1
               AND contact_id = $2
-              AND status IN ('completed_no_reply', 'abandoned', 'completed_engaged')
-              AND ended_at > now() - ($3 || ' days')::interval
+              AND state IN ('completed', 'abandoned', 'replied')
+              AND completed_at > now() - ($3 || ' days')::interval
             "#,
         )
         .bind(action.member_id)

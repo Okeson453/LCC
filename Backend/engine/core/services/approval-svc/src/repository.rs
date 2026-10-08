@@ -56,7 +56,7 @@ impl PgRepository {
                        decided_reason, reviewer_ids, expires_at, version,
                        created_at, decided_at
                 FROM lcc.approvals
-                WHERE member_id = $1 AND decision = $2::text
+                WHERE member_id = $1 AND decision = $2::lcc.approval_decision
                 ORDER BY created_at DESC
                 LIMIT $3
                 "#,
@@ -136,7 +136,7 @@ impl PgRepository {
                  tier, rule_version, decision, requested_by,
                  decided_reason, reviewer_ids, expires_at, version,
                  created_at, decided_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::text,$9,$10,$11,$12,$13,$14,$15)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8::lcc.approval_decision,$9,$10,$11,$12,$13,$14,$15)
             "#,
         )
         .bind(a.id)
@@ -173,7 +173,7 @@ impl PgRepository {
         let row: Option<(i32, String, i32, Vec<Uuid>)> = sqlx::query_as(
             r#"
             UPDATE lcc.approvals
-            SET decision = $4::text,
+            SET decision = $4::lcc.approval_decision,
                 decided_at = NOW(),
                 decided_reason = $5,
                 reviewer_ids = CASE
