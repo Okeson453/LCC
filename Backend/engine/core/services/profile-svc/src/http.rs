@@ -8,7 +8,7 @@ use axum::{
     Json, Router,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 use uuid::Uuid;
 
 use crate::domain::{ConsentKind, EditDraftStatus};
@@ -29,11 +29,15 @@ pub fn build_router(state: AppState) -> Router {
             get(get_consent).post(grant_consent),
         )
         .with_state(state)
-        .route("/health", get(health))
-}
-
-async fn health() -> Json<Value> {
-    Json(json!({"status":"ok"}))
+        // F-AUDIT-56: this service served only `/health`, while every manifest
+        // probes `/healthz` (liveness) and `/readyz` (readiness) — so the pod
+        // would have been killed and crash-looped. Replaced by the shared
+        // health router, which serves the canonical paths and keeps `/health`
+        // as a backwards-compatible alias.
+        //
+        // Merged AFTER `.with_state()`: the health router is stateless, so
+        // merging it first would pin the router's state type to `()`.
+        .merge(crate::health::router())
 }
 
 #[derive(Clone, Copy)]

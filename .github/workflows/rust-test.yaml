@@ -1,0 +1,117 @@
+name: Rust Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-test:
+    defaults:
+      run:
+        working-directory: Backend
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    # F-AUDIT-52: the migration set and the RLS policies are the backbone of
+    # tenant isolation, and until now nothing in CI applied them. Every defect
+    # in commit 7b94ff7 — 0003's RLS call on a non-existent column, 0017's
+    # unparseable UNIQUE constraint, the missing approvals.tier column, the
+    # misspelled engagement_reails table — was invisible to this workflow
+    # because it ran no database at all. `tests/integration/migration_integrity.rs`
+    # asserts these properties against a live database, so a real Postgres is
+    # now part of the gate rather than an optional extra.
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lcc
+          POSTGRES_PASSWORD: lcc
+          POSTGRES_DB: lcc_test
+        ports:
+          - 5432:5432
+        # tmpfs keeps the runner's disk usage bounded and the data ephemeral.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # F-AUDIT-30: this workflow was also two `echo` steps, so `cargo test`
+      # never ran. Combined with the compile-blocking defects the audit found
+      # (self-referential type aliases in lcc-compliance, unresolved
+      # re-exports, unsatisfiable axum state types, undeclared `rand`/`hex`),
+      # nothing in the Rust workspace had ever been built.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # The workspace pins its toolchain in rust-toolchain.toml; this step
+      # installs the components the lint/test pipeline needs.
+      - name: Install components
+        run: rustup component add clippy rustfmt
+
+      # F-AUDIT-58: `crates/proto/build.rs` documents this precisely. The
+      # `proto-binary` feature compiles via `include!("gen/…")`, and the
+      # generated stubs only exist if `buf` (or `protoc` via tonic-build) ran
+      # first. `src/gen/` shipped with only a `.gitkeep`, so any
+      # `cargo test --workspace --all-features` — which is exactly what the
+      # `just rust-test` recipe and this workflow both ran — enabled
+      # `proto-binary` and died with
+      #     couldn't find file crates/proto/src/gen/google.r#type.rs
+      # The default build uses hand-written serde types and is unaffected, so
+      # this is a codegen-provisioning bug, not a source bug.
+      #
+      # Installing protoc lets build.rs generate the stubs, so the
+      # `proto-binary` path is genuinely compiled and tested instead of being
+      # silently excluded from the gate.
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends protobuf-compiler
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Apply migrations to the test database
+        # F-AUDIT-52: applies the real migration set, in order, with
+        # ON_ERROR_STOP. A migration that fails to apply is a build failure,
+        # not a warning — that is precisely the class of defect that made the
+        # schema unbuildable.
+        env:
+          PGPASSWORD: lcc
+        run: |
+          for f in $(ls schemas/migrations/*.sql | sort); do
+            echo "::group::applying $f"
+            psql -h 127.0.0.1 -U lcc -d lcc_test -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+          done
+
+      - name: cargo test
+        env:
+          # The live-database suites are skipped (not failed) when this is
+          # unset, so a local `cargo test` still works without Postgres.
+          LCC_TEST_DATABASE_URL: postgres://lcc:lcc@127.0.0.1/lcc_test
+        run: cargo test --workspace --all-features
+
+      - name: Migrations are reversible from a clean database
+        # Idempotence check: rebuilding the schema from scratch must succeed
+        # exactly as it does on a developer's machine.
+        env:
+          PGPASSWORD: lcc
+        run: |
+          psql -h 127.0.0.1 -U lcc -d postgres -v ON_ERROR_STOP=1 -q \
+            -c "DROP DATABASE IF EXISTS lcc_scratch" \
+            -c "CREATE DATABASE lcc_scratch"
+          for f in $(ls schemas/migrations/*.sql | sort); do
+            psql -h 127.0.0.1 -U lcc -d lcc_scratch -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+          echo "schema rebuilt from scratch OK"

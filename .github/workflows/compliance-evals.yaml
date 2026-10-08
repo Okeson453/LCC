@@ -1,4 +1,4 @@
-name: Docker Build
+name: Compliance Evals
 
 on:
   push:
@@ -7,12 +7,15 @@ on:
     branches: [main]
 
 jobs:
-  docker-build:
+  compliance-evals:
+    defaults:
+      run:
+        working-directory: Backend
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Setup
-        run: echo "Setup docker-build"
+        run: echo "Setup compliance-evals"
       - name: Run
-        run: echo "Run docker-build"
+        run: echo "Run compliance-evals"

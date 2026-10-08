@@ -43,6 +43,14 @@ pub fn build_router(state: AppState) -> Router {
             post(schedule),
         )
         .with_state(state)
+        // F-AUDIT-56: this merge was missing, so the service exposed no
+        // health endpoint at all and its pod would have crash-looped on the
+        // manifest's /healthz liveness probe.
+        //
+        // Merged AFTER `.with_state()`: the health router is stateless, so
+        // merging it first would pin the router's state type to `()` and every
+        // stateful route below would stop type-checking.
+        .merge(crate::health::router())
 }
 
 #[derive(Deserialize)]

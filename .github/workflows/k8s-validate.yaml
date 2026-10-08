@@ -1,0 +1,102 @@
+name: K8s Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# F-AUDIT-54: replaced two `echo` steps.
+#
+# F-AUDIT-55 (corrected against the source tree): the prior audit reported
+# "8 phantom workloads" in infra/k8s/base. That was wrong. All eight exist:
+#   services: ai-worker, kb-intel, opportunity-intel, scoring-intel, voice-intel
+#             live under Backend/engine/intelligence/services/
+#   workers:  enrichment_worker, re_embed_worker, voice_train_worker
+#             live under Backend/engine/intelligence/workers/
+# They are the Python intelligence tier, and the manifests are legitimate. The
+# real deployment defect is the opposite one: `kb-svc` is a Rust service that
+# the gateway forwards to (prefix "kb" -> UpstreamConfig::new("kb-svc", ...))
+# but which has no Kubernetes manifest at all, so it cannot be deployed. That
+# is fixed separately; this workflow validates what is actually declared and
+# asserts that every gateway upstream has a corresponding workload, so the
+# class of drift cannot return unnoticed.
+jobs:
+  k8s-validate:
+    defaults:
+      run:
+        working-directory: Backend
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate manifests against the Kubernetes API schema
+        run: |
+          set -euo pipefail
+          for f in infra/k8s/base/*.yaml; do
+            echo "::group::$f"
+            kubectl apply --dry-run=client --validate=strict -f "$f" -o name
+            echo "::endgroup::"
+          done
+
+      - name: Validate overlays
+        run: |
+          set -euo pipefail
+          for d in infra/k8s/overlays/*/; do
+            echo "::group::overlay $d"
+            kubectl apply --dry-run=client --validate=strict -f "$d" -o name
+            echo "::endgroup::"
+          done
+
+      - name: Every gateway upstream has a Deployment
+        # F-AUDIT-55: the gateway's `build_upstream_registry` is the authority
+        # on which service owns which domain prefix. Every service it names
+        # must have a Deployment, or requests routed to it fail at runtime with
+        # a connection error. This reads the real registry rather than a
+        # hand-maintained list, so the two cannot drift apart.
+        run: |
+          set -euo pipefail
+          registry=engine/core/services/api-gateway/src/state.rs
+          missing=0
+          # Collect the service names passed to UpstreamConfig::new(..).
+          mapfile -t upstreams < <(
+            grep -oE 'UpstreamConfig::new\("[a-z0-9-]+"' "$registry" \
+              | sed -E 's/.*"([a-z0-9-]+)"/\1/' | sort -u
+          )
+          echo "gateway upstreams: ${upstreams[*]}"
+          for svc in "${upstreams[@]}"; do
+            if ! ls infra/k8s/base/"$svc".yaml >/dev/null 2>&1; then
+              echo "::error file=infra/k8s/base/$svc.yaml::gateway routes to '$svc' but no Deployment manifest exists"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "deployment drift: gateway upstreams without manifests (see errors above)"
+            exit 1
+          fi
+          echo "all gateway upstreams have Deployment manifests"
+
+      - name: Every declared workload has a matching Dockerfile or source tree
+        run: |
+          set -euo pipefail
+          for manifest in infra/k8s/base/*.yaml; do
+            name=$(basename "$manifest" .yaml)
+            image=$(grep -oE 'image: [^ ]+' "$manifest" | head -1 | awk '{print $2}')
+            if [ -z "$image" ]; then
+              echo "::error file=$manifest::no container image declared"
+              exit 1
+            fi
+            # An image is only legitimate if the component it builds exists.
+            if ! ls -d "engine/core/services/$name" \
+                    "engine/core/workers/$name" \
+                    "engine/intelligence/services/$name" \
+                    >/dev/null 2>&1; then
+              echo "::error file=$manifest::workload '$name' has no matching source directory"
+              exit 1
+            fi
+          done
+          echo "every declared workload maps to real source"

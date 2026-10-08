@@ -8,6 +8,9 @@ on:
 
 jobs:
   python-lint:
+    defaults:
+      run:
+        working-directory: Backend
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:

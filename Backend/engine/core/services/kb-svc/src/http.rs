@@ -24,6 +24,15 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/kb/records/:id/reembed", post(reembed))
         .route("/api/v1/kb/records/:id/embedding-status", post(set_status))
         .with_state(state)
+        // F-AUDIT-56: kb-svc had no health endpoint whatsoever. The gateway
+        // routes the "kb" domain prefix here, so the Deployment manifest added
+        // for this service probes /healthz and /readyz; without these the pod
+        // would crash-loop on startup.
+        //
+        // Merged AFTER `.with_state()`: the health router is stateless, so
+        // merging it first would pin the router's state type to `()` and every
+        // stateful route below would stop type-checking.
+        .merge(crate::health::router())
 }
 
 #[derive(Deserialize)]

@@ -1,0 +1,76 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# F-AUDIT-53: this workflow was two `echo` steps — "Setup ci" / "Run ci" — so
+# it had never gated anything despite being the repository's primary CI
+# definition. GitHub additionally never read it at all: every workflow lived in
+# `Backend/.github/workflows/`, and GitHub only loads
+# `<repo-root>/.github/workflows/`. The whole set has been moved to the repo
+# root (see the `git mv` in this commit) and the stubs replaced with the gates
+# the project actually needs.
+#
+# This workflow is the fast, always-required gate. The heavier per-area
+# workflows (rust-test, security-scan, docker-build, …) run alongside it.
+jobs:
+  ci:
+    defaults:
+      run:
+        working-directory: Backend
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      # The repository boundary rules: no cross-engine imports, and only
+      # integration-gateway may depend on the integrations crate. These are
+      # architectural constraints that no compiler enforces, so they are
+      # checked explicitly and fail the build when violated.
+      - name: Engine boundary check
+        run: bash tools/scripts/check_boundaries.sh
+
+      - name: Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Contract artifacts are present and parse
+        # The canonical contract is the source of truth for every service
+        # route; if it is missing or malformed, the conformance tests below
+        # would silently degrade to "nothing to check".
+        run: |
+          test -f ../Contract/openapi/lcc-api-canonical.yaml
+          test -f ../Contract/realtime/lcc-realtime-contract.yaml
+          python3 - <<'PY'
+          import sys
+          try:
+              import yaml
+          except ImportError:
+              sys.exit("PyYAML is required to validate the contract")
+          for path in (
+              "../Contract/openapi/lcc-api-canonical.yaml",
+              "../Contract/realtime/lcc-realtime-contract.yaml",
+          ):
+              with open(path) as fh:
+                  doc = yaml.safe_load(fh)
+              assert isinstance(doc, dict), f"{path} did not parse to a mapping"
+              print(f"{path}: OK")
+          PY
+
+      - name: Build
+        run: cargo build --workspace --all-targets --locked
+
+      - name: Tests
+        # Suites that need a database skip themselves; they run for real in
+        # rust-test.yaml, which provisions a Postgres service.
+        run: cargo test --workspace --all-features

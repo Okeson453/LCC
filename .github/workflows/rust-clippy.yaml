@@ -8,6 +8,9 @@ on:
 
 jobs:
   rust-clippy:
+    defaults:
+      run:
+        working-directory: Backend
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:

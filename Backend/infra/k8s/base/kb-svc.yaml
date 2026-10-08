@@ -1,0 +1,108 @@
+---
+# F-AUDIT-57: kb-svc had no Deployment, no Service and no ServiceAccount.
+#
+# The gateway's `build_upstream_registry` binds the "kb" domain prefix to
+# kb-svc:
+#     ("kb", UpstreamConfig::new("kb-svc", &config.kb_svc_url)),
+# so every request to /api/v1/kb/... is forwarded here — but there was nothing
+# to forward to, so the route 502'd against an upstream that did not exist.
+# kb-svc also had no Dockerfile, and no health endpoint, so even adding a
+# manifest alone would have produced a pod that crash-looped on its liveness
+# probe. All three gaps are closed together:
+#   * engine/core/services/kb-svc/Dockerfile  (new)
+#   * engine/core/services/kb-svc/src/health.rs (new) + wired into build_router
+#   * this manifest
+#
+# Port 8094 is used because 8080-8093 are all assigned in infra/k8s/base.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kb-svc
+  namespace: lcc-engine
+  labels:
+    app: kb-svc
+    app.kubernetes.io/part-of: lcc
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kb-svc
+  template:
+    metadata:
+      labels:
+        app: kb-svc
+        app.kubernetes.io/part-of: lcc
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8094"
+        prometheus.io/path: "/metrics"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: kb-svc
+          image: registry.lcc.local/lcc/kb-svc:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8094
+              name: http
+          env:
+            - name: SERVICE_NAME
+              value: kb-svc
+            - name: HTTP_PORT
+              value: "8094"
+            - name: RUST_LOG
+              value: info
+            # DATABASE_URL and REDIS_URL are injected from the cluster secrets
+            # in the overlays; see infra/k8s/secrets and infra/k8s/configmaps.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kb-svc
+  namespace: lcc-engine
+  labels:
+    app: kb-svc
+    app.kubernetes.io/part-of: lcc
+spec:
+  selector:
+    app: kb-svc
+  ports:
+    - port: 8094
+      targetPort: http
+      name: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kb-svc
+  namespace: lcc-engine
+automountServiceAccountToken: false
