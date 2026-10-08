@@ -12,6 +12,17 @@
 // in `crates/test-utils/Cargo.toml`, so they never faced the gate.
 // The exemption is file-scoped so the production lints stay fully intact.
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+// F-AUDIT-71: `common/harness.rs` is a shared module pulled in by every
+// suite below via `#[path]`. Each test binary exercises only part of it, so
+// the rest is unreachable *from that binary* and `dead_code` fires on items
+// that are genuinely used by their siblings — `MockRlsDb`, `sha256_hex`,
+// `RiskTier`, `set_restriction`, and others. The alternative (one harness per
+// suite) duplicates the mocks this file exists to share.
+#![allow(dead_code)]
+// `resource_id.into()` reads as redundant field-name shorthand, but the
+// struct field is String and the parameter is &str, so the conversion is
+// load-bearing and the shorthand would not compile.
+#![allow(clippy::redundant_field_names)]
 #[path = "common/harness.rs"]
 mod harness;
 

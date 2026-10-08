@@ -211,11 +211,8 @@ impl MockComplianceGovernor {
                         .get(&format!("{action_key}_min_hours_between_to_same_target"))
                 })
                 .copied()
-                .map(|v| {
-                    // The `_min_hours_` entries are stored in seconds already
-                    // (24 * 3_600), so no unit conversion is needed here.
-                    v
-                })
+                // The `_min_hours_` entries are stored in seconds already
+                // (24 * 3_600), so no unit conversion is needed here.
                 .unwrap_or(0);
 
             if cooldown_secs > 0 {
@@ -532,7 +529,7 @@ impl MockRlsDb {
 
     /// Insert with RLS enforcement — refuses if no member set.
     pub fn insert(&self, table: &str, data: &str) -> Result<(), String> {
-        let mid = self.current_member_id.lock().unwrap().clone();
+        let mid = *self.current_member_id.lock().unwrap();
         match mid {
             None => Err("RLS session variable not set".into()),
             Some(m) => {
@@ -547,7 +544,7 @@ impl MockRlsDb {
 
     /// Read with RLS enforcement — only returns rows for the active member.
     pub fn read(&self, table: &str) -> Vec<String> {
-        let mid = self.current_member_id.lock().unwrap().clone();
+        let mid = *self.current_member_id.lock().unwrap();
         match mid {
             None => Vec::new(),
             Some(m) => self

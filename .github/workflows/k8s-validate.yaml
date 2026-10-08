@@ -51,9 +51,19 @@ jobs:
           kubeconform -v
 
       - name: Validate base manifests against the Kubernetes schema
+        # `kustomization.yaml` is excluded: it is a kustomize build file, not a
+        # Kubernetes API object, so kubeconform reports "could not find schema
+        # for Kustomization". It is validated instead by the overlay-render
+        # step below, which has to parse it to produce anything at all.
         run: |
           set -euo pipefail
-          kubeconform -strict -summary infra/k8s/base/*.yaml
+          shopt -s nullglob
+          manifests=()
+          for f in infra/k8s/base/*.yaml; do
+            [[ "$(basename "$f")" == kustomization.yaml ]] && continue
+            manifests+=("$f")
+          done
+          kubeconform -strict -summary "${manifests[@]}"
 
       - name: Every overlay renders and validates
         # F-AUDIT-62: infra/k8s/base had no kustomization.yaml, so all three
