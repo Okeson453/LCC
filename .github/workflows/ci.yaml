@@ -96,6 +96,17 @@ jobs:
         run: cargo build --workspace --all-targets --locked
 
       - name: Tests
-        # Suites that need a database skip themselves; they run for real in
-        # rust-test.yaml, which provisions a Postgres service.
-        run: cargo test --workspace --all-features
+        # F-AUDIT-80: this ran `--all-features`, which enables lcc-proto's
+        # `proto-binary` feature and therefore requires a protoc toolchain and
+        # a codegen step. The `ci` job does not install one, so the build failed
+        # with "Could not find `protoc`" and then on the missing generated
+        # file.
+        #
+        # The fix is to keep the split of responsibilities: this is the *fast*
+        # gate and runs the default feature set, which uses the hand-written
+        # serde types and needs no codegen. The `proto-binary` path, the
+        # database-backed suites and the pinned protoc toolchain all belong to
+        # rust-test.yaml, which owns that setup. Running the expensive path in
+        # both jobs duplicated the work and doubled the surface for a
+        # toolchain-only failure.
+        run: cargo test --workspace
