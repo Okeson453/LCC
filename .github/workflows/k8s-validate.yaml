@@ -34,21 +34,42 @@ jobs:
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
 
-      - name: Validate manifests against the Kubernetes API schema
+      - name: Install kubeconform
+        # F-AUDIT-65: this step previously ran
+        #   kubectl apply --dry-run=client --validate=strict
+        # which needs to download the OpenAPI schema from a *live* API server.
+        # Without a reachable cluster it failed for every manifest with
+        #   failed to download openapi: Get "http://localhost:8080/openapi/v2"
+        # so all 30 files "failed" and the job was red for a reason unrelated
+        # to the manifests. kubeconform validates against the published
+        # JSON schemas instead, so the gate is meaningful with no cluster.
+        run: |
+          curl -sSLo kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz"
+          tar xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Validate base manifests against the Kubernetes schema
         run: |
           set -euo pipefail
-          for f in infra/k8s/base/*.yaml; do
-            echo "::group::$f"
-            kubectl apply --dry-run=client --validate=strict -f "$f" -o name
-            echo "::endgroup::"
-          done
+          kubeconform -strict -summary infra/k8s/base/*.yaml
 
-      - name: Validate overlays
+      - name: Every overlay renders and validates
+        # F-AUDIT-62: infra/k8s/base had no kustomization.yaml, so all three
+        # overlays were unbuildable ("unable to find one of kustomization.yaml").
+        # F-AUDIT-63: the replica patches were multi-document files listed under
+        # `patches:`, which takes one patch per file. F-AUDIT-64: the production
+        # PDB was listed as a patch but does not exist in base, and `patches:`
+        # cannot create resources. All three are fixed; this step is the
+        # regression gate, and it renders the *built* output rather than the
+        # sources, which is what actually gets applied.
         run: |
           set -euo pipefail
           for d in infra/k8s/overlays/*/; do
             echo "::group::overlay $d"
-            kubectl apply --dry-run=client --validate=strict -f "$d" -o name
+            kubectl kustomize "$d" > /tmp/rendered.yaml
+            kubeconform -strict -summary /tmp/rendered.yaml
             echo "::endgroup::"
           done
 

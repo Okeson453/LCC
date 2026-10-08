@@ -1,0 +1,15 @@
+# F-AUDIT-64: this was listed under `patches:`, which can only modify a
+# resource that already exists. No PodDisruptionBudget existed in
+# infra/k8s/base, so the production overlay failed with:
+#   error: no matches for Id PodDisruptionBudget.v1.policy/
+#   compliance-governor-pdb.lcc-engine; failed to find unique target for patch
+#
+# A PDB is an additive resource, not a modification, so it belongs in
+# `resources:`. The spec is unchanged.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: compliance-governor-pdb
+  namespace: lcc-engine
+spec:
+  minAvailable: 2

@@ -1,0 +1,7 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-gateway
+  namespace: lcc-engine
+spec:
+  replicas: 5

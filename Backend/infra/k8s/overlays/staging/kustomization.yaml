@@ -3,6 +3,18 @@ kind: Kustomization
 namespace: lcc-engine
 resources:
   - ../../base
+
+# F-AUDIT-63: the patches were previously listed as a single multi-document
+# `replicas-patch.yaml` (three Deployments in one file). Kustomize's `patches:`
+# field accepts exactly ONE patch per file, so the overlay failed to build:
+#
+#   error: trouble configuring builtin PatchTransformer with config:
+#   `path: replicas-patch.yaml`: unable to parse SM or JSON patch
+#
+# Staging is therefore undeployable. The three patches are split into one file
+# per target; the content is unchanged.
 patches:
-  - path: replicas-patch.yaml
+  - path: replicas-compliance-governor.yaml
+  - path: replicas-integration-gateway.yaml
+  - path: replicas-api-gateway.yaml
   - path: environment-patch.yaml

@@ -21,10 +21,22 @@ jobs:
       # than silently reporting "no vulnerabilities found" from an empty set.
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # F-AUDIT-68: like buf-action, a `uses:` step ignores
+      # `defaults.run.working-directory` and runs at the repository root, where
+      # there is no Cargo.toml — so the action failed to find a manifest. The
+      # manifest is now named explicitly.
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
+          manifest-path: Backend/Cargo.toml
       - name: Python dependency audit
         uses: astral-sh/setup-uv@v3
+      # F-AUDIT-69: the `|| echo "audit skipped"` made this step report
+      # SUCCESS whenever the audit did not actually run — a security gate that
+      # cannot fail is worse than no gate, because it is mistaken for coverage.
+      # A real failure (or a genuinely unavailable export) must now be visible.
       - name: pip-audit
-        run: uvx pip-audit -r <(uv export --no-hashes --all-extras 2>/dev/null) || echo "uv export unavailable; audit skipped"
+        run: |
+          set -euo pipefail
+          uv export --no-hashes --all-extras --no-emit-project > /tmp/req.txt
+          uvx pip-audit -r /tmp/req.txt

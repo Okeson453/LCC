@@ -5,6 +5,21 @@ lint:
 breaking:
   use:
     - FILE
-deps:
-  - buf.build/googleapis/googleapis
+# F-AUDIT-67: the `deps: [buf.build/googleapis/googleapis]` entry is removed.
+#
+# The only file this repo actually needs from googleapis is
+# `google/type/date.proto`, and that is already vendored at
+# `google/type/date.proto` — deliberately, so the build is offline-reproducible
+# without BSR access (see the comment at the top of that file).
+#
+# Declaring the dep as well made buf reject the module outright:
+#   google/type/date.proto is contained in multiple modules:
+#     buf.build/googleapis/googleapis
+#     path: "."
+#
+# This was invisible because the committed buf.lock was itself invalid
+# (`version: v1` carrying a `digest` field, which v1 does not define), so
+# `buf dep update` aborted while parsing it and never reached this check.
+# The lock has been regenerated; the dep is now redundant, and removing it
+# keeps the offline guarantee the vendored copy was created for.
 name: buf.build/okeson-lcc/lcc

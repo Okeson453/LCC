@@ -3,7 +3,22 @@ kind: Kustomization
 namespace: lcc-engine
 resources:
   - ../../base
+  # F-AUDIT-64: a PodDisruptionBudget is additive, so it is a resource rather
+  # than a patch — `patches:` only modifies resources that already exist.
+  - pdb.yaml
+
+# F-AUDIT-63: the patches were previously listed as a single multi-document
+# `replicas-patch.yaml` (four Deployments in one file). Kustomize's `patches:`
+# field accepts exactly ONE patch per file, so the overlay failed to build:
+#
+#   error: trouble configuring builtin PatchTransformer with config:
+#   `path: replicas-patch.yaml`: unable to parse SM or JSON patch
+#
+# Production is therefore undeployable. The four patches are split into one
+# file per target; the content is unchanged.
 patches:
-  - path: replicas-patch.yaml
+  - path: replicas-compliance-governor.yaml
+  - path: replicas-integration-gateway.yaml
+  - path: replicas-api-gateway.yaml
+  - path: replicas-ai-worker.yaml
   - path: environment-patch.yaml
-  - path: pdb-patch.yaml

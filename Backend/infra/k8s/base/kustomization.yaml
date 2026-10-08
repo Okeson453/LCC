@@ -1,0 +1,54 @@
+# F-AUDIT-62: this file was missing entirely.
+#
+# All three overlays (local, staging, production) declare `resources:
+#   - ../../base`, but kustomize requires the referenced directory to itself
+#   contain a kustomization.yaml. Without it every overlay failed to build:
+#
+#     error: accumulating resources: accumulation err='accumulating resources
+#     from "../../base" ... unable to find one of "kustomization.yaml",
+#     "kustomization.yml" or "Kustomization" in directory .../infra/k8s/base'
+#
+# So no environment could be rendered at all: `kubectl apply -k` was dead for
+# local, staging and production alike, and the base manifests could only ever
+# be applied one file at a time by hand.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+metadata:
+  name: lcc-base
+
+# Every workload in the engine tier and the Python intelligence tier.
+#
+# Namespaces are declared per-resource inside the manifests themselves
+# (lcc-engine, lcc-intelligence), so an overlay's `namespace:` setting only
+# fills in what a resource leaves unset.
+resources:
+  - ai-worker.yaml
+  - analytics-svc.yaml
+  - api-gateway.yaml
+  - approval-svc.yaml
+  - audit-integrity-worker.yaml
+  - audit-svc.yaml
+  - briefing-worker.yaml
+  - compliance-governor.yaml
+  - content-svc.yaml
+  - data-purge-worker.yaml
+  - engagement-svc.yaml
+  - enrichment-worker.yaml
+  - identity-svc.yaml
+  - integration-gateway.yaml
+  - kb-intel.yaml
+  - kb-svc.yaml
+  - network-crm-svc.yaml
+  - opportunity-discovery-worker.yaml
+  - opportunity-intel.yaml
+  - opportunity-svc.yaml
+  - orchestrator.yaml
+  - outreach-svc.yaml
+  - profile-svc.yaml
+  - re-embed-worker.yaml
+  - realtime-svc.yaml
+  - scoring-intel.yaml
+  - sequence-step-scheduler.yaml
+  - staleness-scanner.yaml
+  - voice-intel.yaml
+  - voice-train-worker.yaml
