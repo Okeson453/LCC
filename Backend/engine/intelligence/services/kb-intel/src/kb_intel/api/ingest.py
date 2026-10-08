@@ -77,7 +77,16 @@ async def ingest(req: IngestRequest) -> IngestResponse:
 
     record_id = str(uuid.uuid4())
     now = datetime.now(UTC).isoformat()
-    for i, (chunk_text, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
+    # F-AUDIT-86: this loop variable was named `chunk_text`, shadowing the
+    # `from kb_intel.core.chunker import chunk as chunk_text` above. Because
+    # Python treats `chunk_text` as a local for the whole function, the earlier
+    # call
+    #     chunks = chunk_text(text, ...)
+    # raised `UnboundLocalError: cannot access local variable 'chunk_text'`
+    # at runtime — so this endpoint failed on every non-empty record. Ruff
+    # reported it as F823 (referenced before assignment) and F402 (import
+    # shadowed by loop variable).
+    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=False)):
         chunk_id = f"{record_id}:{i}"
         await db.upsert(
             collection="kb_records",
@@ -90,8 +99,8 @@ async def ingest(req: IngestRequest) -> IngestResponse:
                 "title": req.title,
                 "chunk_index": i,
                 "chunk_count": len(chunks),
-                "text": chunk_text,
-                "content_hash": content_hash(chunk_text),
+                "text": chunk,
+                "content_hash": content_hash(chunk),
                 "source_kind": req.source_kind,
                 "source_url": req.source_url or "",
                 "created_at": now,
