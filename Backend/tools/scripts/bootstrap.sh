@@ -2,7 +2,9 @@
 # bootstrap.sh — one-shot local environment bring-up.
 set -euo pipefail
 
-cd /workspace/lcc
+BACKEND="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+cd "$BACKEND"
 
 echo "→ Bringing up infrastructure (postgres, redis, qdrant, observability)"
 docker compose -f infra/docker/docker-compose.yml up -d postgres redis qdrant otel-collector prometheus grafana
