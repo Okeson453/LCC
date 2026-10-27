@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
-
-from opportunity_intel.core.phi_model import PhiSignal, score
+from opportunity_intel.core.phi_model import score
+from pydantic import BaseModel, ConfigDict
 
 router = APIRouter()
 
@@ -39,6 +38,7 @@ class DiscoveryResponse(BaseModel):
 # In production this is fed by the LinkedIn data broker via enrichment_worker
 # (which fetches ProfileSnapshot, PostSnapshot, JobSnapshot from REST + jobs APIs).
 # The service compiles signal observations and forwards to phi_model.score.
+
 
 @router.post("/discover", response_model=DiscoveryResponse)
 async def discover(req: DiscoveryRequest) -> DiscoveryResponse:

@@ -23,12 +23,14 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from scoring_intel.core.rho import ContactFeature, RhoScore
 
-_MODEL_DIR = Path(os.environ.get("LCC_MODEL_DIR", "/tmp/lcc-models"))
+_DEFAULT_MODEL_DIR = Path(tempfile.gettempdir()) / "lcc-models"
+_MODEL_DIR = Path(os.environ.get("LCC_MODEL_DIR", str(_DEFAULT_MODEL_DIR)))
 
 
 @dataclass

@@ -8,14 +8,10 @@ and re-embeds them in the vector store.
 from __future__ import annotations
 
 import asyncio
-import os
-import time
 
-from event_bus import Topic
 from intelligence_common.config import Settings as BaseSettings
 from intelligence_common.logging import configure_logging, get_logger
 from pydantic_settings import SettingsConfigDict
-from vector_db import QdrantClientWrapper
 
 log = get_logger(__name__)
 
@@ -35,7 +31,6 @@ async def _process_batch(settings: Settings) -> int:
     # The "stale" detection would query the `kb_record_chunks` table for
     # rows where `embedding_model_version` != current_model_version.
     # In this stub we return 0 (no work to do).
-    db = QdrantClientWrapper(url=settings.vector_db_url)
     # In production: select 100 chunk rows → re-embed → upsert → mark updated.
     return 0
 

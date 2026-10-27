@@ -6,9 +6,8 @@ import os
 from typing import Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
-
 from kb_intel.core.embedder import embed_query
+from pydantic import BaseModel, ConfigDict
 from vector_db import QdrantClientWrapper
 
 router = APIRouter()
@@ -19,10 +18,19 @@ class KBSearchRequest(BaseModel):
     member_id: str
     query: str
     top_k: int = 5
-    category: Literal[
-        "achievements", "skills", "projects", "experience",
-        "voice_samples", "case_studies", "testimonials", "preferences",
-    ] | None = None
+    category: (
+        Literal[
+            "achievements",
+            "skills",
+            "projects",
+            "experience",
+            "voice_samples",
+            "case_studies",
+            "testimonials",
+            "preferences",
+        ]
+        | None
+    ) = None
     min_score: float = 0.0
 
 

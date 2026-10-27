@@ -5,11 +5,10 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
-
 from kb_intel.core.chunker import chunk as chunk_text
 from kb_intel.core.dedup import content_hash, find_duplicate
 from kb_intel.core.embedder import embed_texts
+from pydantic import BaseModel, ConfigDict
 from vector_db import QdrantClientWrapper
 
 router = APIRouter()

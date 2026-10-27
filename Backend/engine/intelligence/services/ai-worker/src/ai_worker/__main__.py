@@ -6,12 +6,12 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
+from intelligence_common.logging import configure_logging, get_logger
 
 from ai_worker.api.drafts import router as drafts_router
 from ai_worker.api.embedding import router as embedding_router
 from ai_worker.config import Settings
 from ai_worker.health import router as health_router
-from intelligence_common.logging import configure_logging, get_logger
 
 settings = Settings()
 configure_logging(settings.service_name, settings.log_level)

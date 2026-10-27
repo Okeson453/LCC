@@ -19,20 +19,21 @@ from dataclasses import dataclass
 class PhiSignal:
     """One opportunity-signal observation."""
 
-    kind: str                 # "job_change"|"funding_event"|"post_about_problem"|"competitor_mention"|"manual"
+    # "job_change"|"funding_event"|"post_about_problem"|"competitor_mention"|"manual"
+    kind: str
     recency_days: int
-    weight: float             # 0..1
+    weight: float  # 0..1
     text: str = ""
     matched_kb_facts: int = 0
 
 
 @dataclass
 class PhiResult:
-    phi_score: float          # 0..1
+    phi_score: float  # 0..1
     components: dict[str, float]
-    mode: str                 # "ml" | "rule_based"
-    confidence: float         # 0..1
-    hard_qualifies: bool      # True if phi_score ≥ qualified threshold
+    mode: str  # "ml" | "rule_based"
+    confidence: float  # 0..1
+    hard_qualifies: bool  # True if phi_score ≥ qualified threshold
     rationale: list[str]
 
     def to_dict(self) -> dict:

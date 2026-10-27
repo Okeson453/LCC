@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict
-
 from scoring_intel.core.hc import HealthSignals, compute_health
 
 router = APIRouter()

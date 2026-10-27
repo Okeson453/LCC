@@ -6,8 +6,8 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
-
 from intelligence_common.logging import configure_logging, get_logger
+
 from kb_intel.api.dedup import router as dedup_router
 from kb_intel.api.ingest import router as ingest_router
 from kb_intel.api.search import router as search_router

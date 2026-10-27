@@ -11,7 +11,6 @@ from llm_client import (
     OpenAIClient,
 )
 
-
 # Model tier → provider + model_id
 TIER_MODELS: dict[str, tuple[str, str]] = {
     "premium": ("openai", "gpt-4o-2024-08-06"),
@@ -30,9 +29,11 @@ def _get_client(provider: str) -> LLMClient:
         return _clients[provider]
     if provider == "openai":
         import os
+
         client: LLMClient = OpenAIClient(api_key=os.environ.get("OPENAI_API_KEY", ""))
     elif provider == "anthropic":
         import os
+
         client = AnthropicClient(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
     else:
         raise ValueError(f"unsupported provider: {provider}")

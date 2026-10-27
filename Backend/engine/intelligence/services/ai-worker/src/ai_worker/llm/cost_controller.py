@@ -54,6 +54,16 @@ def select_model_tier() -> str:
     return "premium"
 
 
+def record_spend(cost: float) -> None:
+    """Add one LLM call's cost to the running monthly total.
+
+    F-AUDIT-26: this module-level function is what `api/drafts.py` calls after
+    every generation. Only `CostState.record_spend` existed, so the import in
+    `drafts.py` failed and the whole draft router was unimportable.
+    """
+    _state.record_spend(cost)
+
+
 def get_state() -> CostState:
     return _state
 

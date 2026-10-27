@@ -27,13 +27,13 @@ import asyncio
 import logging
 import os
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # Graceful degradation: if grpcio is missing, the server logs and exits.
 try:
     import grpc  # type: ignore[import-untyped]
+
     GRPC_AVAILABLE = True
 except ImportError:
     GRPC_AVAILABLE = False
@@ -44,6 +44,7 @@ except ImportError:
 try:
     from lcc.v1 import intelligence_pb2_grpc  # type: ignore[import-untyped]
     from lcc.v1.intelligence import _pb2  # type: ignore[import-untyped]
+
     PROTO_AVAILABLE = True
 except ImportError:
     PROTO_AVAILABLE = False
@@ -161,23 +162,35 @@ async def _calibration_status_handler(request, context):  # type: ignore[no-unty
     )
 
 
-class ScoringIntelServicer(intelligence_pb2_grpc.ScoringIntelServicer):  # type: ignore[misc]
-    """Concrete servicers that delegate to the FastAPI handlers.
+if PROTO_AVAILABLE:
 
-    Keeping the actual logic in the FastAPI layer means that the HTTP and
-    gRPC transports both serve the same code path, and there's only one
-    place to fix a bug.
-    """
+    class ScoringIntelServicer(intelligence_pb2_grpc.ScoringIntelServicer):  # type: ignore[misc]
+        """Concrete servicers that delegate to the FastAPI handlers.
 
-    ComputeH_c = staticmethod(_compute_h_c_handler)
-    ComputePhi = staticmethod(_compute_phi_handler)
-    PredictReplyProbability = staticmethod(_predict_rho_handler)
-    CalibrationStatus = staticmethod(_calibration_status_handler)
+        Keeping the actual logic in the FastAPI layer means that the HTTP and
+        gRPC transports both serve the same code path, and there's only one
+        place to fix a bug.
+        """
+
+        ComputeH_c = staticmethod(_compute_h_c_handler)
+        ComputePhi = staticmethod(_compute_phi_handler)
+        PredictReplyProbability = staticmethod(_predict_rho_handler)
+        CalibrationStatus = staticmethod(_calibration_status_handler)
+
+else:
+    # The stubs are optional (see the import guard above). Subclassing the
+    # missing base class unconditionally raised NameError at import time, which
+    # broke every importer of this module instead of degrading gracefully.
+    class ScoringIntelServicer:  # type: ignore[no-redef]
+        """Stand-in used only when the generated stubs are unavailable."""
 
 
-async def serve(port: int = 50051, tls_cert_path: Optional[str] = None,
-                tls_key_path: Optional[str] = None,
-                tls_ca_path: Optional[str] = None) -> None:
+async def serve(
+    port: int = 50051,
+    tls_cert_path: str | None = None,
+    tls_key_path: str | None = None,
+    tls_ca_path: str | None = None,
+) -> None:
     """Start the scoring-intel gRPC server.
 
     When `tls_cert_path` is provided, the server uses mTLS. The CA bundle
@@ -187,14 +200,13 @@ async def serve(port: int = 50051, tls_cert_path: Optional[str] = None,
     if not GRPC_AVAILABLE or not PROTO_AVAILABLE:
         logger.error(
             "scoring-intel gRPC server cannot start: grpcio=%s proto=%s",
-            GRPC_AVAILABLE, PROTO_AVAILABLE,
+            GRPC_AVAILABLE,
+            PROTO_AVAILABLE,
         )
         return
 
     server = grpc.aio.server()
-    intelligence_pb2_grpc.add_ScoringIntelServicer_to_server(
-        ScoringIntelServicer(), server
-    )
+    intelligence_pb2_grpc.add_ScoringIntelServicer_to_server(ScoringIntelServicer(), server)
 
     bind = f"[::]:{port}"
     if tls_cert_path and tls_key_path:
@@ -215,8 +227,8 @@ async def serve(port: int = 50051, tls_cert_path: Optional[str] = None,
     else:
         server.add_insecure_port(bind)
         logger.warning(
-            "scoring-intel gRPC server listening on %s (PLAINTEXT) — "
-            "do not run this in production", bind,
+            "scoring-intel gRPC server listening on %s (PLAINTEXT) — do not run this in production",
+            bind,
         )
 
     await server.start()
@@ -228,8 +240,7 @@ def main() -> None:
     tls_cert = os.environ.get("SCORING_INTEL_TLS_CERT")
     tls_key = os.environ.get("SCORING_INTEL_TLS_KEY")
     tls_ca = os.environ.get("SCORING_INTEL_TLS_CA")
-    asyncio.run(serve(port=port, tls_cert_path=tls_cert,
-                      tls_key_path=tls_key, tls_ca_path=tls_ca))
+    asyncio.run(serve(port=port, tls_cert_path=tls_cert, tls_key_path=tls_key, tls_ca_path=tls_ca))
 
 
 if __name__ == "__main__":

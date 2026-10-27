@@ -45,29 +45,12 @@ class ActionType(str, Enum):
     CLIENT_PROPOSAL_SEND = "client_proposal_send"
     EXECUTIVE_OUTREACH = "executive_outreach"
 
+    def risk_tier(self) -> "RiskTier":
+        """Return the RiskTier for this action (mirrors Rust `ActionType::risk_tier`)."""
+        return _TIER_MAP[self]
+
 
 ALL_ACTION_TYPES = tuple(ActionType)
-
-
-_TIER_MAP: dict[ActionType, "RiskTier"] = {
-    ActionType.PROFILE_EDIT_DRAFT: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.CONTENT_DRAFT: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.KB_RECORD_CREATE: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.SEQUENCE_DRAFT: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.OPPORTUNITY_DISCOVER: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.RESEARCH_SCAN: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.VOICE_TRAIN: RiskTier.TIER_1_DRAFT_OR_EDIT,
-    ActionType.COMMENT: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
-    ActionType.LIKE: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
-    ActionType.POST_PUBLISH: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
-    ActionType.PROFILE_EDIT_SUBMIT: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
-    ActionType.CONNECTION_REQUEST: RiskTier.TIER_3_NETWORK_GROWTH,
-    ActionType.DIRECT_MESSAGE: RiskTier.TIER_4_ONE_TO_ONE_OUTREACH,
-    ActionType.SEQUENCE_STEP_SEND: RiskTier.TIER_4_ONE_TO_ONE_OUTREACH,
-    ActionType.JOB_APPLICATION_SUBMIT: RiskTier.TIER_5_HIGH_STAKES,
-    ActionType.CLIENT_PROPOSAL_SEND: RiskTier.TIER_5_HIGH_STAKES,
-    ActionType.EXECUTIVE_OUTREACH: RiskTier.TIER_5_HIGH_STAKES,
-}
 
 
 class RiskTier(int, Enum):
@@ -89,6 +72,29 @@ class RiskTier(int, Enum):
             RiskTier.TIER_5_HIGH_STAKES: 0.5,
         }
         return thresholds[self]
+
+
+# NOTE: `RiskTier` must be defined before this map is built — the dict values
+# are evaluated at import time, so a later definition raises NameError.
+_TIER_MAP: dict[ActionType, "RiskTier"] = {
+    ActionType.PROFILE_EDIT_DRAFT: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.CONTENT_DRAFT: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.KB_RECORD_CREATE: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.SEQUENCE_DRAFT: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.OPPORTUNITY_DISCOVER: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.RESEARCH_SCAN: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.VOICE_TRAIN: RiskTier.TIER_1_DRAFT_OR_EDIT,
+    ActionType.COMMENT: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
+    ActionType.LIKE: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
+    ActionType.POST_PUBLISH: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
+    ActionType.PROFILE_EDIT_SUBMIT: RiskTier.TIER_2_LIGHT_ENGAGEMENT,
+    ActionType.CONNECTION_REQUEST: RiskTier.TIER_3_NETWORK_GROWTH,
+    ActionType.DIRECT_MESSAGE: RiskTier.TIER_4_ONE_TO_ONE_OUTREACH,
+    ActionType.SEQUENCE_STEP_SEND: RiskTier.TIER_4_ONE_TO_ONE_OUTREACH,
+    ActionType.JOB_APPLICATION_SUBMIT: RiskTier.TIER_5_HIGH_STAKES,
+    ActionType.CLIENT_PROPOSAL_SEND: RiskTier.TIER_5_HIGH_STAKES,
+    ActionType.EXECUTIVE_OUTREACH: RiskTier.TIER_5_HIGH_STAKES,
+}
 
 
 def action_risk_tier(action_type: ActionType) -> RiskTier:

@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
-
+from pydantic import BaseModel, ConfigDict
 from scoring_intel.core.rho import ContactFeature, score_contact
 
 router = APIRouter()

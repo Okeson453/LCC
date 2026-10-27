@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import time
-from functools import lru_cache
+from pathlib import Path
 
 # Lazy import to avoid loading the model on startup in environments where
 # vector DB isn't reachable.
 _model = None
+_DEFAULT_CACHE = Path(tempfile.gettempdir()) / "sbert-cache"
 
 
 def _get_model():
@@ -18,7 +20,7 @@ def _get_model():
 
         _model = SentenceTransformer(
             os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
-            cache_folder=os.environ.get("SENTENCE_TRANSFORMERS_HOME", "/tmp/sbert-cache"),
+            cache_folder=os.environ.get("SENTENCE_TRANSFORMERS_HOME", str(_DEFAULT_CACHE)),
         )
     return _model
 

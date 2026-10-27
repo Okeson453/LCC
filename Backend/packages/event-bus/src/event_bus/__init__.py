@@ -4,7 +4,7 @@ Phase 1-2: Redis Streams. Phase 3+: Kafka (rdkafka).
 """
 
 from event_bus.envelope import (
-    Envelope,
+    EventEnvelope,
     EventHeader,
     EventPayload,
     AuditEvent,
@@ -19,7 +19,7 @@ from event_bus.publisher import Publisher, PublisherError
 from event_bus.consumer import Consumer, ConsumerError
 
 __all__ = [
-    "Envelope",
+    "EventEnvelope",
     "EventHeader",
     "EventPayload",
     "AuditEvent",

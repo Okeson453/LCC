@@ -6,8 +6,8 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
-
 from intelligence_common.logging import configure_logging, get_logger
+
 from opportunity_intel.api.discovery import router as discovery_router
 from opportunity_intel.api.scoring import router as scoring_router
 from opportunity_intel.config import Settings

@@ -7,8 +7,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
-
+from pydantic import BaseModel, ConfigDict
 from vector_db import QdrantClientWrapper
 from voice_intel.core.analyzer import fingerprint
 

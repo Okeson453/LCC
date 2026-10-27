@@ -1,7 +1,6 @@
 """Voice analyzer tests."""
 
 import pytest
-
 from voice_intel.core.analyzer import fingerprint
 
 
@@ -47,3 +46,4 @@ class TestFingerprint:
         fp_airy = fingerprint("\n".join(["a" * 30] * 20))
         fp_dense = fingerprint(("a" * 30 + " ") * 5)
         assert fp_airy.line_break_style in ("airy", "dense")
+        assert fp_dense.line_break_style in ("airy", "dense")

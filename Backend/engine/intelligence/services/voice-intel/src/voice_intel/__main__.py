@@ -6,8 +6,8 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
-
 from intelligence_common.logging import configure_logging, get_logger
+
 from voice_intel.api.fingerprint import router as fingerprint_router
 from voice_intel.api.samples import router as samples_router
 from voice_intel.config import Settings

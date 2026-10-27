@@ -1,14 +1,22 @@
 """Brand-guard linter tests."""
 
 import pytest
-
 from ai_worker.brand_guard.linter import lint_draft
 
 
 @pytest.mark.unit
 class TestBrandGuard:
     def test_clean_post_passes(self):
-        body = "shipped the new feature today.\nfinally got the latency down to 80ms."
+        # A clean draft that also fits the documented text_post length window
+        # (200-3000 chars) — the guard checks length, so a two-line fixture
+        # fails for the wrong reason.
+        body = (
+            "shipped the new feature today. the dashboard now streams events instead of polling, "
+            "so the numbers update in place instead of every thirty seconds.\n"
+            "finally got the latency down to 80ms at p99, and the retry path no longer drops "
+            "a burst when one upstream stalls.\n"
+            "next up: backpressure, then the migration guide."
+        )
         result = lint_draft(body, target="text_post")
         assert result.passed
         assert result.length_ok

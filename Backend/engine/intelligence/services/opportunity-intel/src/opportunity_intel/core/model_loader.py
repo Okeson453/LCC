@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from opportunity_intel.core.phi_model import PhiResult, PhiSignal
 
-_MODEL_DIR = Path(os.environ.get("LCC_MODEL_DIR", "/tmp/lcc-models"))
+_DEFAULT_MODEL_DIR = Path(tempfile.gettempdir()) / "lcc-models"
+_MODEL_DIR = Path(os.environ.get("LCC_MODEL_DIR", str(_DEFAULT_MODEL_DIR)))
 _MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -67,7 +69,11 @@ def load_phi_model() -> PhiModelArtifact:
         )
     else:
         # Default untrained artifact (rule-based scoring will be used).
-        _phi_model = PhiModelArtifact(version="0.0.0-default", weights={"signal_strength": 0.6, "kb_fit": 0.3}, threshold=0.65)
+        _phi_model = PhiModelArtifact(
+            version="0.0.0-default",
+            weights={"signal_strength": 0.6, "kb_fit": 0.3},
+            threshold=0.65,
+        )
     return _phi_model
 
 

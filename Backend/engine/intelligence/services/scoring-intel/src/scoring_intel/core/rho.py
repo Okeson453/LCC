@@ -20,15 +20,15 @@ class ContactFeature:
     last_contact_days: int = 365
     matched_kb_facts: int = 0
     response_rate: float = 0.0  # 0..1, from prior inbound history
-    accept_rate: float = 0.0     # 0..1
+    accept_rate: float = 0.0  # 0..1
 
 
 @dataclass
 class RhoScore:
     contact_id: str
-    score: float          # 0..1
+    score: float  # 0..1
     components: dict[str, float]
-    mode: str             # "ml" | "rule_based"
+    mode: str  # "ml" | "rule_based"
     rationale: list[str]
 
 
@@ -76,7 +76,13 @@ def _score_rule_based(
     components["kb_fit"] = kb_fit
 
     # Linear ensemble.
-    weights = {"vip": 0.35, "recency": 0.30, "mutual": 0.10, "kb_fit": 0.15, "response_history": 0.10}
+    weights = {
+        "vip": 0.35,
+        "recency": 0.30,
+        "mutual": 0.10,
+        "kb_fit": 0.15,
+        "response_history": 0.10,
+    }
     raw = sum(components[k] * w for k, w in weights.items())
     score = max(0.0, min(1.0, raw))
 

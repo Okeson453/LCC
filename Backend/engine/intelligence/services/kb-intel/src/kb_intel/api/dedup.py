@@ -5,10 +5,8 @@ from __future__ import annotations
 import os
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict
-
-from kb_intel.core.dedup import find_duplicate
 from kb_intel.core.embedder import embed_query
+from pydantic import BaseModel, ConfigDict
 from vector_db import QdrantClientWrapper
 
 router = APIRouter()
@@ -32,7 +30,10 @@ async def dedup_check(req: DedupRequest) -> DedupResponse:
     embedding = await embed_query(req.text)
     db = QdrantClientWrapper(url=os.environ.get("VECTOR_DB_URL", "http://qdrant:6333"))
     hits = await db.search(
-        collection="kb_records", vector=embedding, top_k=1, filter={"member_id": req.member_id},
+        collection="kb_records",
+        vector=embedding,
+        top_k=1,
+        filter={"member_id": req.member_id},
     )
     if not hits:
         return DedupResponse(duplicate_record_id=None)

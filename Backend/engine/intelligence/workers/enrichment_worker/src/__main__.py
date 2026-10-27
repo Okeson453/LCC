@@ -14,15 +14,14 @@ Enforces TTL: third-party data is stamped with TTL (per spec §6).
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import UTC, datetime, timedelta
 
 import httpx
 from event_bus import (
     Consumer,
-    Topic,
     EventEnvelope,
     Publisher,
+    Topic,
 )
 from intelligence_common.logging import configure_logging, get_logger
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,7 +43,9 @@ class Settings(BaseSettings):
     third_party_api_key: str = ""
 
 
-async def handle_contact_created(envelope: EventEnvelope, publisher: Publisher, settings: Settings) -> None:
+async def handle_contact_created(
+    envelope: EventEnvelope, publisher: Publisher, settings: Settings
+) -> None:
     """Fetch profile snapshot for the new contact."""
     payload = envelope.payload
     contact_id = payload.get("contact_id")
@@ -60,12 +61,18 @@ async def handle_contact_created(envelope: EventEnvelope, publisher: Publisher, 
         try:
             resp = await client.get(
                 f"{settings.third_party_api_url}/contacts/{contact_id}",
-                headers={"Authorization": f"Bearer {settings.third_party_api_key}"} if settings.third_party_api_key else {},
+                headers=(
+                    {"Authorization": f"Bearer {settings.third_party_api_key}"}
+                    if settings.third_party_api_key
+                    else {}
+                ),
             )
             resp.raise_for_status()
             data = resp.json()
         except (httpx.HTTPError, httpx.TimeoutException) as e:
-            log.warning("enrichment_worker.contact_fetch_failed", contact_id=contact_id, error=str(e))
+            log.warning(
+                "enrichment_worker.contact_fetch_failed", contact_id=contact_id, error=str(e)
+            )
             return
 
     # Publish profile.snapshot.created with TTL.
@@ -84,7 +91,9 @@ async def handle_contact_created(envelope: EventEnvelope, publisher: Publisher, 
     )
 
 
-async def handle_opportunity_discovered(envelope: EventEnvelope, publisher: Publisher, settings: Settings) -> None:
+async def handle_opportunity_discovered(
+    envelope: EventEnvelope, publisher: Publisher, settings: Settings
+) -> None:
     payload = envelope.payload
     contact_id = payload.get("contact_id")
     if not contact_id or not settings.third_party_api_url:
@@ -97,12 +106,18 @@ async def handle_opportunity_discovered(envelope: EventEnvelope, publisher: Publ
         try:
             resp = await client.get(
                 f"{settings.third_party_api_url}/contacts/{contact_id}/context",
-                headers={"Authorization": f"Bearer {settings.third_party_api_key}"} if settings.third_party_api_key else {},
+                headers=(
+                    {"Authorization": f"Bearer {settings.third_party_api_key}"}
+                    if settings.third_party_api_key
+                    else {}
+                ),
             )
             resp.raise_for_status()
             data = resp.json()
         except (httpx.HTTPError, httpx.TimeoutException) as e:
-            log.warning("enrichment_worker.opportunity_fetch_failed", contact_id=contact_id, error=str(e))
+            log.warning(
+                "enrichment_worker.opportunity_fetch_failed", contact_id=contact_id, error=str(e)
+            )
             return
 
     await publisher.publish_typed(
@@ -125,11 +140,14 @@ async def main() -> None:
     configure_logging(settings.service_name, settings.log_level)
     log.info("enrichment_worker.startup")
 
-    async with Publisher(settings.redis_url) as publisher, Consumer(
-        redis_url=settings.redis_url,
-        group=settings.consumer_group,
-        consumer_name=settings.consumer_name,
-    ) as consumer:
+    async with (
+        Publisher(settings.redis_url) as publisher,
+        Consumer(
+            redis_url=settings.redis_url,
+            group=settings.consumer_group,
+            consumer_name=settings.consumer_name,
+        ) as consumer,
+    ):
         # Handlers bound to closures.
         async def on_contact(env: EventEnvelope) -> None:
             await handle_contact_created(env, publisher, settings)

@@ -6,10 +6,10 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
-
 from intelligence_common.logging import configure_logging, get_logger
-from scoring_intel.api.hc import router as hc_router
+
 from scoring_intel.api.abd import router as abd_router
+from scoring_intel.api.hc import router as hc_router
 from scoring_intel.api.rho import router as rho_router
 from scoring_intel.config import Settings
 from scoring_intel.health import router as health_router

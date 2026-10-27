@@ -56,7 +56,9 @@ class TestLLMCallAuditEvent:
             fallback_used=False,
             prompt_kind="draft",
         )
-        s = event.model_dump_json()
+        # `LLMCallAuditEvent` is a plain dataclass; `to_dict()` is its public
+        # serialization surface (there is no pydantic `model_dump_json`).
+        s = json.dumps(event.to_dict())
         data = json.loads(s)
         assert data["action"] == "llm.draft_content"
         assert data["tokens_in"] == 100

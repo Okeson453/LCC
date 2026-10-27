@@ -8,9 +8,11 @@ to use a different model (e.g., larger all-mpnet-base-v2).
 from __future__ import annotations
 
 import os
-from functools import lru_cache
+import tempfile
+from pathlib import Path
 
 _model = None
+_DEFAULT_CACHE = Path(tempfile.gettempdir()) / "sbert-cache"
 
 
 def _get_model():
@@ -20,7 +22,7 @@ def _get_model():
 
         _model = SentenceTransformer(
             os.environ.get("KB_INTEL_EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
-            cache_folder=os.environ.get("SENTENCE_TRANSFORMERS_HOME", "/tmp/sbert-cache"),
+            cache_folder=os.environ.get("SENTENCE_TRANSFORMERS_HOME", str(_DEFAULT_CACHE)),
         )
     return _model
 

@@ -8,7 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="OPPORTUNITY_INTEL_", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="OPPORTUNITY_INTEL_", extra="ignore"
+    )
 
     service_name: str = "opportunity-intel"
     service_version: str = "0.1.0"

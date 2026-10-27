@@ -37,7 +37,7 @@ async def emit_audit_event(
     audit_svc_url = os.environ.get("AUDIT_SVC_URL", "http://audit-svc:8080")
     async with AuditEmitter(audit_svc_url) as emitter:
         event = LLMCallAuditEvent(
-            actor=f"system:ai-worker",
+            actor="system:ai-worker",
             action=action,
             resource_id=resource_id or "",
             model_id=model_id or "rule_based",

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
-from typing import Any
 
 from kb_client import KBCategory, KBRecord, KBRetriever
 from vector_db import QdrantClientWrapper
-
 
 _retriever: KBRetriever | None = None
 

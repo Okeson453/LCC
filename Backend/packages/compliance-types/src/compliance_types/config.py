@@ -113,15 +113,45 @@ class ComplianceConfig(BaseModel):
             raise ValueError(f"phi_weights must sum to 1.0 within 1e-6; got {sum(v)}")
         return v
 
+    def validate(self) -> None:
+        """Cross-field validation — mirrors Rust `ComplianceConfig::validate`.
+
+        Pydantic field validators only cover single fields; these rules span
+        multiple fields, so they run on explicit validation (and on load).
+        Raises ValueError on the first violation.
+        """
+        if self.h_c_warmup_threshold >= self.h_c_standard_threshold:
+            raise ValueError(
+                "h_c_warmup_threshold must be < h_c_standard_threshold; "
+                f"got {self.h_c_warmup_threshold} >= {self.h_c_standard_threshold}"
+            )
+        if not (0.0 <= self.reserve_fraction <= 0.30):
+            raise ValueError(
+                f"reserve_fraction must be in [0.0, 0.30]; got {self.reserve_fraction}"
+            )
+        if not (0.0 <= self.ab_d_multiplier_floor <= 1.0):
+            raise ValueError(
+                f"ab_d_multiplier_floor must be in [0.0, 1.0]; got {self.ab_d_multiplier_floor}"
+            )
+        if not (0.0 <= self.phi_qualification_threshold <= 1.0):
+            raise ValueError(
+                "phi_qualification_threshold must be in [0.0, 1.0]; "
+                f"got {self.phi_qualification_threshold}"
+            )
+
     @classmethod
     def from_yaml_file(cls, path: Path | str) -> ComplianceConfig:
         """Load from a YAML file. Validates on load."""
         with open(path, encoding="utf-8") as f:
             data: dict[str, Any] = yaml.safe_load(f)
-        return cls(**data)
+        cfg = cls(**data)
+        cfg.validate()
+        return cfg
 
     @classmethod
     def from_yaml_string(cls, s: str) -> ComplianceConfig:
         """Load from a YAML string. Validates on load."""
         data: dict[str, Any] = yaml.safe_load(s)
-        return cls(**data)
+        cfg = cls(**data)
+        cfg.validate()
+        return cfg

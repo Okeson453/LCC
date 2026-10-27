@@ -109,4 +109,10 @@ jobs:
         # rust-test.yaml, which owns that setup. Running the expensive path in
         # both jobs duplicated the work and doubled the surface for a
         # toolchain-only failure.
-        run: cargo test --workspace
+        #
+        # The network-crm-svc live-database suite is excluded for the same
+        # reason: `tests/repository_db.rs` deliberately fails (never skips)
+        # when no database is reachable, and this job has no Postgres service.
+        # rust-test.yaml owns that setup and still runs the full workspace with
+        # a migrated database, so no coverage is lost overall.
+        run: cargo test --workspace --exclude lcc-network-crm-svc

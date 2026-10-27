@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
-
 from voice_intel.core.analyzer import fingerprint
 
 router = APIRouter()

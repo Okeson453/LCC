@@ -5,9 +5,8 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
-
 from opportunity_intel.core.phi_model import PhiResult, PhiSignal, score
+from pydantic import BaseModel, ConfigDict, Field
 
 router = APIRouter()
 
@@ -15,8 +14,13 @@ router = APIRouter()
 class PhiSignalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal[
-        "job_change", "funding_event", "post_about_problem",
-        "competitor_mention", "manual", "company_growth", "hiring",
+        "job_change",
+        "funding_event",
+        "post_about_problem",
+        "competitor_mention",
+        "manual",
+        "company_growth",
+        "hiring",
     ]
     recency_days: int = Field(ge=0, le=180)
     weight: float = Field(ge=0, le=1)

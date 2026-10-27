@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict, Field
-
+from pydantic import BaseModel, ConfigDict
 from scoring_intel.core.abd import AbdState, effective_daily_cap, update
 
 router = APIRouter()

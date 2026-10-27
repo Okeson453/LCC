@@ -16,56 +16,39 @@ from compliance_types.action import ActionType, RiskTier
 from compliance_types.config import ComplianceConfig
 
 
+def _config(**overrides: object) -> ComplianceConfig:
+    """A minimal valid flat ComplianceConfig; override fields per test."""
+    fields: dict[str, object] = {
+        "h_c_weights": (0.35, 0.25, 0.20, 0.20),
+        "phi_weights": (0.40, 0.25, 0.20, 0.15),
+        "h_c_warmup_threshold": 0.4,
+        "h_c_standard_threshold": 0.7,
+        "reserve_fraction": 0.15,
+        "ab_d_multiplier_floor": 0.3,
+        "phi_qualification_threshold": 0.55,
+    }
+    fields.update(overrides)
+    return ComplianceConfig(**fields)  # type: ignore[arg-type]
+
+
 @pytest.mark.integration
 class TestComplianceConfigValidation:
     def test_valid_config_accepted(self):
-        cfg = ComplianceConfig(
-            h_c={
-                "weights": {
-                    "response_rate": 0.30,
-                    "acceptance_rate": 0.20,
-                    "error_rate_inverted": 0.20,
-                    "restriction_inverted": 0.15,
-                    "engagement_quality": 0.15,
-                },
-                "warmup_threshold": 0.85,
-                "standard_threshold": 0.65,
-                "reserve_fraction": 0.10,
-            },
-            ab_d={"multiplier_floor": 0.5, "multiplier_ceiling": 2.0},
-            rho={"labeled_send_threshold": 200, "vip_boost": 1.5},
-            phi={"qualified_threshold": 0.65},
-        )
+        cfg = _config()
         # No exception expected.
         cfg.validate()
 
     def test_weights_must_sum_to_one(self):
         with pytest.raises(ValueError):
-            ComplianceConfig(
-                h_c={
-                    "weights": {"a": 0.5, "b": 0.3, "c": 0.1, "d": 0.05},
-                    "warmup_threshold": 0.85,
-                    "standard_threshold": 0.65,
-                    "reserve_fraction": 0.1,
-                },
-                ab_d={"multiplier_floor": 0.5, "multiplier_ceiling": 2.0},
-                rho={"labeled_send_threshold": 200, "vip_boost": 1.5},
-                phi={"qualified_threshold": 0.65},
-            ).validate()
+            _config(h_c_weights=(0.5, 0.3, 0.1, 0.05)).validate()
 
     def test_warmup_must_exceed_standard(self):
         with pytest.raises(ValueError):
-            ComplianceConfig(
-                h_c={
-                    "weights": {"a": 1.0},
-                    "warmup_threshold": 0.65,
-                    "standard_threshold": 0.85,
-                    "reserve_fraction": 0.1,
-                },
-                ab_d={"multiplier_floor": 0.5, "multiplier_ceiling": 2.0},
-                rho={"labeled_send_threshold": 200, "vip_boost": 1.5},
-                phi={"qualified_threshold": 0.65},
-            ).validate()
+            _config(h_c_warmup_threshold=0.85, h_c_standard_threshold=0.65).validate()
+
+    def test_reserve_fraction_out_of_range(self):
+        with pytest.raises(ValueError):
+            _config(reserve_fraction=0.5).validate()
 
 
 @pytest.mark.integration

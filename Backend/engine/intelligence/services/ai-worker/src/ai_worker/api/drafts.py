@@ -5,14 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+import structlog
+from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 
 from ai_worker.brand_guard.linter import lint_draft
-
-import structlog
-
-logger = structlog.get_logger(__name__)
 from ai_worker.core.prompts import (
     content_draft_prompt,
     outreach_draft_prompt,
@@ -25,6 +22,8 @@ from ai_worker.infra.embedding import embed_query
 from ai_worker.llm.cost_controller import record_spend, select_model_tier
 from ai_worker.rag.retriever import retrieve_top_k
 from ai_worker.voice.retrieval import retrieve_voice_samples
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -64,7 +63,9 @@ class DraftReplyRequest(DraftBase):
 
 class DraftOutreachRequest(DraftBase):
     contact_id: str
-    persona: Literal["CTO", "CEO", "Founder", "Recruiter", "HiringManager", "Client", "Peer", "General"]
+    persona: Literal[
+        "CTO", "CEO", "Founder", "Recruiter", "HiringManager", "Client", "Peer", "General"
+    ]
     tone: str = "value_first"
     goal: str
     context: str = ""
@@ -89,7 +90,7 @@ class DraftResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
     content_item_id: str | None = None
     variants: list[DraftVariant]
-    fallback_used: str = "none"   # "none"|"rule_based"|"kb_unavailable"
+    fallback_used: str = "none"  # "none"|"rule_based"|"kb_unavailable"
     model_id: str | None = None
     tokens_in: int = 0
     tokens_out: int = 0
@@ -115,7 +116,9 @@ async def draft_content(req: DraftContentRequest) -> DraftResponse:
 
     # 3. Retrieve voice samples.
     voice_samples = await retrieve_voice_samples(
-        member_id=req.member_id, query_embedding=embedding, top_k=req.voice_top_k,
+        member_id=req.member_id,
+        query_embedding=embedding,
+        top_k=req.voice_top_k,
     )
 
     # 4. Build prompt + invoke LLM.
@@ -201,7 +204,9 @@ async def draft_reply(req: DraftReplyRequest) -> DraftResponse:
         top_k=5,
     )
     voice_samples = await retrieve_voice_samples(
-        member_id=req.member_id, query_embedding=embedding, top_k=3,
+        member_id=req.member_id,
+        query_embedding=embedding,
+        top_k=3,
     )
     low_grounding = len(kb_records) == 0
 
@@ -223,6 +228,7 @@ async def draft_reply(req: DraftReplyRequest) -> DraftResponse:
         latency = 0
     else:
         from ai_worker.llm.client import complete
+
         resp = await complete(prompt=prompt_text, model_tier=tier)
         variants = _parse_variants(resp.completion, [r.id for r in kb_records], req.variant_count)
         fallback = "none"
@@ -267,10 +273,14 @@ async def draft_outreach(req: DraftOutreachRequest) -> DraftResponse:
     """Generate outreach draft (connection request, first-touch, etc.)."""
     embedding = await embed_query(f"{req.persona} {req.goal} {req.context}")
     kb_records = await retrieve_top_k(
-        member_id=req.member_id, query_embedding=embedding, top_k=5,
+        member_id=req.member_id,
+        query_embedding=embedding,
+        top_k=5,
     )
     voice_samples = await retrieve_voice_samples(
-        member_id=req.member_id, query_embedding=embedding, top_k=3,
+        member_id=req.member_id,
+        query_embedding=embedding,
+        top_k=3,
     )
 
     prompt_text = outreach_draft_prompt(
@@ -293,6 +303,7 @@ async def draft_outreach(req: DraftOutreachRequest) -> DraftResponse:
         latency = 0
     else:
         from ai_worker.llm.client import complete
+
         resp = await complete(prompt=prompt_text, model_tier=tier)
         variants = _parse_variants(resp.completion, [r.id for r in kb_records], req.variant_count)
         fallback = "none"
@@ -357,6 +368,7 @@ async def draft_profile_edit(req: DraftProfileEditRequest) -> DraftResponse:
         latency = 0
     else:
         from ai_worker.llm.client import complete
+
         resp = await complete(prompt=prompt_text, model_tier=tier)
         variants = _parse_variants(resp.completion, [r.id for r in kb_records], req.variant_count)
         fallback = "none"
@@ -418,6 +430,7 @@ async def draft_proposal(req: DraftProposalRequest) -> DraftResponse:
         latency = 0
     else:
         from ai_worker.llm.client import complete
+
         resp = await complete(prompt=prompt_text, model_tier=tier)
         variants = _parse_variants(resp.completion, [r.id for r in kb_records], req.variant_count)
         fallback = "none"
@@ -457,6 +470,7 @@ async def draft_proposal(req: DraftProposalRequest) -> DraftResponse:
 
 # ---- Helpers ----
 
+
 def _parse_variants(raw: str, kb_refs: list[str], variant_count: int) -> list[DraftVariant]:
     """Parse LLM output into N DraftVariant objects.
 
@@ -486,9 +500,7 @@ def _parse_variants(raw: str, kb_refs: list[str], variant_count: int) -> list[Dr
     # Attempt 2: split on --- markers.
     chunks = re.split(r"\n-{3,}\n", raw)
     return [
-        DraftVariant(body=c.strip(), kb_refs=kb_refs, confidence=0.6)
-        for c in chunks
-        if c.strip()
+        DraftVariant(body=c.strip(), kb_refs=kb_refs, confidence=0.6) for c in chunks if c.strip()
     ][:variant_count]
 
 
@@ -539,10 +551,8 @@ def _rule_based_content_variants(
     """Rule-based fallback when budget exhausted or LLM unavailable."""
     bases = []
     for i in range(variant_count):
-        body = (
-            f"[Variant {i+1}] {prompt}\n\n"
-            f"Key context from your KB: "
-            + (kb_records[0].fact if kb_records else "(no KB facts available — low grounding)")
+        body = f"[Variant {i + 1}] {prompt}\n\nKey context from your KB: " + (
+            kb_records[0].fact if kb_records else "(no KB facts available — low grounding)"
         )
         bases.append(DraftVariant(body=body, kb_refs=[r.id for r in kb_records], confidence=0.4))
     return bases
@@ -551,19 +561,21 @@ def _rule_based_content_variants(
 def _rule_based_reply_variants(inbound: str, variant_count: int) -> list[DraftVariant]:
     return [
         DraftVariant(
-            body=f"Thanks for your message. Could you share more context? (variant {i+1})",
+            body=f"Thanks for your message. Could you share more context? (variant {i + 1})",
             confidence=0.3,
         )
         for i in range(variant_count)
     ]
 
 
-def _rule_based_outreach_variants(req: DraftOutreachRequest, variant_count: int) -> list[DraftVariant]:
+def _rule_based_outreach_variants(
+    req: DraftOutreachRequest, variant_count: int
+) -> list[DraftVariant]:
     return [
         DraftVariant(
             body=(
                 f"Hi — quick note. I'm working on {req.goal}; would love to connect "
-                f"if that's interesting. (variant {i+1})"
+                f"if that's interesting. (variant {i + 1})"
             ),
             confidence=0.3,
         )
@@ -571,21 +583,25 @@ def _rule_based_outreach_variants(req: DraftOutreachRequest, variant_count: int)
     ]
 
 
-def _rule_based_profile_edit_variants(req: DraftProfileEditRequest, variant_count: int) -> list[DraftVariant]:
+def _rule_based_profile_edit_variants(
+    req: DraftProfileEditRequest, variant_count: int
+) -> list[DraftVariant]:
     return [
         DraftVariant(
-            body=f"{req.target_field}: rewrite for {req.goal_mode}. (variant {i+1})",
+            body=f"{req.target_field}: rewrite for {req.goal_mode}. (variant {i + 1})",
             confidence=0.3,
         )
         for i in range(variant_count)
     ]
 
 
-def _rule_based_proposal_variants(req: DraftProposalRequest, variant_count: int) -> list[DraftVariant]:
+def _rule_based_proposal_variants(
+    req: DraftProposalRequest, variant_count: int
+) -> list[DraftVariant]:
     return [
         DraftVariant(
             body=(
-                f"# Proposal (variant {i+1})\n\n"
+                f"# Proposal (variant {i + 1})\n\n"
                 f"## Scope\n{req.proposed_scope}\n\n"
                 f"## Pricing\n{req.pricing_structure}"
             ),

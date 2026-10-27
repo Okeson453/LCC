@@ -64,8 +64,11 @@ LENGTH_WINDOWS: dict[str, tuple[int, int]] = {
 def lint_draft(body: str, target: str = "text_post") -> LintResult:
     """Lint a draft body for the given target type."""
     body_lower = body.lower()
-    banned_found = [p for p in BANNED_PHRASES if p in body_lower]
-    fluff_found = [p for p in FLUFF_PHRASES if p in body_lower]
+    # Compare case-insensitively on both sides: a phrase list entry containing
+    # capitals ("as an AI", "I am an AI") would otherwise never match a
+    # lowercased body.
+    banned_found = [p for p in BANNED_PHRASES if p.lower() in body_lower]
+    fluff_found = [p for p in FLUFF_PHRASES if p.lower() in body_lower]
 
     min_len, max_len = LENGTH_WINDOWS.get(target, (50, 5000))
     length_ok = min_len <= len(body) <= max_len
@@ -79,12 +82,7 @@ def lint_draft(body: str, target: str = "text_post") -> LintResult:
     if not length_ok:
         flagged.append(f"length out of window ({len(body)} chars, expected {min_len}-{max_len})")
 
-    passed = (
-        not banned_found
-        and len(fluff_found) < 2
-        and length_ok
-        and tone_score >= 0.3
-    )
+    passed = not banned_found and len(fluff_found) < 2 and length_ok and tone_score >= 0.3
 
     confidence = max(0.0, min(1.0, tone_score - 0.1 * len(banned_found) - 0.05 * len(fluff_found)))
 

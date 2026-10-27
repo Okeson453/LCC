@@ -267,7 +267,7 @@ async fn search_matches_display_name_and_headline() {
     svc.create_contact(
         m.id(),
         NewContact {
-            headline: Some("Chief Marketing Officer at Globex".into()),
+            headline: Some("Chief Marketing Officer at Globex"),
             ..new_contact("Grace Hopper")
         },
     )
@@ -276,7 +276,7 @@ async fn search_matches_display_name_and_headline() {
     svc.create_contact(
         m.id(),
         NewContact {
-            headline: Some("Compiler researcher".into()),
+            headline: Some("Compiler researcher"),
             ..new_contact("Barbara Liskov")
         },
     )
@@ -867,11 +867,11 @@ async fn company_round_trips_jsonb_and_the_real_ttl_column() {
             m.id(),
             NewCompany {
                 name: "Globex",
-                domain: Some("globex.example".into()),
-                industry: Some("logistics".into()),
-                size_band: Some("201-500".into()),
-                funding_stage: Some("series_b".into()),
-                hq_location: Some("Rotterdam".into()),
+                domain: Some("globex.example"),
+                industry: Some("logistics"),
+                size_band: Some("201-500"),
+                funding_stage: Some("series_b"),
+                hq_location: Some("Rotterdam"),
                 tech_stack: vec!["go".into()],
                 trigger_events: json!([{"type": "ipo_filing"}]),
                 public_signals: json!({"hiring": false}),
@@ -981,7 +981,7 @@ async fn create_rejects_blank_names_and_non_url_linkedin_urls() {
         svc.create_contact(
             m.id(),
             NewContact {
-                linkedin_url: Some("javascript:alert(1)".into()),
+                linkedin_url: Some("javascript:alert(1)"),
                 ..new_contact("Bad URL")
             }
         )

@@ -1,7 +1,6 @@
 """Phi-model tests."""
 
 import pytest
-
 from opportunity_intel.core.phi_model import PhiSignal, score
 
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from kb_client.base import KBCategory, KBRecord, KBClientError
+from kb_client.types import KBCategory, KBRecord, KBClientError
 from kb_client.retriever import KBRetriever
 
 

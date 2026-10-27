@@ -21,14 +21,11 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
-import os
 import time
 from datetime import UTC, datetime
 from typing import Any
 
-from event_bus import EventEnvelope, Publisher, Topic
-from event_bus.envelope import EventHeader
+from event_bus import Publisher, Topic
 from intelligence_common.logging import configure_logging, get_logger
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -71,9 +68,7 @@ def _parse_qdrant_response(raw: Any) -> list[dict]:
 
 async def list_active_members(pool: Any) -> list[str]:
     """Return the ids of all active members."""
-    rows = await pool.fetch(
-        "SELECT id::TEXT AS id FROM lcc.members WHERE is_active = TRUE"
-    )
+    rows = await pool.fetch("SELECT id::TEXT AS id FROM lcc.members WHERE is_active = TRUE")
     return [str(r["id"]) for r in rows]
 
 
@@ -89,9 +84,7 @@ async def fetch_member_samples(qdrant: Any, member_id: str) -> list[dict]:
         try:
             batch, next_offset = await qdrant.scroll(
                 collection_name="voice_samples",
-                scroll_filter={
-                    "must": [{"key": "member_id", "match": {"value": member_id}}]
-                },
+                scroll_filter={"must": [{"key": "member_id", "match": {"value": member_id}}]},
                 limit=200,
                 offset=offset,
                 with_payload=True,
@@ -138,9 +131,12 @@ def compute_text_fingerprint(samples: list[dict]) -> dict:
     alpha = max(1, sum(1 for c in text if c.isalpha()))
     lowercase_ratio = lower / alpha
     tone = (
-        "playful" if "🚀" in text or "🎉" in text
-        else "essayistic" if avg_sentence_length > 200
-        else "punchy" if avg_sentence_length < 50
+        "playful"
+        if "🚀" in text or "🎉" in text
+        else "essayistic"
+        if avg_sentence_length > 200
+        else "punchy"
+        if avg_sentence_length < 50
         else "neutral"
     )
     return {

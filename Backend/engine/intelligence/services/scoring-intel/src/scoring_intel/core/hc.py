@@ -17,11 +17,11 @@ from dataclasses import dataclass
 
 @dataclass
 class HealthSignals:
-    response_rate: float          # 0..1
-    acceptance_rate: float        # 0..1
-    error_rate_24h: float         # 0..1
-    restriction_penalty: float    # 0..1
-    engagement_quality: float     # 0..1
+    response_rate: float  # 0..1
+    acceptance_rate: float  # 0..1
+    error_rate_24h: float  # 0..1
+    restriction_penalty: float  # 0..1
+    engagement_quality: float  # 0..1
 
     weights: dict[str, float] | None = None
     warmup_threshold: float = 0.85

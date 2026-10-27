@@ -18,9 +18,10 @@ from pathlib import Path
 import pytest
 
 
-# Ensure the generated stubs are importable.
+# Ensure the generated stubs are importable. The `lcc` package lives directly
+# under `proto/gen/python/`, so that directory is the import root.
 PROTO_ROOT = Path(__file__).resolve().parents[2] / "proto" / "gen" / "python"
-sys.path.insert(0, str(PROTO_ROOT.parent))
+sys.path.insert(0, str(PROTO_ROOT))
 
 
 def _import_pkg(name: str) -> bool:
@@ -106,14 +107,21 @@ def test_compute_h_c_request_roundtrip() -> None:
 
 
 def test_contract_yaml_match() -> None:
-    """The number of .proto files must equal the number of generated _pb2.py files."""
+    """Every .proto *package directory* must have a generated `_pb2.py`.
+
+    Generation is per proto package, not per .proto file: a package with
+    several .proto files (e.g. `intelligence/` with five) produces one merged
+    `_pb2.py`. Comparing file counts would therefore be wrong by construction.
+    """
     proto_root = Path(__file__).resolve().parents[2] / "proto" / "lcc" / "v1"
     protos = list(proto_root.rglob("*.proto"))
-    pb2s = list((Path(__file__).resolve().parents[2] / "proto" / "gen" / "python").rglob("_pb2.py"))
-    # Allow per-package files to share a single _pb2.py (merged).
-    expected_packages = {p.name for p in protos}
+    gen_root = Path(__file__).resolve().parents[2] / "proto" / "gen" / "python" / "lcc" / "v1"
+    pb2s = list(gen_root.rglob("_pb2.py"))
     assert len(protos) > 0, "no .proto files"
     assert len(pb2s) > 0, "no generated _pb2.py files"
-    assert len(pb2s) >= len(expected_packages), (
-        f"missing _pb2.py files: have {len(pb2s)} for {len(expected_packages)} packages"
-    )
+    # Compare by package name relative to each root — the two trees live in
+    # different directories, so absolute paths can never match.
+    proto_packages = {p.parent.relative_to(proto_root) for p in protos}
+    generated_packages = {p.parent.relative_to(gen_root) for p in pb2s}
+    missing = proto_packages - generated_packages
+    assert not missing, f"proto packages without generated stubs: {sorted(map(str, missing))}"

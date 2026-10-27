@@ -1,7 +1,6 @@
 """Chunker tests."""
 
 import pytest
-
 from kb_intel.core.chunker import chunk
 
 
