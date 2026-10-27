@@ -1,0 +1,11 @@
+{
+  "name": "deny_grounding_missing",
+  "action_type": "post_publish",
+  "target_kind": "post",
+  "target_id": "post-2",
+  "expected": "DENY",
+  "expected_guard": "grounding",
+  "requires_approval": false,
+  "kb_refs": 0,
+  "account": { "h_c": 0.8, "warmup_days_remaining": 0, "days_active": 90, "is_restricted": false }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "permit_grounded_post",
+  "action_type": "post_publish",
+  "target_kind": "post",
+  "target_id": "post-1",
+  "expected": "PERMIT",
+  "requires_approval": false,
+  "kb_refs": 1,
+  "account": { "h_c": 0.8, "warmup_days_remaining": 0, "days_active": 90, "is_restricted": false }
+}

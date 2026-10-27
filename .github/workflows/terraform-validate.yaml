@@ -1,5 +1,9 @@
 name: Terraform Validate
 
+# Formats and validates every Terraform root and module. `init -backend=false`
+# resolves providers from the registry but never touches the S3 backend, so no
+# credentials or state access are needed.
+
 on:
   push:
     branches: [main]
@@ -8,14 +12,36 @@ on:
 
 jobs:
   terraform-validate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: Backend
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup
-        run: echo "Setup terraform-validate"
-      - name: Run
-        run: echo "Run terraform-validate"
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Formatting
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Validate every module and environment
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          dirs=(infra/terraform/modules/*/ infra/terraform/envs/*/)
+          if [ ${#dirs[@]} -eq 0 ]; then
+            echo "::error::no Terraform directories found under infra/terraform"
+            exit 1
+          fi
+          for d in "${dirs[@]}"; do
+            echo "::group::$d"
+            terraform -chdir="$d" init -backend=false -input=false -no-color
+            terraform -chdir="$d" validate -no-color
+            echo "::endgroup::"
+          done
+          echo "validated ${#dirs[@]} Terraform directories"

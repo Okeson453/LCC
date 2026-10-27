@@ -99,3 +99,6 @@ logs/
 
 # Buf
 .buf/
+
+# Compliance simulation output (reports are published as CI artifacts)
+tests/compliance-sim/reports/

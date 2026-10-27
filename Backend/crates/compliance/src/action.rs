@@ -191,12 +191,22 @@ impl ActionType {
 
 /// RiskTier (1..5) — required minimum H_c to permit the action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
-#[serde(rename_all = "snake_case")]
+// The renames matter: `rename_all = "snake_case"` derives `tier4_one_to_one_outreach`
+// for a variant containing a digit, while `RiskTier::as_str()` — the string that
+// goes into permit tokens — says `tier_4_one_to_one_outreach`. Nothing parsed the
+// `as_str()` form, so a client sending the documented value (or the value the
+// governor itself emits) failed deserialization and the evaluate DTO silently
+// fell back to `Tier1DraftOrEdit`, the lowest H_c requirement.
 pub enum RiskTier {
+    #[serde(rename = "tier_1_draft_or_edit")]
     Tier1DraftOrEdit = 1,
+    #[serde(rename = "tier_2_light_engagement")]
     Tier2LightEngagement = 2,
+    #[serde(rename = "tier_3_network_growth")]
     Tier3NetworkGrowth = 3,
+    #[serde(rename = "tier_4_one_to_one_outreach")]
     Tier4OneToOneOutreach = 4,
+    #[serde(rename = "tier_5_high_stakes")]
     Tier5HighStakes = 5,
 }
 
@@ -232,6 +242,27 @@ impl fmt::Display for RiskTier {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn risk_tier_wire_name_round_trips() {
+        // `as_str()` is what goes into permit tokens and what clients send, so
+        // it must also be what serde accepts. Before the explicit renames,
+        // "tier_4_one_to_one_outreach" failed to parse and callers silently
+        // fell back to Tier 1.
+        for tier in [
+            RiskTier::Tier1DraftOrEdit,
+            RiskTier::Tier2LightEngagement,
+            RiskTier::Tier3NetworkGrowth,
+            RiskTier::Tier4OneToOneOutreach,
+            RiskTier::Tier5HighStakes,
+        ] {
+            let json = format!("\"{}\"", tier.as_str());
+            let parsed = serde_json::from_str::<RiskTier>(&json);
+            assert!(parsed.is_ok(), "as_str() value {json} does not deserialize");
+            assert_eq!(parsed.ok(), Some(tier));
+            assert_eq!(serde_json::to_string(&tier).ok(), Some(json));
+        }
+    }
 
     #[test]
     fn action_to_tier_mapping() {

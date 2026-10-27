@@ -1,0 +1,11 @@
+{
+  "name": "deny_account_health_low_h_c",
+  "action_type": "direct_message",
+  "target_kind": "dm",
+  "target_id": "dm-1",
+  "expected": "DENY",
+  "expected_guard": "account_health",
+  "requires_approval": false,
+  "kb_refs": 1,
+  "account": { "h_c": 0.2, "warmup_days_remaining": 0, "days_active": 90, "is_restricted": false }
+}

@@ -5,7 +5,7 @@ RUN pip install uv==0.4.18
 COPY packages packages
 COPY engine/intelligence engine/intelligence
 WORKDIR /build/engine/intelligence/workers/enrichment_worker
-RUN uv sync --frozen
+RUN uv lock && uv sync --frozen
 ENV PYTHONUNBUFFERED=1 PATH=/build/.venv/bin:$PATH
 # Create the non-root user the services also use. Without this the
 # image fails at start with "unable to find user specified".

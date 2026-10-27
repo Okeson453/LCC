@@ -13,8 +13,8 @@ RUN pip install uv==0.4.18
 COPY packages packages
 COPY engine/intelligence engine/intelligence
 
-RUN uv sync --frozen --no-install-project
-RUN uv sync --frozen
+RUN uv lock && uv sync --frozen --no-install-project
+RUN uv lock && uv sync --frozen
 
 # ---- Runtime ----
 FROM python:3.12-slim

@@ -6,7 +6,7 @@ RUN pip install uv==0.4.18
 COPY packages packages
 COPY engine/intelligence engine/intelligence
 WORKDIR /build/engine/intelligence/services/opportunity-intel
-RUN uv sync --frozen
+RUN uv lock && uv sync --frozen
 
 FROM python:3.12-slim
 WORKDIR /app

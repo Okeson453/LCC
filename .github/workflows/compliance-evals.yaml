@@ -1,5 +1,12 @@
 name: Compliance Evals
 
+# Runs the compliance simulation against a real governor: Postgres, Redis, the
+# real config file, and the real guard stack. A decision that disagrees with its
+# scenario fails the job, so a guard regression cannot land silently.
+#
+# The scenarios live in Backend/tests/compliance-sim/inputs/*.json and name the
+# guard they expect to fail, so a deny for the wrong reason is also a failure.
+
 on:
   push:
     branches: [main]
@@ -8,14 +15,143 @@ on:
 
 jobs:
   compliance-evals:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: Backend
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lcc
+          POSTGRES_PASSWORD: lcc
+          POSTGRES_DB: lcc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://lcc:lcc@127.0.0.1:5432/lcc_test
+      REDIS_URL: redis://127.0.0.1:6379
+      COMPLIANCE_CONFIG_PATH: config/compliance/ccfg-2025-01-01-rc1.yaml
+      COMPLIANCE_CONFIG_VERSION: ccfg-2025-01-01-rc1
+      COMPLIANCE_GOVERNOR_URL: http://127.0.0.1:8080
+      HTTP_PORT: "8080"
+      GRPC_PORT: "50051"
+      # Test-only fixtures. The governor derives its Ed25519 permit key from the
+      # seed and its admin-JWT verifier from the secret; neither value protects
+      # anything outside this job.
+      PERMIT_SIGNING_SEED: "0000000000000000000000000000000000000000000000000000000000000001"
+      LCC_AUTH_JWT_SECRET: "compliance-evals-only-jwt-secret-32-bytes"
+
     steps:
       - uses: actions/checkout@v4
-      - name: Setup
-        run: echo "Setup compliance-evals"
-      - name: Run
-        run: echo "Run compliance-evals"
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: Backend
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install simulator dependencies
+        run: python -m pip install --quiet httpx
+
+      - name: Apply migrations to the eval database
+        env:
+          PGPASSWORD: lcc
+        run: |
+          set -euo pipefail
+          for f in $(ls schemas/migrations/*.sql | sort); do
+            echo "::group::applying $f"
+            psql -h 127.0.0.1 -U lcc -d lcc_test -v ON_ERROR_STOP=1 -q -f "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Build the governor
+        run: cargo build --release -p compliance-governor --bin compliance-governor
+
+      - name: Start the governor
+        # Started detached with its output on disk so a failed start can be
+        # diagnosed from the log instead of a bare curl timeout.
+        run: |
+          set -euo pipefail
+          nohup ./target/release/compliance-governor > governor.log 2>&1 &
+          echo "$!" > governor.pid
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null "$COMPLIANCE_GOVERNOR_URL/readyz"; then
+              echo "governor ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::compliance-governor did not become ready"
+          cat governor.log
+          exit 1
+
+      - name: Probes and metrics are unauthenticated
+        # Regression gate: these routes were once registered above the admin
+        # `route_layer`, so kubelet probes and Prometheus scrapes got 401.
+        run: |
+          set -euo pipefail
+          for path in healthz readyz metrics; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' "$COMPLIANCE_GOVERNOR_URL/$path")
+            echo "$path -> $code"
+            test "$code" = "200" || {
+              echo "::error::/$path returned $code without credentials"
+              exit 1
+            }
+          done
+
+      - name: Admin route still requires a token
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+            -H 'content-type: application/json' -d '{}' \
+            "$COMPLIANCE_GOVERNOR_URL/api/v1/admin/evaluate")
+          echo "/api/v1/admin/evaluate (no token) -> $code"
+          test "$code" = "401" || {
+            echo "::error::admin route answered $code without a credential"
+            exit 1
+          }
+
+      - name: Run compliance scenarios
+        env:
+          PYTHONPATH: packages/compliance-types/src
+        run: python tests/compliance-sim/simulator/main.py
+
+      - name: Upload simulation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-sim-report
+          path: Backend/tests/compliance-sim/reports/
+          if-no-files-found: warn
+
+      - name: Governor log
+        if: failure()
+        run: cat governor.log
+
+      - name: Stop the governor
+        if: always()
+        run: |
+          if [ -f governor.pid ]; then
+            kill "$(cat governor.pid)" 2>/dev/null || true
+          fi

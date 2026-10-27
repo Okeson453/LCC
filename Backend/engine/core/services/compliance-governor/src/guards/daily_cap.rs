@@ -10,7 +10,7 @@ use redis::AsyncCommands;
 
 use super::{Guard, GuardResult};
 use crate::state::GovernorDeps;
-use crate::{AccountState, CandidateAction};
+use crate::AccountState;
 
 pub struct DailyCapGuard {
     deps: GovernorDeps,
@@ -31,7 +31,7 @@ impl Guard for DailyCapGuard {
     async fn check(
         &self,
         action: &crate::CandidateAction,
-        _account: &AccountState,
+        account: &AccountState,
         _deps: &GovernorDeps,
     ) -> GuardResult {
         // Tier-1 actions don't consume daily quota.
@@ -39,11 +39,12 @@ impl Guard for DailyCapGuard {
             return GuardResult::pass();
         }
 
-        let cap = ab_d::ab_d(
-            action.action_type,
-            action_metadata_h_c(action),
-            &self.deps.config,
-        );
+        // H_c is the one on the evaluated account snapshot. It used to be read
+        // from `action.metadata["h_c"]`, which no caller sets — so it defaulted
+        // to 0.0 and every action was budgeted on the warm-up floor. A healthy
+        // account's post_publish budget came out as floor(1 * 0.5) = 0, i.e.
+        // permanently denied by the first guard.
+        let cap = ab_d::ab_d(action.action_type, account.h_c, &self.deps.config);
         let date = Utc::now().format("%Y%m%d").to_string();
         let routine_key = format!(
             "quota:{}:{}:{}:routine",
@@ -93,29 +94,30 @@ impl Guard for DailyCapGuard {
     }
 }
 
-/// Read the H_c value from action metadata, falling back to 0 if missing.
-fn action_metadata_h_c(action: &CandidateAction) -> f64 {
-    action
-        .metadata
-        .get("h_c")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0.0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn helper_extracts_h_c_from_metadata() {
-        let mut action = crate::CandidateAction::dummy_for_tests();
-        action.metadata.insert("h_c".to_string(), "0.8".to_string());
-        assert!((action_metadata_h_c(&action) - 0.8).abs() < 1e-9);
-    }
-
-    #[test]
-    fn helper_defaults_to_zero() {
-        let action = crate::CandidateAction::dummy_for_tests();
-        assert_eq!(action_metadata_h_c(&action), 0.0);
+    fn budget_uses_the_account_snapshot_not_metadata() {
+        // Regression: the guard used to read H_c from `action.metadata`, which
+        // no caller populates, so a healthy account was budgeted as H_c=0.
+        // Standard post_publish cap is 3; multiplier at H_c=0.8 is
+        // 0.3 + 0.7*0.8 = 0.86, so the budget must be floor(3 * 0.86) = 2.
+        // The old code produced floor(warm_up_cap 1 * 0.3) = 0 — a permanent
+        // daily_cap denial for every post.
+        let config = lcc_compliance::config::ComplianceConfig::default();
+        let healthy = ab_d::ab_d(
+            lcc_compliance::action::ActionType::PostPublish,
+            0.8,
+            &config,
+        );
+        let as_if_unknown_h_c = ab_d::ab_d(
+            lcc_compliance::action::ActionType::PostPublish,
+            0.0,
+            &config,
+        );
+        assert_eq!(healthy, 2);
+        assert_eq!(as_if_unknown_h_c, 0);
     }
 }

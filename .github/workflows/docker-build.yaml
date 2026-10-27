@@ -1,5 +1,11 @@
 name: Docker Build
 
+# Two checks: every Dockerfile is linted, and a representative image per build
+# family is actually built. Building all 34 would mean 34 full Rust compiles
+# per run, so the matrix covers one of each family (core service, core worker,
+# core CLI binary, Next.js dashboard); the Python/ML images are linted here and
+# are the slowest to build, so they stay out of the per-PR gate.
+
 on:
   push:
     branches: [main]
@@ -7,15 +13,66 @@ on:
     branches: [main]
 
 jobs:
-  docker-build:
-    defaults:
-      run:
-        working-directory: Backend
+  dockerfile-lint:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Setup
-        run: echo "Setup docker-build"
-      - name: Run
-        run: echo "Run docker-build"
+
+      - name: Install hadolint
+        run: |
+          set -euo pipefail
+          curl -fsSLo /usr/local/bin/hadolint \
+            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          chmod +x /usr/local/bin/hadolint
+          hadolint --version
+
+      - name: Lint every Dockerfile
+        # `--failure-threshold error` fails on real defects (invalid
+        # instructions, missing stages) while DL3008-style advice about apt
+        # pinning stays visible without blocking on it.
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find . -name Dockerfile -not -path '*/node_modules/*' | sort)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no Dockerfiles found"
+            exit 1
+          fi
+          echo "linting ${#files[@]} Dockerfiles"
+          hadolint --failure-threshold error "${files[@]}"
+          echo "all Dockerfiles pass the error threshold"
+
+  docker-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api-gateway
+            context: Backend
+            dockerfile: Backend/engine/core/services/api-gateway/Dockerfile
+          - image: briefing-worker
+            context: Backend
+            dockerfile: Backend/engine/core/workers/briefing-worker/Dockerfile
+          - image: admin-cli
+            context: Backend
+            dockerfile: Backend/engine/core/bin/admin-cli/Dockerfile
+          - image: web-dashboard
+            context: Frontend
+            dockerfile: Frontend/apps/web-dashboard/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: false
+          tags: lcc/${{ matrix.image }}:ci
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

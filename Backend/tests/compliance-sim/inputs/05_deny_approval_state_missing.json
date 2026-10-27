@@ -1,0 +1,11 @@
+{
+  "name": "deny_approval_state_missing",
+  "action_type": "post_publish",
+  "target_kind": "post",
+  "target_id": "post-3",
+  "expected": "DENY",
+  "expected_guard": "approval_state",
+  "requires_approval": true,
+  "kb_refs": 1,
+  "account": { "h_c": 0.8, "warmup_days_remaining": 0, "days_active": 90, "is_restricted": false }
+}

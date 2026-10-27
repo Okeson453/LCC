@@ -57,7 +57,7 @@ module "object_storage" {
 }
 
 output "postgres_endpoint" { value = module.postgres.endpoint }
-output "redis_endpoint"    { value = module.redis.endpoint }
-output "qdrant_endpoint"   { value = module.qdrant.endpoint }
-output "vault_endpoint"    { value = module.vault.endpoint }
-output "grafana_endpoint"  { value = module.grafana.endpoint }
+output "redis_endpoint" { value = module.redis.endpoint }
+output "qdrant_endpoint" { value = module.qdrant.endpoint }
+output "vault_endpoint" { value = module.vault.endpoint }
+output "grafana_endpoint" { value = module.grafana.endpoint }

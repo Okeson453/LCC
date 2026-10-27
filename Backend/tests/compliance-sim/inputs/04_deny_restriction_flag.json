@@ -1,0 +1,18 @@
+{
+  "name": "deny_restriction_flag",
+  "action_type": "connection_request",
+  "target_kind": "connection",
+  "target_id": "dave-1",
+  "expected": "DENY",
+  "expected_guard": "restriction_flag",
+  "requires_approval": false,
+  "kb_refs": 1,
+  "account": {
+    "h_c": 0.8,
+    "warmup_days_remaining": 0,
+    "days_active": 90,
+    "is_restricted": true,
+    "restricted_since": "2026-10-20T00:00:00Z",
+    "restricted_reason": "linkedin_rate_limit_notice"
+  }
+}

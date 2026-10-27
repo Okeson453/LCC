@@ -40,9 +40,6 @@ pub fn build_router(
     jwt_verifier: lcc_auth::SharedVerifier,
 ) -> Router {
     Router::new()
-        .route("/healthz", get(crate::health::healthz))
-        .route("/readyz", get(crate::health::readyz))
-        .route("/metrics", get(crate::health::metrics_handler))
         // Canonical namespace.
         .route(
             "/api/v1/admin/compliance/config-versions",
@@ -78,6 +75,11 @@ pub fn build_router(
         // `lcc_auth::rbac`; only Owner and Admin hold it. Authenticated
         // callers without it get 403, missing/invalid credentials get 401.
         // ---------------------------------------------------------------------
+        // NOTE: `route_layer` covers only the routes registered *above* it, so
+        // the admin subtree is gated and the probe/metrics routes below are
+        // not. Registering `/healthz`, `/readyz` and `/metrics` above this line
+        // put them behind the permission check too, so the kubelet's liveness
+        // and readiness probes got 401 and Prometheus could not scrape.
         .route_layer(axum::middleware::from_fn(move |request, next| {
             let v = jwt_verifier.clone();
             async move {
@@ -90,6 +92,11 @@ pub fn build_router(
                 .await
             }
         }))
+        // Unauthenticated infrastructure endpoints, then the legacy
+        // internal-only routes.
+        .route("/healthz", get(crate::health::healthz))
+        .route("/readyz", get(crate::health::readyz))
+        .route("/metrics", get(crate::health::metrics_handler))
         // Legacy internal-only routes kept for backward compatibility with any
         // internal callers during the migration window. These are deprecated and
         // will be removed once the gateway is the sole caller. They are
